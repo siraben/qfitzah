@@ -80,13 +80,17 @@ Progress so far:
   `Bytes` flattening in one compiled `EmitBytes` routine. It uses
   `TailCallProc` for the recursive outer-list loop and emits static
   `(Bytes (Bytes 41))` as byte `41`.
+- `stage4-is-bytes-content.qf1` compiles the closer `is_bytes` head check:
+  after untagging the atom entry, it checks length `5`, the first four bytes
+  `"Byte"`, and the final byte `"s"`. The object deliberately uses a distinct
+  static atom label so pointer identity is not enough.
 
 Still required for the byte-output path:
 
 - allocation or loading of non-static pair and atom objects
 - larger object graphs beyond the current finite layout budget
-- full `is_bytes` behavior over arbitrary interned atoms, not just the shared
-  static `Bytes` atom used by the compiled object fixtures
+- integrating content-based `is_bytes` into the general compiled `EmitBytes`
+  fixture without exceeding the seed runtime's current source-size budget
 - enough data layout notation to express larger Qfitzah object graphs
 - integration with evaluated expression output and the normal printer
 

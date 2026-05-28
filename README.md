@@ -259,8 +259,14 @@ object's cdr, recursively emits that tail, and writes byte `41`.
 [bootstrap/stage4-emit-bytes-general.qf1](bootstrap/stage4-emit-bytes-general.qf1)
 combines cons-tail traversal and nested `Bytes` flattening in one compiled
 `EmitBytes` routine. It uses `TailCallProc` for the recursive outer-list loop
-and emits static `(Bytes (Bytes 41))` as byte `41`. The Stage 4 sample programs
-are also formatted as multi-line Qfitzah forms.
+and emits static `(Bytes (Bytes 41))` as byte `41`.
+
+[bootstrap/stage4-is-bytes-content.qf1](bootstrap/stage4-is-bytes-content.qf1)
+compiles the closer `is_bytes` check from `qfitzah.s`: it recognizes a `Bytes`
+head atom by length and character contents rather than by pointer identity. Its
+extra comparison rules are local to that fixture to keep the common staged
+compiler small enough for the seed runtime. The Stage 4 sample programs are
+also formatted as multi-line Qfitzah forms.
 
 ## Tests
 
