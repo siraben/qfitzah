@@ -13,3 +13,13 @@
   z) z ; )
 (Id
   OK)
+
+; A full rule can also be written as a single parenthesized directive whose
+; pattern and replacement are both multi-line forms.
+(Rule
+  (Wrap
+    x)
+  (Box
+    x))
+(Wrap
+  Gift)

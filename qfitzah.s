@@ -759,6 +759,12 @@ proc handle_line
         cmp $0, %al # if there’s only one expression in the record, not a rule
         jnz 1f
         pop %eax
+        push %eax
+        call try_rule_directive
+        pop %eax
+        jne 4f
+        ret
+4:
         do ev
         push %eax
         call is_bytes
@@ -778,7 +784,40 @@ proc handle_line
         ## XXX ignoring the possibility of more than two things on the line
         xchg %ecx, %eax
         do cons
-        ## FALL THROUGH into tail call to add_rule
+        jmp add_rule
+
+proc try_rule_directive          # Add (Rule pattern template); ZF says success.
+        jnpair %al, 2f
+        push %eax
+        car %eax
+        jpair %al, 1f
+        cmp $1, %eax
+        je 1f
+        and $~3, %eax
+        cmpl $4, 4(%eax)
+        jne 1f
+        mov (%eax), %eax
+        cmpl $0x656c7552, (%eax) # "Rule"
+        jne 1f
+        pop %eax
+        cdr %eax
+        jnpair %al, 2f
+        push %eax
+        car %eax
+        xchg %eax, %edx          # pattern
+        pop %eax
+        cdr %eax
+        jnpair %al, 2f
+        car %eax                 # template
+        xchg %eax, %ecx
+        xchg %eax, %edx
+        do cons
+        call add_rule
+        cmp %eax, %eax
+        ret
+1:      pop %eax
+2:      or $1, %al
+        ret
 
 proc add_rule
         mov rules-globals(%ebp), %ecx # cons onto the existing set of rules

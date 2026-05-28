@@ -104,8 +104,9 @@ to stdout from the generated ELF.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged
-rules and programs more readable. Rules still terminate as one logical record
-when parenthesis depth returns to zero.
+rules and programs more readable. Rules can be written either as the traditional
+two-form logical record or as an explicit multi-line `(Rule pattern replacement)`
+directive.
 
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.

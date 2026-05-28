@@ -82,6 +82,6 @@ parentheses inside semicolon comments, terminates the logical record with NUL,
 and lets the parser treat embedded newlines as whitespace.
 
 This improves the bootstrap substrate for readable staged sources, but it is
-not yet a fully general stream reader. In particular, a rewrite rule is still a
-single logical record containing one or two forms; there is not yet a separate
-blank-line or form-count based rule reader.
+not yet a fully general stream reader. A traditional two-form rewrite rule is
+still a single logical record containing the pattern and replacement, but
+readable multi-line rules can now be written as `(Rule pattern replacement)`.

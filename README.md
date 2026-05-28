@@ -68,6 +68,19 @@ its parenthesis depth returns to zero:
   B)
 ```
 
+For a rule whose pattern and replacement should each be on their own lines, use
+the explicit rule directive:
+
+```text
+(Rule
+  (Pair
+    x
+    y)
+  (Cons
+    x
+    y))
+```
+
 Rules are tried from newest to oldest. Lowercase names and names beginning with
 `_` are pattern variables. Constants are atoms beginning with characters from
 `!` through `'` or `*` through `^`, which includes digits, uppercase letters,
