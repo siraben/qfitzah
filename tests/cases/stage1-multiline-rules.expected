@@ -1,0 +1,2 @@
+(Apply (Lambda X (Use X)) A)
+(Then (Read Multi Line) (Emit Bytes))

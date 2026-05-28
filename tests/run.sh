@@ -98,6 +98,29 @@ run_case "lisp-reverse"
 run_case "full-lisp"
 run_case "self-hosting-compiler"
 
+run_bootstrap_stage1_multiline_rules() {
+  local output
+  local snippet
+
+  output=$(mktemp)
+  timeout 5s "$qfitzah" < "$repo_root/bootstrap/stage1-multiline-rules.qf1" > "$output"
+
+  while IFS= read -r snippet; do
+    [[ -z "$snippet" ]] && continue
+    if ! grep -aFq "$snippet" "$output"; then
+      printf 'FAIL stage1-multiline-rules: expected to find %q in output:\n' "$snippet" >&2
+      cat "$output" >&2
+      rm -f "$output"
+      exit 1
+    fi
+  done < "$case_dir/stage1-multiline-rules.expected"
+
+  rm -f "$output"
+  printf 'ok - stage1-multiline-rules\n'
+}
+
+run_bootstrap_stage1_multiline_rules
+
 run_qfasm2_exit42() {
   local tmp
   local actual_hex

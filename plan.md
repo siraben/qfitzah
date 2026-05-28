@@ -141,8 +141,10 @@ physical lines and treats embedded newlines as whitespace, which makes staged
 rules and programs more readable. Balanced final records are handled at EOF as
 well as at newline boundaries. Rules can be written either as the traditional
 two-form logical record or as an explicit multi-line `(Rule pattern replacement)`
-directive. The Stage 3 macro assembler, the Stage 4 compiler source, and their
-sample inputs now use that readable multi-line style.
+directive. `bootstrap/stage1-multiline-rules.qf1` is the first
+Qfitzah-improved bootstrap fixture and tests that readable rule form directly.
+The Stage 3 macro assembler, the Stage 4 compiler source, and their sample
+inputs now use that readable multi-line style.
 
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.

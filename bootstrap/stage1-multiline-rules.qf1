@@ -1,0 +1,31 @@
+; First Qfitzah-improved bootstrap fixture.
+;
+; This file depends on the reader accepting one parenthesized Rule directive
+; across multiple physical lines. A traditional two-form rule still has to fit
+; in one logical record, so staged sources use this explicit Rule form.
+
+(Rule
+  (Desugar
+    (Let name value body))
+  (Apply
+    (Lambda name body)
+    value))
+
+(Rule
+  (Sequence
+    first
+    second)
+  (Then
+    first
+    second))
+
+(Desugar
+  (Let X A
+    (Use X)))
+
+(Sequence
+  (Read
+    Multi
+    Line)
+  (Emit
+    Bytes))

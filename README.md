@@ -81,6 +81,12 @@ the explicit rule directive:
     y))
 ```
 
+[bootstrap/stage1-multiline-rules.qf1](bootstrap/stage1-multiline-rules.qf1)
+is the first Qfitzah-improved bootstrap fixture. It uses only the improved
+reader feature: readable multi-line `(Rule pattern replacement)` records. The
+test suite runs that bootstrap file directly so later staged sources have a
+checked base for multi-line rules.
+
 Rules are tried from newest to oldest. Lowercase names and names beginning with
 `_` are pattern variables. Constants are atoms beginning with characters from
 `!` through `'` or `*` through `^`, which includes digits, uppercase letters,
@@ -296,9 +302,10 @@ nix flake check
 ```
 
 The test suite covers basic rewriting, fast multi-line piped input, final
-multi-line records at EOF, repeated pattern variables, structural equality for
-repeated list-valued variables, unmatched template variables, reader ergonomics,
-empty-list matching, nested byte-stream flattening, the example compilers, the
+multi-line records at EOF, the Stage 1 multi-line-rule bootstrap fixture,
+repeated pattern variables, structural equality for repeated list-valued
+variables, unmatched template variables, reader ergonomics, empty-list
+matching, nested byte-stream flattening, the example compilers, the
 Qfitzah-hosted assembler stages, and runnable Stage 4 byte-output runtime slices.
 Test programs live in
 `tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
