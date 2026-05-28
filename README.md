@@ -139,31 +139,50 @@ to:
 
 ## Example Lisp
 
-[examples/lisp-reverse.qf1](examples/lisp-reverse.qf1) bootstraps a
-small Lisp-like evaluator inside Qfitzah. It supports:
+[examples/lisp.qf1](examples/lisp.qf1) bootstraps a small Lisp-like
+evaluator inside Qfitzah. It supports:
 
 - `(Quote value)`
 - `(Var name)` with explicit environments
+- `(Lambda name body)` lexical closures
+- `(App function argument)` for first-class unary functions
+- `(Let name value body)`
 - `(If condition then else)`
 - one- and two-argument `(Call ...)`
 - global `Fn1` and `Fn2` definitions
-- primitive `Cons`, `Car`, `Cdr`, and `Nullp`
+- primitive `Cons`, `Car`, `Cdr`, `Nullp`, `Atomp`, and atom `Eqp`
 
-The example defines `Reverse` in that object Lisp using a tail-recursive helper
-`RevAppend`, then evaluates it on this list:
+The example checks quoting, list primitives, conditionals, atom equality,
+closures, lexical capture, lexical shadowing, higher-order function return, and
+a recursive `Reverse` function written in the object Lisp using a tail-recursive
+helper `RevAppend`.
+
+Run the full example:
+
+```sh
+nix run < examples/lisp.qf1
+```
+
+The reverse test evaluates this list:
 
 ```text
 (Cons A (Cons B (Cons C (Cons D (Cons E Nil)))))
 ```
 
-Run it:
-
-```sh
-nix run < examples/lisp-reverse.qf1
-```
-
-The result is:
+and returns:
 
 ```text
 (Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))
+```
+
+[examples/lisp-reverse.qf1](examples/lisp-reverse.qf1) is a smaller
+single-purpose version that only defines enough of the object Lisp to reverse
+the list.
+
+Some sample object Lisp forms:
+
+```text
+(Lisp NoDefs (App (Lambda X (Var X)) (Quote IdentityWorks)))
+(Lisp NoDefs (Let X (Quote Captured) (App (Lambda Y (Var X)) (Quote Ignored))))
+(Lisp NoDefs (App (App (Lambda X (Lambda Y (Var X))) (Quote First)) (Quote Second)))
 ```

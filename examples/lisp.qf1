@@ -1,0 +1,47 @@
+(Lisp defs expr) (Eval expr EmptyEnv defs)
+(Eval (Quote value) env defs) value
+(Eval (Var name) env defs) (Lookup name env)
+(Eval (Lambda param body) env defs) (Closure param body env)
+(Eval (Let name value body) env defs) (Eval body (Bind name (Eval value env defs) env) defs)
+(Eval (If cond then else) env defs) (EvalIf (Eval cond env defs) then else env defs)
+(Eval (App fn arg) env defs) (Apply1 (Eval fn env defs) (Eval arg env defs) defs)
+(Eval (Call fn arg) env defs) (Apply1 (LookupFun fn defs) (Eval arg env defs) defs)
+(Eval (Call fn left right) env defs) (Apply2 (LookupFun fn defs) (Eval left env defs) (Eval right env defs) defs)
+(EvalIf False then else env defs) (Eval else env defs)
+(EvalIf True then else env defs) (Eval then env defs)
+(Lookup name (Bind other value env)) (Lookup name env)
+(Lookup name (Bind name value env)) value
+(LookupFun name (Def other fn rest)) (LookupFun name rest)
+(LookupFun name (Def name fn rest)) fn
+(LookupFun Cons defs) PrimCons
+(LookupFun Car defs) PrimCar
+(LookupFun Cdr defs) PrimCdr
+(LookupFun Nullp defs) PrimNullp
+(LookupFun Eqp defs) PrimEqp
+(LookupFun Atomp defs) PrimAtomp
+(Apply1 (Closure param body closureEnv) arg defs) (Eval body (Bind param arg closureEnv) defs)
+(Apply1 (Fn1 param body) arg defs) (Eval body (Bind param arg EmptyEnv) defs)
+(Apply2 (Fn2 left right body) arg1 arg2 defs) (Eval body (Bind right arg2 (Bind left arg1 EmptyEnv)) defs)
+(Apply2 PrimCons head tail defs) (Cons head tail)
+(Apply1 PrimCar (Cons head tail) defs) head
+(Apply1 PrimCdr (Cons head tail) defs) tail
+(Apply1 PrimNullp value defs) False
+(Apply1 PrimNullp Nil defs) True
+(Apply1 PrimAtomp value defs) True
+(Apply1 PrimAtomp (Cons head tail) defs) False
+(Apply2 PrimEqp left right defs) False
+(Apply2 PrimEqp same same defs) True
+(Lisp NoDefs (Quote A))
+(Lisp NoDefs (Call Cons (Quote A) (Call Cons (Quote B) (Quote Nil))))
+(Lisp NoDefs (Call Car (Quote (Cons A (Cons B Nil)))))
+(Lisp NoDefs (Call Cdr (Quote (Cons A (Cons B Nil)))))
+(Lisp NoDefs (If (Call Nullp (Quote Nil)) (Quote Then) (Quote Else)))
+(Lisp NoDefs (If (Call Atomp (Quote (Cons A Nil))) (Quote Bad) (Quote Good)))
+(Lisp NoDefs (If (Call Eqp (Quote A) (Quote A)) (Quote Same) (Quote Different)))
+(Lisp NoDefs (If (Call Eqp (Quote A) (Quote B)) (Quote Bad) (Quote Different)))
+(Lisp NoDefs (App (Lambda X (Var X)) (Quote IdentityWorks)))
+(Lisp NoDefs (Let X (Quote Captured) (App (Lambda Y (Var X)) (Quote Ignored))))
+(Lisp NoDefs (Let X (Quote Outer) (Let X (Quote Inner) (Var X))))
+(Lisp NoDefs (Let X (Quote Captured) (Let F (Lambda Y (Var X)) (Let X (Quote Shadowed) (App (Var F) (Quote Ignored))))))
+(Lisp NoDefs (App (App (Lambda X (Lambda Y (Var X))) (Quote First)) (Quote Second)))
+(Lisp (Def Reverse (Fn1 XS (Call RevAppend (Var XS) (Quote Nil))) (Def RevAppend (Fn2 XS ACC (If (Call Nullp (Var XS)) (Var ACC) (Call RevAppend (Call Cdr (Var XS)) (Call Cons (Call Car (Var XS)) (Var ACC))))) NoDefs)) (Call Reverse (Quote (Cons A (Cons B (Cons C (Cons D (Cons E Nil))))))))

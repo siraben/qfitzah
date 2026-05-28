@@ -78,3 +78,32 @@ if ! grep -Fq "$lisp_expected" <<<"$lisp_output"; then
 fi
 
 printf 'ok - Lisp reverse example\n'
+
+full_lisp_output=$(timeout 5s "$qfitzah" < "$repo_root/examples/lisp.qf1")
+
+for expected in \
+  "A" \
+  "(Cons A (Cons B Nil))" \
+  "B Nil" \
+  "Then" \
+  "Good" \
+  "Same" \
+  "Different" \
+  "IdentityWorks" \
+  "Captured" \
+  "Inner" \
+  "First" \
+  "(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))"
+do
+  if ! grep -Fq "$expected" <<<"$full_lisp_output"; then
+    printf 'FAIL full Lisp example: expected to find %q in output:\n%s\n' "$expected" "$full_lisp_output" >&2
+    exit 1
+  fi
+done
+
+if grep -Fq "Bad" <<<"$full_lisp_output"; then
+  printf 'FAIL full Lisp example: did not expect failed branch marker in output:\n%s\n' "$full_lisp_output" >&2
+  exit 1
+fi
+
+printf 'ok - full Lisp example\n'
