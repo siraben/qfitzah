@@ -108,7 +108,9 @@ recursive `EmitBytes`-shaped byte-span walker that writes `ABCDE` and requires a
 signed backward call displacement. `bootstrap/stage4-emit-bytes-object.qf1`
 then moves the same path onto a static tagged `(Bytes 41)` object with aligned
 pair cells, tagged atom pointers, nil, field loads, a `Bytes` head check, and
-recursive cons-tail traversal.
+recursive cons-tail traversal. `bootstrap/stage4-emit-bytes-nested.qf1` adds a
+focused static-object slice for nested `(Bytes ...)` flattening by compiling
+`(Bytes (Bytes 41))` and recursively emitting the nested cdr.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged

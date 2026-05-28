@@ -1,0 +1,129 @@
+; Nested tagged-object byte-output runtime target.
+;
+; This compiles a static object graph for:
+;   (Bytes (Bytes 41))
+;
+; EmitOne checks a list element with IsBytes.  Nested Bytes objects are
+; flattened by taking their cdr and recursively emitting it; ordinary atom
+; elements are decoded as hex bytes.  The preceding object fixture covers
+; cons-tail traversal; this fixture isolates nested flattening.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax BytesOuter)
+        (Seq
+          (CdrEax)
+          (Seq
+            (CallProc EmitOne)
+            (Exit (Literal 00)))))
+      (Def
+        IsBytes
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (IfZero
+            Pair
+            (Seq
+              (CarEax)
+              (CmpEaxLabel AtomBytes))
+            (CmpEax 00)))
+        (Def
+          EmitOne
+          NoFrame
+          (Seq
+            (TestPairEax)
+            (IfZero
+              Cons
+              (Seq
+                (CarEax)
+                (Seq
+                  (PushEax)
+                  (Seq
+                    (CallProc IsBytes)
+                    (IfZero
+                      Nested
+                      (Seq
+                        (PopEax)
+                        (Seq
+                          (CdrEax)
+                          (CallProc EmitOne)))
+                      (Seq
+                        (PopEax)
+                        (CallProc EmitByte))))))
+              (Return)))
+          (Def
+            EmitByte
+            NoFrame
+            (Seq
+              (LoadAtomCharsEcx)
+              (Seq
+                (LoadByteEbxFromEcx)
+                (Seq
+                  (CallProc Nybble)
+                  (Seq
+                    (ShlEbx 04)
+                    (Seq
+                      (PushEbx)
+                      (Seq
+                        (IncEcx)
+                        (Seq
+                          (LoadByteEbxFromEcx)
+                          (Seq
+                            (CallProc Nybble)
+                            (Seq
+                              (PopEcx)
+                              (Seq
+                                (OrEbxEcx)
+                                (WriteByteFromEbx)))))))))))
+            (Def
+              Nybble
+              NoFrame
+              (Seq
+                (SubEbx 30)
+                (Seq
+                  (CmpEbx 09)
+                  (IfBelowEq
+                    Done
+                    (Nop)
+                    (SubEbx 07))))
+              (Atom
+                AtomBytes
+                BytesChars
+                05
+                (Atom
+                  Atom41
+                  Chars41
+                  02
+                  (String5
+                    BytesChars
+                    42
+                    79
+                    74
+                    65
+                    73
+                    (String2
+                      Chars41
+                      34
+                      31
+                      (Pair
+                        BytesOuter
+                        (Const AtomBytes)
+                        (Ptr OuterTail)
+                        (Pair
+                          OuterTail
+                          (Ptr BytesInner)
+                          Nil
+                          (Pair
+                            BytesInner
+                            (Const AtomBytes)
+                            (Ptr InnerTail)
+                            (Pair
+                              InnerTail
+                              (Const Atom41)
+                              Nil
+                              End)))))))))))))))

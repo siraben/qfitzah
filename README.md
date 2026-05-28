@@ -248,8 +248,13 @@ compiles the next byte-output slice over static Qfitzah-shaped objects. It
 builds an aligned tagged object for `(Bytes 41)`, checks the `Bytes` head atom,
 takes the cdr, recursively walks the cons-list tail, decodes the `41` atom, and
 writes byte `41`. This proves static pair cells, tagged atom pointers, nil,
-field loads, and aligned data emission in the staged compiler pipeline. The
-Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
+field loads, and aligned data emission in the staged compiler pipeline.
+
+[bootstrap/stage4-emit-bytes-nested.qf1](bootstrap/stage4-emit-bytes-nested.qf1)
+focuses on nested `Bytes` flattening over static objects. It builds
+`(Bytes (Bytes 41))`, checks the list element with `IsBytes`, takes the nested
+object's cdr, recursively emits that tail, and writes byte `41`. The Stage 4
+sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
 

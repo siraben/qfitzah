@@ -72,13 +72,18 @@ Progress so far:
   and emits it through a closer byte-output path: check the `Bytes` head atom,
   take the cdr, recursively walk the cons-list tail, load the atom character
   pointer, decode the hex atom, and write byte `41`.
+- `stage4-emit-bytes-nested.qf1` compiles a focused nested fixture,
+  `(Bytes (Bytes 41))`. It checks a list element with `IsBytes`, recognizes the
+  nested `Bytes` object, takes its cdr, recursively emits the nested tail, and
+  writes byte `41`.
 
 Still required for the byte-output path:
 
 - allocation or loading of non-static pair and atom objects
-- nested `(Bytes ...)` flattening
-- full `is_bytes` behavior over arbitrary interned atoms, not just the static
-  `Bytes` atom used by the compiled object fixture
+- combined arbitrary cons-tail traversal and nested `(Bytes ...)` flattening in
+  one general compiled routine
+- full `is_bytes` behavior over arbitrary interned atoms, not just the shared
+  static `Bytes` atom used by the compiled object fixtures
 - enough data layout notation to express larger Qfitzah object graphs
 - integration with evaluated expression output and the normal printer
 
