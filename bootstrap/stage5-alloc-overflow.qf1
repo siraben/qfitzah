@@ -1,0 +1,36 @@
+; Stage 5 checked allocation overflow fixture, written as direct qfasm2 source.
+;
+; HeapNext starts at HeapLimit, so the checked allocation path must exit with
+; status 7 before committing HeapNext or storing pair fields.
+
+(Assemble
+  (Program
+    Start
+    (Ins (Label Start)
+    (Ins (MovEaxLabel HeapNext)
+    (Ins (LoadEaxCar)
+    (Ins (PushEax)
+    (Ins (MovEbxEax)
+    (Ins (AddEbxImm8 08)
+    (Ins (CmpEbxLabel HeapLimit)
+    (Ins (Jbe BoundsOk)
+    (Ins (MovEbxImm32 07)
+    (Ins (MovEaxImm32 01)
+    (Ins (Int 80)
+    (Ins (Label BoundsOk)
+    (Ins (MovEaxLabel HeapNext)
+    (Ins (StoreDwordAtEaxFromEbx)
+    (Ins (PopEax)
+    (Ins (MovEbxImm32 13)
+    (Ins (StoreDwordAtEaxFromEbx)
+    (Ins (MovEcxImm32 01)
+    (Ins (StoreDwordAtEaxPlus4FromEcx)
+    (Ins (MovEbxImm32 63)
+    (Ins (MovEaxImm32 01)
+    (Ins (Int 80)
+    (Ins (Align4)
+    (Ins (Label HeapNext)
+    (Ins (DwordLabel HeapLimit)
+    (Ins (Label HeapLimit)
+    (Ins (Db 00)
+    End)))))))))))))))))))))))))))))

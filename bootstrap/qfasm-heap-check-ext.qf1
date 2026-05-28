@@ -1,0 +1,21 @@
+; Optional heap bounds-check assembler extension.
+
+(Rule
+  (Add n N6)
+  (Add (Inc n) N5))
+
+(Rule
+  (Size (CmpEbxLabel label))
+  N6)
+
+(Rule
+  (Pass2 (Ins (CmpEbxLabel label) rest) pc sym)
+  (Bytes 81 FB (Addr (Lookup label sym)) (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Expand (Do (CmpEbxLabel label) rest) scope)
+  (Ins (CmpEbxLabel label) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JumpBelowEqLocal name) rest) scope)
+  (Ins (Jbe (Scoped scope name)) (Expand rest scope)))

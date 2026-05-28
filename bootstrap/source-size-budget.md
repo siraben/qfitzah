@@ -61,6 +61,11 @@ These checked fixtures fit:
   - factors the heap-next update into a reusable compiled `AllocPair` procedure
   - calls the procedure twice, returning allocated pairs in `EAX`
   - exits with the first pair's car (`19`) to prove separate allocations
+- `stage5-alloc-checked.qf1` and `stage5-alloc-overflow.qf1`
+  - use `qfasm-heap-check-ext.qf1`
+  - prove the first allocator bounds check at the qfasm2 layer
+  - cover success (`19`) and overflow (`7`) before the checked allocator is
+    lifted back through qfc4
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

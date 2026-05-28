@@ -114,10 +114,15 @@ Progress so far:
   `AllocPair` routine. Callers pass car/cdr in `EBX`/`ECX`; the routine writes
   the pair, advances `HeapNext`, returns the pair in `EAX`, and is called twice
   by the checked program.
+- `stage5-alloc-checked.qf1` and `stage5-alloc-overflow.qf1` prove the first
+  allocator bounds check at the qfasm2 layer. They compare `HeapNext + 8` with
+  `HeapLimit` before storing and cover both successful allocation (`19`) and
+  overflow (`7`). This is not lifted through qfc4 yet.
 
 Still required for the byte-output path:
 
-- allocator bounds checks and a GC policy for reclaiming or moving objects
+- lifting allocator bounds checks through qfc4 and adding a GC policy for
+  reclaiming or moving objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

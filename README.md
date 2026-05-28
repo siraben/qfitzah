@@ -310,6 +310,12 @@ same behavior into a reusable compiled `AllocPair` procedure. Callers pass car
 in `EBX` and cdr in `ECX`; the procedure writes the pair, bumps `HeapNext` by
 eight bytes, returns the allocated pair in `EAX`, and the checked program calls
 it twice.
+[bootstrap/stage5-alloc-checked.qf1](bootstrap/stage5-alloc-checked.qf1) and
+[bootstrap/stage5-alloc-overflow.qf1](bootstrap/stage5-alloc-overflow.qf1)
+add the first allocator bounds-check proof at the qfasm2 layer. The success
+case checks `HeapNext + 8 <= HeapLimit` before storing a pair and exits `19`;
+the overflow case starts `HeapNext` at `HeapLimit` and exits `7` before
+committing the bump or storing fields.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

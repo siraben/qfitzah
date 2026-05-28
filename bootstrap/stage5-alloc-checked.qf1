@@ -1,0 +1,45 @@
+; Stage 5 checked allocation fixture, written as direct qfasm2 source.
+;
+; This computes the next heap pointer, compares it with HeapLimit before
+; storing, commits HeapNext, writes one pair, and exits with the pair's car, 19.
+
+(Assemble
+  (Program
+    Start
+    (Ins (Label Start)
+    (Ins (MovEaxLabel HeapNext)
+    (Ins (LoadEaxCar)
+    (Ins (PushEax)
+    (Ins (MovEbxEax)
+    (Ins (AddEbxImm8 08)
+    (Ins (CmpEbxLabel HeapLimit)
+    (Ins (Jbe BoundsOk)
+    (Ins (MovEbxImm32 07)
+    (Ins (MovEaxImm32 01)
+    (Ins (Int 80)
+    (Ins (Label BoundsOk)
+    (Ins (MovEaxLabel HeapNext)
+    (Ins (StoreDwordAtEaxFromEbx)
+    (Ins (PopEax)
+    (Ins (MovEbxImm32 13)
+    (Ins (StoreDwordAtEaxFromEbx)
+    (Ins (MovEcxImm32 01)
+    (Ins (StoreDwordAtEaxPlus4FromEcx)
+    (Ins (LoadEbxCarFromEax)
+    (Ins (MovEaxImm32 01)
+    (Ins (Int 80)
+    (Ins (Align4)
+    (Ins (Label HeapNext)
+    (Ins (DwordLabel Heap)
+    (Ins (Label Heap)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Db 00)
+    (Ins (Label HeapLimit)
+    (Ins (Db 00)
+    End))))))))))))))))))))))))))))))))))))))

@@ -144,6 +144,11 @@ rather than overwriting the first cell.
 compiled `AllocPair` procedure that accepts car/cdr in `EBX`/`ECX`, advances
 `HeapNext`, returns the allocated pair in `EAX`, and is called twice by the
 checked program.
+`bootstrap/stage5-alloc-checked.qf1` and
+`bootstrap/stage5-alloc-overflow.qf1` add a lower-level qfasm2 bounds-check
+proof: compare `HeapNext + 8` with `HeapLimit` before storing, exercise both
+the success path (`19`) and overflow path (`7`), and keep the qfc4 limitation
+explicit until the checked allocator can be lifted back up.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
