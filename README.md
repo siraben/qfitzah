@@ -284,6 +284,9 @@ uses those split stages and emits the same byte `41`.
 [bootstrap/qfasm2-exit42-n221.qf1](bootstrap/qfasm2-exit42-n221.qf1)
 checks the first optional code-size extension past the common `N220` boundary:
 it emits a 221-byte code segment and exits with status `42`.
+[bootstrap/qfasm2-entry-n221.qf1](bootstrap/qfasm2-entry-n221.qf1)
+then puts the ELF entry label at offset `N221`, proving optional `Addr N221`
+emission for a runnable binary.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

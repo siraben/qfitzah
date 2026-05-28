@@ -42,6 +42,11 @@ These checked fixtures fit:
   - assembles a 221-byte code segment, one byte past qfasm2's common `N220`
     file-size range
   - emits a runnable ELF that exits with status `42`
+- `qfasm2-entry-n221.qf1`
+  - uses `qfasm-n221-ext.qf1`
+  - places the ELF entry label at code offset `N221`
+  - checks optional `Addr N221`, `FileSize N233`, and arithmetic through the
+    following 12-byte exit sequence
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

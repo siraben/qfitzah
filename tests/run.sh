@@ -170,6 +170,50 @@ run_qfasm2_exit42_n221() {
 
 run_qfasm2_exit42_n221
 
+run_qfasm2_entry_n221() {
+  local tmp
+  local actual_size
+  local entry_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm-n221-ext.qf1" \
+      "$repo_root/bootstrap/qfasm2-entry-n221.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/entry-n221"
+
+  actual_size=$(wc -c < "$tmp/entry-n221")
+  if [[ $actual_size -ne 317 ]]; then
+    printf 'FAIL qfasm2-entry-n221: expected 317-byte ELF, got %s bytes\n' "$actual_size" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  entry_hex=$(od -An -j24 -N4 -tx1 -v "$tmp/entry-n221" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  if [[ "$entry_hex" != "31 81 04 08" ]]; then
+    printf 'FAIL qfasm2-entry-n221: expected entry 31 81 04 08, got %s\n' "$entry_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/entry-n221"
+  set +e
+  "$tmp/entry-n221"
+  status=$?
+  set -e
+
+  if [[ $status -ne 42 ]]; then
+    printf 'FAIL qfasm2-entry-n221: expected exit status 42, got %s\n' "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - qfasm2-entry-n221\n'
+}
+
+run_qfasm2_entry_n221
+
 run_qfasm3_exit42() {
   local tmp
   local actual_hex

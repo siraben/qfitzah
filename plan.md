@@ -130,6 +130,8 @@ optional assembler extension. `bootstrap/stage4-is-bytes-content-linear-direct.q
 uses the split stages and produces the same byte-output ELF.
 `bootstrap/qfasm2-exit42-n221.qf1` proves the optional assembler extension can
 emit a 221-byte code segment, one byte past the common `N220` range.
+`bootstrap/qfasm2-entry-n221.qf1` then proves an ELF entry label at offset
+`N221`, covering optional address emission as well as file size.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

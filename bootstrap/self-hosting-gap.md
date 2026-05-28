@@ -101,6 +101,8 @@ Progress so far:
 - `qfasm2-exit42-n221.qf1` proves the optional assembler extension can emit a
   221-byte code segment, one byte past the common `N220` file-size range, and
   still produce a runnable ELF.
+- `qfasm2-entry-n221.qf1` places the ELF entry label at code offset `N221`,
+  proving the optional `Addr N221` path for a runnable ELF.
 
 Still required for the byte-output path:
 

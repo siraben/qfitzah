@@ -1,0 +1,18 @@
+; qfasm2 input whose ELF entry label is at code offset N221.
+;
+; Concatenate after bootstrap/qfasm2.qf1 and bootstrap/qfasm-n221-ext.qf1.
+; This proves optional Addr N221 emission, plus arithmetic from N221 through the
+; 12-byte exit(42) sequence.
+
+(Assemble
+  (Program
+    AfterPadding
+    (Ins
+      (BigExit42N221)
+      (Ins
+        (Label AfterPadding)
+        (Ins
+          (MovEaxImm32 01)
+          (Ins
+            (MovEbxImm32 2A)
+            (Ins (Int 80) End)))))))
