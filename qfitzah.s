@@ -30,20 +30,19 @@
         ## and it may not get there, but it’s a lot more agreeable to
         ## program in than GPM.
 
-        ## Using variables in a template that are not matched in the
-        ## pattern is a bug that the interpreter doesn’t detect,
-        ## instead crashing:
+        ## Variables in a template that are not matched in the
+        ## pattern are left unchanged:
         ## ↪ (Do Nothing) no
         ## ↪ (Do Nothing)
-        ## Segmentation fault
+        ## no
         ##
-        ## Using the same variable more than once is also an unchecked
-        ## bug, but doesn’t crash:
+        ## Using the same variable more than once checks that the
+        ## repeated atom is equal to the first match:
         ## ↪ (Eq x x) (Yes x)
         ## ↪ (Eq 3 3)
         ## (Yes 3)
         ## ↪ (Eq 3 4)
-        ## (Yes 4)
+        ## (Eq 3 4)
 
         ## On calling conventions:
 
@@ -291,9 +290,14 @@ arena:  .fill 512*1024*1024
         .macro subst_here
 proc subst
         jnvar %al, 1f           # if t is not a var, jump ahead; otherwise
+        push %eax               # keep unmatched variables unchanged
         do assq                 # look it up with assq (inheriting args), then
+        jne 3f                  # if it isn't bound, return the original var
+        pop %ecx
         cdr %eax                # we take its cdr, then
         ret                     # return it
+3:      pop %eax
+        ret
 1:      jpair %al, 2f           # if t is not a pair, we just return it
         ret                     # (it’s already in %eax)
 2:      push %eax               # we must preserve argument t across a call
@@ -365,6 +369,22 @@ proc assq                       # look up an item %eax in a dictionary %ecx
 proc match
         ## Case for pattern being an unadorned var:
         jnvar %cl, 2f           # If the pattern is a var,
+        push %edx               # check for an existing binding first
+        push %eax
+        push %ecx
+        xchg %eax, %ecx
+        mov %edx, %ecx
+        do assq
+        jne 3f
+        cdr %eax
+        pop %ecx
+        pop %ecx
+        cmp %ecx, %eax
+        pop %eax
+        ret
+3:      pop %ecx
+        pop %eax
+        pop %edx
         xchg %eax, %ecx         # we want to (cons pat t), not (cons t pat)
         push %edx               # save env
         do cons
@@ -549,6 +569,7 @@ input_buffer:
         .balign 8   # atoms need to be 8-byte aligned to free tag bits
 atoms:  .fill 8192
         my inptr, input_buffer
+        my lineptr, input_buffer
         ## Output is handled by setting %edi to point into this output
         ## buffer, then using stosb to add stuff to it.
         .bss
@@ -565,14 +586,19 @@ repl:   mov $prompt, %eax
         mov $(prompt_end - prompt), %ecx
         do emit
         do flush
-        sys3 $__NR_read, $0, inptr, $255
+read_more:
+        sys3 $__NR_read, $0, inptr, $1
         test %eax, %eax         # EOF on input?
         jz quit
-        ## XXX missing loops for \n; could be multiple lines or partial lines
-        mov inptr-globals(%ebp), %esi # copy old inptr to %esi for parsing
-        add %esi, %eax  # NUL-termination unnecessary due to zero fill
-        mov %eax, inptr-globals(%ebp)
+        mov inptr-globals(%ebp), %esi
+        cmpb $'\n, (%esi)
+        lea 1(%esi), %esi
+        mov %esi, inptr-globals(%ebp)
+        jne read_more
+        mov lineptr-globals(%ebp), %esi # parse the complete line
         do handle_line
+        mov inptr-globals(%ebp), %esi
+        mov %esi, lineptr-globals(%ebp)
         jmp repl
 quit:   sys1 $__NR_exit, $0
 
