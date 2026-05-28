@@ -153,11 +153,14 @@ Progress so far:
   the optional `qfc4-list-copy-ext.qf1` statement layer. Its test runs qfc4 and
   qfasm as two Qfitzah invocations to keep the seed rule set small, then runs
   the generated ELF and exits through the copied tail (`19`).
+- `stage5-copy-nested-pair-gc.qf1` starts replacing list-only traversal with
+  object traversal at the qfasm2 layer. It copies a root pair whose `car` is
+  another pair, rewrites the copied car edge to the copied child, overwrites
+  the old child, and exits through the copied child (`19`).
 
 Still required for the byte-output path:
 
-- replacing the list-only traversal proof with traversal of arbitrary live
-  objects
+- generalizing the nested-pair proof into traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

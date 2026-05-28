@@ -358,6 +358,10 @@ list, and exits with the copied tail car (`19`).
 lift that traversal through qfc4. The test runs it as a two-step Qfitzah
 pipeline, qfc4 to qfasm3 source and then qfasm3/qfasm2 to ELF, to avoid loading
 all optional Stage 5 rules into the seed runtime at once.
+[bootstrap/stage5-copy-nested-pair-gc.qf1](bootstrap/stage5-copy-nested-pair-gc.qf1)
+starts moving beyond list-only traversal: the root's car is itself a pair, so
+recovery must detect and copy that child pair, rewrite the copied car edge,
+overwrite the old child, and still exit with the copied child car (`19`).
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

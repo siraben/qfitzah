@@ -184,6 +184,10 @@ pointers are gone by overwriting the old tail before reading the copied tail.
 uses a two-invocation Qfitzah pipeline, first lowering qfc4 to qfasm3 source
 and then assembling that source to a runnable ELF, because the all-in-one
 optional rule load still exceeds the seed runtime's stable budget.
+`bootstrap/stage5-copy-nested-pair-gc.qf1` starts replacing the list-only
+traversal proof with object traversal: it follows a pair-valued `car` edge,
+copies that child, rewrites the copied root's car to the copied child, then
+overwrites the old child so stale internal edges are observable.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

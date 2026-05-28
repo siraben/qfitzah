@@ -113,6 +113,12 @@ These checked fixtures fit:
     the seed runtime's stable budget
   - copies the same three-pair list, overwrites the old tail, allocates after
     the copied list, and exits with the copied tail car (`19`)
+- `stage5-copy-nested-pair-gc.qf1`
+  - uses the qfasm2 heap/check/list extension stack
+  - follows and rewrites a pair-valued `car` edge, proving the recovery path is
+    no longer restricted to cdr-only list traversal
+  - overwrites the old child and allocates after the copied graph, exiting with
+    the copied child car (`19`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
