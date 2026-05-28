@@ -1,0 +1,29 @@
+; Optional qfasm2/qfasm3 extension for byte-output runtime slices.
+;
+; This keeps content-comparison instructions and local fail-fast branching out
+; of the always-loaded assembler/compiler sources.
+
+(Add n N6) (Add (Inc n) N5)
+
+(Size (CmpDwordAtEaxImm32 b1 b2 b3 b4)) N6
+(Size (CmpByteAtEaxPlus4Imm8 byte)) N4
+
+(Rule
+  (Pass2 (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) pc sym)
+  (Bytes 81 38 b1 b2 b3 b4 (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpByteAtEaxPlus4Imm8 byte) rest) pc sym)
+  (Bytes 80 78 04 byte (Pass2 rest (Add pc N4) sym)))
+
+(Rule
+  (Expand (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) scope)
+  (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpByteAtEaxPlus4Imm8 byte) rest) scope)
+  (Ins (CmpByteAtEaxPlus4Imm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JumpNotZeroLocal name) rest) scope)
+  (Ins (Jnz (Scoped scope name)) (Expand rest scope)))

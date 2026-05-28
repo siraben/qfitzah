@@ -124,6 +124,10 @@ gate real byte output for static `(Bytes 41)`.
 explicit local labels and fail-fast `jnz` branches, proving a smaller
 control-flow primitive for runtime predicates without adding it to the common
 compiler source.
+`bootstrap/qfc4-byte-output.qf1` and `bootstrap/qfasm-byte-output-ext.qf1`
+split that focused path into a direct byte-output compiler slice plus an
+optional assembler extension. `bootstrap/stage4-is-bytes-content-linear-direct.qf1`
+uses the split stages and produces the same byte-output ELF.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

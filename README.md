@@ -276,6 +276,11 @@ uses content-based `IsBytes` to gate real byte output for static `(Bytes 41)`.
 compiles the same byte-output path with explicit scoped local labels and
 fail-fast `jnz` branches, proving a smaller control-flow shape for runtime
 predicates without adding those branch forms to the common compiler source.
+[bootstrap/qfc4-byte-output.qf1](bootstrap/qfc4-byte-output.qf1) and
+[bootstrap/qfasm-byte-output-ext.qf1](bootstrap/qfasm-byte-output-ext.qf1)
+split that path into a direct byte-output compiler slice plus a small optional
+assembler extension. [bootstrap/stage4-is-bytes-content-linear-direct.qf1](bootstrap/stage4-is-bytes-content-linear-direct.qf1)
+uses those split stages and emits the same byte `41`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

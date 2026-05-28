@@ -1,0 +1,129 @@
+; Direct byte-output compiler input for content-based IsBytes.
+;
+; Compile with qfc4-byte-output.qf1 and qfasm-byte-output-ext.qf1. Unlike
+; stage4-is-bytes-content-linear.qf1, this file carries only the source program;
+; the optional compiler and assembler extensions live in their own files.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax BytesExpr)
+        (Seq
+          (CallProc IsBytes)
+          (IfZero
+            IsBytesOk
+            (Seq
+              (LoadAddrEax BytesTail)
+              (Seq
+                (CarEax)
+                (Seq
+                  (CallProc EmitByte)
+                  (Exit (Literal 00)))))
+            (Exit (Literal 01)))))
+      (Def
+        IsBytes
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (Seq
+            (JumpNotZeroLocal IsBytesNo)
+            (Seq
+              (CarEax)
+              (Seq
+                (UntagEax)
+                (Seq
+                  (PushEax)
+                  (Seq
+                    (CdrEax)
+                    (Seq
+                      (CmpEax 05)
+                      (Seq
+                        (JumpNotZeroLocal IsBytesNoPop)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (CarEax)
+                            (Seq
+                              (CmpDwordAtEax 42 79 74 65)
+                              (Seq
+                                (JumpNotZeroLocal IsBytesNo)
+                                (Seq
+                                  (CmpByteAtEaxPlus4 73)
+                                  (Seq
+                                    (JumpLocal IsBytesDone)
+                                    (Seq
+                                      (Local IsBytesNoPop)
+                                      (Seq
+                                        (PopEax)
+                                        (Seq
+                                          (Local IsBytesNo)
+                                          (Seq
+                                            (CmpEax 00)
+                                            (Local IsBytesDone)))))))))))))))))))
+        (Def
+          EmitByte
+          NoFrame
+          (Seq
+            (LoadAtomCharsEcx)
+            (Seq
+              (LoadByteEbxFromEcx)
+              (Seq
+                (CallProc Nybble)
+                (Seq
+                  (ShlEbx 04)
+                  (Seq
+                    (PushEbx)
+                    (Seq
+                      (IncEcx)
+                      (Seq
+                        (LoadByteEbxFromEcx)
+                        (Seq
+                          (CallProc Nybble)
+                          (Seq
+                            (PopEcx)
+                            (Seq
+                              (OrEbxEcx)
+                              (WriteByteFromEbx)))))))))))
+          (Def
+            Nybble
+            NoFrame
+            (Seq
+              (SubEbx 30)
+              (Seq
+                (CmpEbx 09)
+                (IfBelowEq
+                  Done
+                  (Nop)
+                  (SubEbx 07))))
+            (Atom
+              AtomNotSharedBytes
+              BytesChars
+              05
+              (Atom
+                Atom41
+                Chars41
+                02
+                (String5
+                  BytesChars
+                  42
+                  79
+                  74
+                  65
+                  73
+                  (String2
+                    Chars41
+                    34
+                    31
+                    (Pair
+                      BytesExpr
+                      (Const AtomNotSharedBytes)
+                      (Ptr BytesTail)
+                      (Pair
+                        BytesTail
+                        (Const Atom41)
+                        Nil
+                        End))))))))))))

@@ -93,6 +93,11 @@ Progress so far:
   path with explicit scoped local labels and fail-fast `jnz` branches. This
   proves the smaller branch primitive locally, without growing the common
   qfasm3/qfc4 sources.
+- `qfc4-byte-output.qf1`, `qfasm-byte-output-ext.qf1`, and
+  `stage4-is-bytes-content-linear-direct.qf1` split that focused byte-output
+  path into a direct compiler slice, an optional assembler extension, and a
+  source-only fixture. The generated ELF is byte-identical to the linear
+  fixture and emits byte `41`.
 
 Still required for the byte-output path:
 
