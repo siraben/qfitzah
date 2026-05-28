@@ -362,6 +362,10 @@ all optional Stage 5 rules into the seed runtime at once.
 starts moving beyond list-only traversal: the root's car is itself a pair, so
 recovery must detect and copy that child pair, rewrite the copied car edge,
 overwrite the old child, and still exit with the copied child car (`19`).
+[bootstrap/stage5-copy-two-field-object-gc.qf1](bootstrap/stage5-copy-two-field-object-gc.qf1)
+extends that to both fields of one object: `car` and `cdr` are live pair edges,
+both are copied and rewritten, and stale edges are observable as distinct exit
+statuses before the copied cdr child exits `23`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

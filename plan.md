@@ -188,6 +188,10 @@ optional rule load still exceeds the seed runtime's stable budget.
 traversal proof with object traversal: it follows a pair-valued `car` edge,
 copies that child, rewrites the copied root's car to the copied child, then
 overwrites the old child so stale internal edges are observable.
+`bootstrap/stage5-copy-two-field-object-gc.qf1` extends that object proof to a
+root whose `car` and `cdr` are both pair-valued edges. Recovery copies and
+rewrites both fields, overwrites both old children, checks the copied `car`
+child, then exits through the copied `cdr` child (`23`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

@@ -157,10 +157,15 @@ Progress so far:
   object traversal at the qfasm2 layer. It copies a root pair whose `car` is
   another pair, rewrites the copied car edge to the copied child, overwrites
   the old child, and exits through the copied child (`19`).
+- `stage5-copy-two-field-object-gc.qf1` extends that proof to both fields of a
+  root pair. It copies and rewrites pair-valued `car` and `cdr` children,
+  overwrites both old children, verifies the copied `car` child, and exits
+  through the copied `cdr` child (`23`).
 
 Still required for the byte-output path:
 
-- generalizing the nested-pair proof into traversal of arbitrary live objects
+- generalizing the two-field object proof into traversal of arbitrary live
+  objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

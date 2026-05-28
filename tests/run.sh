@@ -761,3 +761,4 @@ run_qfasm2_stage5_list_binary() {
 
 run_qfasm2_stage5_list_binary "stage5-copy-list-gc" 19
 run_qfasm2_stage5_list_binary "stage5-copy-nested-pair-gc" 19
+run_qfasm2_stage5_list_binary "stage5-copy-two-field-object-gc" 23

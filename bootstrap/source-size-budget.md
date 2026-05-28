@@ -119,6 +119,11 @@ These checked fixtures fit:
     no longer restricted to cdr-only list traversal
   - overwrites the old child and allocates after the copied graph, exiting with
     the copied child car (`19`)
+- `stage5-copy-two-field-object-gc.qf1`
+  - uses the same qfasm2 heap/check/list extension stack
+  - follows and rewrites pair-valued `car` and `cdr` edges from one root object
+  - overwrites both old children, verifies the copied `car` child, and exits
+    with the copied `cdr` child car (`23`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
