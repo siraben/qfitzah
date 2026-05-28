@@ -1,0 +1,287 @@
+; Qfitzah-hosted symbolic assembler, Stage 2.
+;
+; Programs are data:
+;   (Assemble (Program Start (Ins (Label Start) ... End)))
+;
+; This stage deliberately keeps arithmetic tiny.  It has enough symbolic layout
+; to resolve labels, PC-relative short jumps, direct calls, and ELF file size
+; for the bootstrap examples.  Later stages should replace the finite number
+; tables with generated arithmetic.
+
+; Small finite arithmetic over code offsets.
+(Inc N0) N1
+(Inc N1) N2
+(Inc N2) N3
+(Inc N3) N4
+(Inc N4) N5
+(Inc N5) N6
+(Inc N6) N7
+(Inc N7) N8
+(Inc N8) N9
+(Inc N9) N10
+(Inc N10) N11
+(Inc N11) N12
+(Inc N12) N13
+(Inc N13) N14
+(Inc N14) N15
+(Inc N15) N16
+(Inc N16) N17
+(Inc N17) N18
+(Inc N18) N19
+(Inc N19) N20
+(Inc N20) N21
+(Inc N21) N22
+(Inc N22) N23
+(Inc N23) N24
+(Inc N24) N25
+(Inc N25) N26
+(Inc N26) N27
+(Inc N27) N28
+(Inc N28) N29
+(Inc N29) N30
+(Inc N30) N31
+(Inc N31) N32
+(Inc N32) N33
+(Inc N33) N34
+(Inc N34) N35
+(Inc N35) N36
+(Inc N36) N37
+(Inc N37) N38
+(Inc N38) N39
+(Inc N39) N40
+
+(Dec N1) N0
+(Dec N2) N1
+(Dec N3) N2
+(Dec N4) N3
+(Dec N5) N4
+(Dec N6) N5
+(Dec N7) N6
+(Dec N8) N7
+(Dec N9) N8
+(Dec N10) N9
+(Dec N11) N10
+(Dec N12) N11
+(Dec N13) N12
+(Dec N14) N13
+(Dec N15) N14
+(Dec N16) N15
+(Dec N17) N16
+(Dec N18) N17
+(Dec N19) N18
+(Dec N20) N19
+(Dec N21) N20
+(Dec N22) N21
+(Dec N23) N22
+(Dec N24) N23
+(Dec N25) N24
+(Dec N26) N25
+(Dec N27) N26
+(Dec N28) N27
+(Dec N29) N28
+(Dec N30) N29
+(Dec N31) N30
+(Dec N32) N31
+(Dec N33) N32
+(Dec N34) N33
+(Dec N35) N34
+(Dec N36) N35
+(Dec N37) N36
+(Dec N38) N37
+(Dec N39) N38
+(Dec N40) N39
+
+(Add n N0) n
+(Add n N1) (Inc n)
+(Add n N2) (Add (Inc n) N1)
+(Add n N5) (Add (Inc n) N4)
+(Add n N4) (Add (Inc n) N3)
+(Add n N3) (Add (Inc n) N2)
+
+(Sub n m) (Sub (Dec n) (Dec m))
+(Sub n N0) n
+(Sub n n) N0
+
+(Byte N0) 00
+(Byte N1) 01
+(Byte N2) 02
+(Byte N3) 03
+(Byte N4) 04
+(Byte N5) 05
+(Byte N6) 06
+(Byte N7) 07
+(Byte N8) 08
+(Byte N9) 09
+(Byte N10) 0A
+(Byte N11) 0B
+(Byte N12) 0C
+(Byte N13) 0D
+(Byte N14) 0E
+(Byte N15) 0F
+(Byte N16) 10
+(Byte N17) 11
+(Byte N18) 12
+(Byte N19) 13
+(Byte N20) 14
+(Byte N21) 15
+(Byte N22) 16
+(Byte N23) 17
+(Byte N24) 18
+(Byte N25) 19
+(Byte N26) 1A
+(Byte N27) 1B
+(Byte N28) 1C
+(Byte N29) 1D
+(Byte N30) 1E
+(Byte N31) 1F
+(Byte N32) 20
+(Byte N33) 21
+(Byte N34) 22
+(Byte N35) 23
+(Byte N36) 24
+(Byte N37) 25
+(Byte N38) 26
+(Byte N39) 27
+(Byte N40) 28
+
+; Virtual addresses for labels at code offsets from the ELF entry point
+; 0x08048054.
+(Addr N0) (Bytes 54 80 04 08)
+(Addr N1) (Bytes 55 80 04 08)
+(Addr N2) (Bytes 56 80 04 08)
+(Addr N3) (Bytes 57 80 04 08)
+(Addr N4) (Bytes 58 80 04 08)
+(Addr N5) (Bytes 59 80 04 08)
+(Addr N6) (Bytes 5A 80 04 08)
+(Addr N7) (Bytes 5B 80 04 08)
+(Addr N8) (Bytes 5C 80 04 08)
+(Addr N9) (Bytes 5D 80 04 08)
+(Addr N10) (Bytes 5E 80 04 08)
+(Addr N11) (Bytes 5F 80 04 08)
+(Addr N12) (Bytes 60 80 04 08)
+(Addr N13) (Bytes 61 80 04 08)
+(Addr N14) (Bytes 62 80 04 08)
+(Addr N15) (Bytes 63 80 04 08)
+(Addr N16) (Bytes 64 80 04 08)
+(Addr N17) (Bytes 65 80 04 08)
+(Addr N18) (Bytes 66 80 04 08)
+(Addr N19) (Bytes 67 80 04 08)
+(Addr N20) (Bytes 68 80 04 08)
+(Addr N21) (Bytes 69 80 04 08)
+(Addr N22) (Bytes 6A 80 04 08)
+(Addr N23) (Bytes 6B 80 04 08)
+(Addr N24) (Bytes 6C 80 04 08)
+(Addr N25) (Bytes 6D 80 04 08)
+(Addr N26) (Bytes 6E 80 04 08)
+(Addr N27) (Bytes 6F 80 04 08)
+(Addr N28) (Bytes 70 80 04 08)
+(Addr N29) (Bytes 71 80 04 08)
+(Addr N30) (Bytes 72 80 04 08)
+(Addr N31) (Bytes 73 80 04 08)
+(Addr N32) (Bytes 74 80 04 08)
+(Addr N33) (Bytes 75 80 04 08)
+(Addr N34) (Bytes 76 80 04 08)
+(Addr N35) (Bytes 77 80 04 08)
+(Addr N36) (Bytes 78 80 04 08)
+(Addr N37) (Bytes 79 80 04 08)
+(Addr N38) (Bytes 7A 80 04 08)
+(Addr N39) (Bytes 7B 80 04 08)
+(Addr N40) (Bytes 7C 80 04 08)
+
+; ELF file sizes are header size 84 plus code size.
+(FileSize N0) (Bytes 54 00 00 00)
+(FileSize N1) (Bytes 55 00 00 00)
+(FileSize N2) (Bytes 56 00 00 00)
+(FileSize N3) (Bytes 57 00 00 00)
+(FileSize N4) (Bytes 58 00 00 00)
+(FileSize N5) (Bytes 59 00 00 00)
+(FileSize N6) (Bytes 5A 00 00 00)
+(FileSize N7) (Bytes 5B 00 00 00)
+(FileSize N8) (Bytes 5C 00 00 00)
+(FileSize N9) (Bytes 5D 00 00 00)
+(FileSize N10) (Bytes 5E 00 00 00)
+(FileSize N11) (Bytes 5F 00 00 00)
+(FileSize N12) (Bytes 60 00 00 00)
+(FileSize N13) (Bytes 61 00 00 00)
+(FileSize N14) (Bytes 62 00 00 00)
+(FileSize N15) (Bytes 63 00 00 00)
+(FileSize N16) (Bytes 64 00 00 00)
+(FileSize N17) (Bytes 65 00 00 00)
+(FileSize N18) (Bytes 66 00 00 00)
+(FileSize N19) (Bytes 67 00 00 00)
+(FileSize N20) (Bytes 68 00 00 00)
+(FileSize N21) (Bytes 69 00 00 00)
+(FileSize N22) (Bytes 6A 00 00 00)
+(FileSize N23) (Bytes 6B 00 00 00)
+(FileSize N24) (Bytes 6C 00 00 00)
+(FileSize N25) (Bytes 6D 00 00 00)
+(FileSize N26) (Bytes 6E 00 00 00)
+(FileSize N27) (Bytes 6F 00 00 00)
+(FileSize N28) (Bytes 70 00 00 00)
+(FileSize N29) (Bytes 71 00 00 00)
+(FileSize N30) (Bytes 72 00 00 00)
+(FileSize N31) (Bytes 73 00 00 00)
+(FileSize N32) (Bytes 74 00 00 00)
+(FileSize N33) (Bytes 75 00 00 00)
+(FileSize N34) (Bytes 76 00 00 00)
+(FileSize N35) (Bytes 77 00 00 00)
+(FileSize N36) (Bytes 78 00 00 00)
+(FileSize N37) (Bytes 79 00 00 00)
+(FileSize N38) (Bytes 7A 00 00 00)
+(FileSize N39) (Bytes 7B 00 00 00)
+(FileSize N40) (Bytes 7C 00 00 00)
+
+; Symbol table and layout pass.
+(Lookup name (Bind other pc rest)) (Lookup name rest)
+(Lookup name (Bind name pc rest)) pc
+
+(Size (Label name)) N0
+(Size (Nop)) N1
+(Size (Ret)) N1
+(Size (IncEbx)) N1
+(Size (PushEcx)) N1
+(Size (PopEcx)) N1
+(Size (Int byte)) N2
+(Size (XorEbxEbx)) N2
+(Size (Jump label)) N2
+(Size (Jz label)) N2
+(Size (Jnz label)) N2
+(Size (Call label)) N5
+(Size (MovEaxImm32 byte)) N5
+(Size (MovEbxImm32 byte)) N5
+(Size (MovEcxImm32 byte)) N5
+(Size (MovEdxImm32 byte)) N5
+(Size (MovEaxLabel label)) N5
+
+(Pass1 End pc sym) sym
+(Pass1 (Ins instr rest) pc sym) (Pass1 rest (Add pc (Size instr)) sym)
+(Pass1 (Ins (Label name) rest) pc sym) (Pass1 rest pc (Bind name pc sym))
+
+(CodeSize End pc) pc
+(CodeSize (Ins instr rest) pc) (CodeSize rest (Add pc (Size instr)))
+
+; Instruction emission pass.
+(Pass2 End pc sym) (Bytes)
+(Pass2 (Ins (Label name) rest) pc sym) (Pass2 rest pc sym)
+(Pass2 (Ins (Nop) rest) pc sym) (Bytes 90 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (Ret) rest) pc sym) (Bytes C3 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (IncEbx) rest) pc sym) (Bytes 43 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PushEcx) rest) pc sym) (Bytes 51 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PopEcx) rest) pc sym) (Bytes 59 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (Int byte) rest) pc sym) (Bytes CD byte (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (XorEbxEbx) rest) pc sym) (Bytes 31 DB (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (MovEaxImm32 byte) rest) pc sym) (Bytes B8 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEbxImm32 byte) rest) pc sym) (Bytes BB byte 00 00 00 (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEcxImm32 byte) rest) pc sym) (Bytes B9 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEdxImm32 byte) rest) pc sym) (Bytes BA byte 00 00 00 (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEaxLabel label) rest) pc sym) (Bytes B8 (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (Jump label) rest) pc sym) (Bytes EB (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (Jz label) rest) pc sym) (Bytes 74 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (Jnz label) rest) pc sym) (Bytes 75 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (Call label) rest) pc sym) (Bytes E8 (Byte (Sub (Lookup label sym) (Add pc N5))) 00 00 00 (Pass2 rest (Add pc N5) sym))
+
+; ELF emission.
+(ElfHeader entry size) (Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (Addr entry) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (FileSize size) (FileSize size) 05 00 00 00 00 10 00 00)
+
+(Assemble (Program entry code)) (Assemble2 entry code (Pass1 code N0 Empty) (CodeSize code N0))
+(Assemble2 entry code sym size) (Bytes (ElfHeader (Lookup entry sym) size) (Pass2 code N0 sym))

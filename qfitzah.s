@@ -662,11 +662,20 @@ proc is_bytes                   # Does %eax contain (Bytes ...)? ZF says yes.
 2:      or $1, %al
         ret
 
-proc emit_bytes                 # Emit a list of two-hex-digit atom bytes.
+proc emit_bytes                 # Emit a list of hex atoms or nested (Bytes ...).
         jnpair %al, 1f
         push %eax
         car %eax
+        push %eax
+        call is_bytes
+        pop %eax
+        jne 2f
+        cdr %eax
+        call emit_bytes
+        jmp 3f
+2:
         call emit_byte
+3:
         pop %eax
         cdr %eax
         jmp emit_bytes

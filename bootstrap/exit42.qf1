@@ -1,0 +1,2 @@
+; Qfitzah-hosted qfasm2 input.  Concatenate after bootstrap/qfasm2.qf1.
+(Assemble (Program Start (Ins (Label Start) (Ins (Jump Setup) (Ins (MovEbxImm32 63) (Ins (Label Setup) (Ins (MovEaxImm32 01) (Ins (MovEbxImm32 2A) (Ins (Int 80) End)))))))))

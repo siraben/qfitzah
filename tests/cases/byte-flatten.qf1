@@ -1,0 +1,4 @@
+; Computed byte chunks can be nested and are flattened by the runtime.
+(Byte x) (Bytes x)
+(Pair x y) (Bytes (Byte x) (Byte y))
+(Pair 41 42)

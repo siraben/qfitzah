@@ -1,0 +1,2 @@
+; qfasm3 input. Concatenate after bootstrap/qfasm2.qf1 and bootstrap/qfasm3.qf1.
+(M3Assemble (M3Program Start (Do (Proc Start Empty (Do (Invoke Choose (Arg Ebx 00 Empty)) (Do (MovEaxImm32 01) (Do (Int 80) End)))) (Do (Proc Choose (Clob Ecx Empty) (Do (XorEbxEbx) (Do (IfZero Done (Do (MovEbxImm32 29) (Do (IncEbx) End)) End) End))) End))))

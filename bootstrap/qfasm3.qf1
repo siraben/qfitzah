@@ -1,0 +1,42 @@
+; Qfitzah-hosted macro assembler, Stage 3.
+;
+; qfasm3 expands structured macro assembly into qfasm2 source data and then
+; invokes the qfasm2 assembler.  It adds scoped local labels, simple structured
+; conditional expansion, invoke argument loading, and clobber save/restore.
+
+(Append End ys) ys
+(Append (Ins instr rest) ys) (Ins instr (Append rest ys))
+
+(Save Empty) End
+(Save (Clob Ecx rest)) (Ins (PushEcx) (Save rest))
+
+(Restore Empty) End
+(Restore (Clob Ecx rest)) (Append (Restore rest) (Ins (PopEcx) End))
+
+(MoveArgs Empty) End
+(MoveArgs (Arg Eax byte rest)) (Ins (MovEaxImm32 byte) (MoveArgs rest))
+(MoveArgs (Arg Ebx byte rest)) (Ins (MovEbxImm32 byte) (MoveArgs rest))
+(MoveArgs (Arg Ecx byte rest)) (Ins (MovEcxImm32 byte) (MoveArgs rest))
+(MoveArgs (Arg Edx byte rest)) (Ins (MovEdxImm32 byte) (MoveArgs rest))
+
+(Scoped scope name) (Local scope name)
+
+(Expand End scope) End
+(Expand (Do (Nop) rest) scope) (Ins (Nop) (Expand rest scope))
+(Expand (Do (Ret) rest) scope) (Ins (Ret) (Expand rest scope))
+(Expand (Do (Int byte) rest) scope) (Ins (Int byte) (Expand rest scope))
+(Expand (Do (XorEbxEbx) rest) scope) (Ins (XorEbxEbx) (Expand rest scope))
+(Expand (Do (IncEbx) rest) scope) (Ins (IncEbx) (Expand rest scope))
+(Expand (Do (MovEaxImm32 byte) rest) scope) (Ins (MovEaxImm32 byte) (Expand rest scope))
+(Expand (Do (MovEbxImm32 byte) rest) scope) (Ins (MovEbxImm32 byte) (Expand rest scope))
+(Expand (Do (Local name) rest) scope) (Ins (Label (Scoped scope name)) (Expand rest scope))
+(Expand (Do (JumpLocal name) rest) scope) (Ins (Jump (Scoped scope name)) (Expand rest scope))
+(Expand (Do (Invoke name args) rest) scope) (Append (MoveArgs args) (Ins (Call name) (Expand rest scope)))
+(Expand (Do (IfZero name then else) rest) scope) (Append (IfZero scope name then else) (Expand rest scope))
+(Expand (Do (Proc name clob body) rest) scope) (Append (ProcExpand name clob body) (Expand rest scope))
+
+(ProcExpand name clob body) (Ins (Label name) (Append (Save clob) (Append (Expand body name) (Append (Restore clob) (Ins (Ret) End)))))
+
+(IfZero scope name then else) (Ins (Jnz (Scoped scope (Else name))) (Append (Expand then scope) (Ins (Jump (Scoped scope (End name))) (Ins (Label (Scoped scope (Else name))) (Append (Expand else scope) (Ins (Label (Scoped scope (End name))) End))))))
+
+(M3Assemble (M3Program entry body)) (Assemble (Program entry (Expand body Global)))

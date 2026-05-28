@@ -106,6 +106,55 @@ The example emits this i386 Linux machine-code fragment:
 b8 01 00 00 00 bb 2a 00 00 00 cd 80
 ```
 
+## Qfitzah-Hosted Assembler Stage
+
+[bootstrap/qfasm2.qf1](bootstrap/qfasm2.qf1) is the next bootstrap rung. It is
+not an external assembler: it is a Qfitzah rule file that runs under `qfitzah`
+and emits a complete i386 ELF binary.
+
+It adds a symbolic assembly layer over direct `(Bytes ...)` emission:
+
+- pass 1 builds a symbol table from `(Label name)` forms
+- pass 2 emits instruction bytes and resolves labels
+- `(Jump label)` computes a short PC-relative offset
+- `(Call label)` computes a direct call displacement for the bootstrap range
+- ELF `p_filesz`/`p_memsz` are selected from the assembled code size
+
+The current implementation intentionally uses finite arithmetic tables for the
+small bootstrap range; later stages should replace those tables with generated
+arithmetic and richer macros.
+
+Build the sample program:
+
+```sh
+cat bootstrap/qfasm2.qf1 bootstrap/exit42.qf1 | result/bin/qfitzah > exit42
+chmod +x exit42
+./exit42
+echo $?
+```
+
+The expected status is `42`.
+
+[bootstrap/qfasm3.qf1](bootstrap/qfasm3.qf1) is the next macro layer, also
+hosted in Qfitzah. It expands structured macro assembly into qfasm2 data before
+assembly. The current macro layer supports:
+
+- `(Proc name clobbers body)` procedure blocks
+- scoped local labels represented as `(Local proc name)`
+- `(IfZero name then else)` structured conditionals
+- `(Invoke name args)` call setup for register arguments
+- `Ecx` clobber save/restore with `PushEcx`/`PopEcx`
+
+The sample program is built by concatenating the stages:
+
+```sh
+cat bootstrap/qfasm2.qf1 bootstrap/qfasm3.qf1 bootstrap/stage3-exit42.qf1 \
+  | result/bin/qfitzah > stage3-exit42
+chmod +x stage3-exit42
+./stage3-exit42
+echo $?
+```
+
 ## Tests
 
 ```sh
@@ -114,9 +163,11 @@ nix flake check
 
 The test suite covers basic rewriting, fast multi-line piped input, repeated
 pattern variables, structural equality for repeated list-valued variables,
-unmatched template variables, reader ergonomics, and empty-list matching. Test
-programs live in `tests/cases/*.qf1`, with expected snippets in matching
-`.expected` files and forbidden snippets in optional `.unexpected` files.
+unmatched template variables, reader ergonomics, empty-list matching, nested
+byte-stream flattening, the example compilers, and the Qfitzah-hosted assembler
+stage. Test programs live in `tests/cases/*.qf1`, with expected snippets in
+matching `.expected` files and forbidden snippets in optional `.unexpected`
+files.
 
 You can also run it against a built binary:
 

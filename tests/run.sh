@@ -78,9 +78,84 @@ fi
 run_case "unmatched-template-variable"
 run_case "empty-list-pattern"
 run_case "reader-ergonomics"
+run_case "byte-flatten"
 run_case "byte-output"
 run_case "arithmetic-compiler"
 run_case "meta2-arithmetic"
 run_case "lisp-reverse"
 run_case "full-lisp"
 run_case "self-hosting-compiler"
+
+run_qfasm2_exit42() {
+  local tmp
+  local actual_hex
+  local expected_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" "$repo_root/bootstrap/exit42.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/exit42"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/exit42" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/qfasm2-exit42.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL qfasm2-exit42: expected hex:\n%s\nactual hex:\n%s\n' "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/exit42"
+  set +e
+  "$tmp/exit42"
+  status=$?
+  set -e
+
+  if [[ $status -ne 42 ]]; then
+    printf 'FAIL qfasm2-exit42: expected exit status 42, got %s\n' "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - qfasm2-exit42\n'
+}
+
+run_qfasm2_exit42
+
+run_qfasm3_exit42() {
+  local tmp
+  local actual_hex
+  local expected_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/stage3-exit42.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/exit42"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/exit42" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/qfasm3-exit42.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL qfasm3-exit42: expected hex:\n%s\nactual hex:\n%s\n' "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/exit42"
+  set +e
+  "$tmp/exit42"
+  status=$?
+  set -e
+
+  if [[ $status -ne 42 ]]; then
+    printf 'FAIL qfasm3-exit42: expected exit status 42, got %s\n' "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - qfasm3-exit42\n'
+}
+
+run_qfasm3_exit42
