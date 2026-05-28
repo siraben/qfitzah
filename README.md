@@ -136,3 +136,34 @@ to:
 ```text
 (Push 2 (Push 3 (Push 4 (Mul (Add Done)))))
 ```
+
+## Example Lisp
+
+[examples/lisp-reverse.qf1](examples/lisp-reverse.qf1) bootstraps a
+small Lisp-like evaluator inside Qfitzah. It supports:
+
+- `(Quote value)`
+- `(Var name)` with explicit environments
+- `(If condition then else)`
+- one- and two-argument `(Call ...)`
+- global `Fn1` and `Fn2` definitions
+- primitive `Cons`, `Car`, `Cdr`, and `Nullp`
+
+The example defines `Reverse` in that object Lisp using a tail-recursive helper
+`RevAppend`, then evaluates it on this list:
+
+```text
+(Cons A (Cons B (Cons C (Cons D (Cons E Nil)))))
+```
+
+Run it:
+
+```sh
+nix run < examples/lisp-reverse.qf1
+```
+
+The result is:
+
+```text
+(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))
+```

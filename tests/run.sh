@@ -68,3 +68,13 @@ if ! grep -Fq "$example_expected" <<<"$example_output"; then
 fi
 
 printf 'ok - arithmetic compiler example\n'
+
+lisp_output=$(timeout 5s "$qfitzah" < "$repo_root/examples/lisp-reverse.qf1")
+lisp_expected="(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))"
+
+if ! grep -Fq "$lisp_expected" <<<"$lisp_output"; then
+  printf 'FAIL Lisp reverse example: expected to find %q in output:\n%s\n' "$lisp_expected" "$lisp_output" >&2
+  exit 1
+fi
+
+printf 'ok - Lisp reverse example\n'
