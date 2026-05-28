@@ -125,6 +125,9 @@ Progress so far:
 - `stage5-alloc-reset-gc.qf1` proves a minimal no-live-objects recovery policy
   at the qfasm2 layer: overflow resets `HeapNext` to `Heap`, retries, stores a
   pair, and exits with status `19`.
+- `stage5-alloc-reset-gc-qfc4.qf1` lifts that no-live-objects recovery through
+  qfc4. The staged source now performs the overflow branch, resets `HeapNext`,
+  retries allocation, and exits with the recovered pair car (`19`).
 - `stage5-copy-root-gc.qf1` extends recovery to one live root at the qfasm2
   layer: overflow copies the root pair into the reset heap, updates the root
   slot, allocates another pair after it, and exits with the copied root car
@@ -140,8 +143,8 @@ Progress so far:
 
 Still required for the byte-output path:
 
-- lifting recovery through qfc4, then replacing the list-only traversal proof
-  with traversal of arbitrary live objects
+- lifting live-root recovery through qfc4, then replacing the list-only
+  traversal proof with traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

@@ -326,6 +326,10 @@ both commit (`19`) and overflow (`7`).
 adds the first recovery policy proof: on overflow it resets `HeapNext` to the
 heap base, retries the allocation, stores a pair, and exits `19`. This models a
 minimal no-live-objects collection pass at the qfasm2 level.
+[bootstrap/stage5-alloc-reset-gc-qfc4.qf1](bootstrap/stage5-alloc-reset-gc-qfc4.qf1)
+lifts that reset/retry recovery through qfc4: staged source now performs the
+overflow branch, rewrites `HeapNext` to `Heap`, retries allocation, and exits
+with the recovered pair car (`19`).
 [bootstrap/stage5-copy-root-gc.qf1](bootstrap/stage5-copy-root-gc.qf1) extends
 that recovery path to one live root: it copies the root pair into the reset
 heap, updates the root slot, allocates another pair after it, and exits with

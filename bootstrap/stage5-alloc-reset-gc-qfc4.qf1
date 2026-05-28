@@ -1,0 +1,93 @@
+; Stage 5 no-live-objects recovery lifted through qfc4.
+;
+; HeapNext starts at HeapLimit. The first checked allocation overflows, the qfc4
+; source resets HeapNext to Heap, retries the allocation, stores one pair, and
+; exits with the pair car, 19. This lifts the direct qfasm2 reset/retry recovery
+; proof through the staged compiler surface.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax HeapNext)
+        (Seq
+          (CarEax)
+          (Seq
+            (PushEax)
+            (Seq
+              (MoveEbxEax)
+              (Seq
+                (AddEbx 08)
+                (Seq
+                  (CmpEbxLabel HeapLimit)
+                  (IfBelowEq
+                    BoundsOk
+                    (Seq
+                      (LoadAddrEax HeapNext)
+                      (Seq
+                        (StoreCarEbx)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (SetEbx 13)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (SetEcx 01)
+                                (Seq
+                                  (StoreCdrEcx)
+                                  (Seq
+                                    (LoadCarEbx)
+                                    (ExitReg Ebx)))))))))
+                    (Seq
+                      (PopEax)
+                      (Seq
+                        (LoadAddrEax Heap)
+                        (Seq
+                          (MoveEbxEax)
+                          (Seq
+                            (LoadAddrEax HeapNext)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (LoadAddrEax HeapNext)
+                                (Seq
+                                  (CarEax)
+                                  (Seq
+                                    (PushEax)
+                                    (Seq
+                                      (MoveEbxEax)
+                                      (Seq
+                                        (AddEbx 08)
+                                        (Seq
+                                          (LoadAddrEax HeapNext)
+                                          (Seq
+                                            (StoreCarEbx)
+                                            (Seq
+                                              (PopEax)
+                                              (Seq
+                                                (SetEbx 13)
+                                                (Seq
+                                                  (StoreCarEbx)
+                                                  (Seq
+                                                    (SetEcx 01)
+                                                    (Seq
+                                                      (StoreCdrEcx)
+                                                      (Seq
+                                                        (LoadCarEbx)
+                                                        (ExitReg Ebx))))))))))))))))))))))))))
+      (PtrCell HeapNext HeapLimit
+      (Data Heap 00
+      (Data Heap1 00
+      (Data Heap2 00
+      (Data Heap3 00
+      (Data Heap4 00
+      (Data Heap5 00
+      (Data Heap6 00
+      (Data Heap7 00
+      (Data HeapLimit 00
+      End)))))))))))
+))

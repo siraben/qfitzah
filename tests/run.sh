@@ -496,6 +496,7 @@ run_qfc4_heap_check_binary() {
 
 run_qfc4_heap_check_binary "stage5-alloc-checked-qfc4" 19
 run_qfc4_heap_check_binary "stage5-alloc-overflow-qfc4" 7
+run_qfc4_heap_check_binary "stage5-alloc-reset-gc-qfc4" 19
 
 run_qfasm2_heap_check_binary() {
   local name=$1

@@ -156,6 +156,9 @@ checked commit and overflow paths.
 policy: the overflow path resets `HeapNext` to the heap base, retries the
 allocation, stores one pair, and exits `19`. This is a no-live-objects GC proof,
 not a tracing collector yet.
+`bootstrap/stage5-alloc-reset-gc-qfc4.qf1` lifts that no-live-objects recovery
+through qfc4, so the staged compiler surface now expresses reset, retry,
+commit, and recovered allocation output.
 `bootstrap/stage5-copy-root-gc.qf1` then preserves one live root across that
 recovery: it copies the root pair into the reset heap, updates the root slot,
 allocates another pair after it, and exits with the copied root car (`19`).

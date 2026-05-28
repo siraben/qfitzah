@@ -73,6 +73,10 @@ These checked fixtures fit:
   - uses the same qfasm2 heap-check extension
   - resets `HeapNext` to `Heap` on overflow and retries allocation
   - proves a no-live-objects recovery policy with runtime status `19`
+- `stage5-alloc-reset-gc-qfc4.qf1`
+  - uses the qfc4 -> qfasm3 -> qfasm2 path with the heap-check extension
+  - lifts reset/retry recovery into staged source
+  - exits with the recovered pair car (`19`)
 - `stage5-copy-root-gc.qf1`
   - copies one live root pair into the reset heap
   - updates the root slot, retries allocation after the copied root, and exits
