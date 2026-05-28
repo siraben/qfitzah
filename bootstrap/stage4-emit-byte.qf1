@@ -3,4 +3,41 @@
 ; This compiles an emit_byte-shaped routine.  It reads two static ASCII hex
 ; digits, calls Nybble for each, combines the two nybbles into one byte, pushes
 ; that byte to the stack, and writes one byte to stdout with Linux write(2).
-(QfcAssemble (Source Start (Def Start NoFrame (Seq (LoadByteEbx HexHigh) (Seq (CallProc Nybble) (Seq (MoveEcxEbx) (Seq (ShlEcx 04) (Seq (LoadByteEbx HexLow) (Seq (CallProc Nybble) (Seq (OrEbxEcx) (Seq (WriteByteFromEbx) (Exit (Literal 00)))))))))) (Def Nybble NoFrame (Seq (SubEbx 30) (Seq (CmpEbx 09) (IfBelowEq Done (Nop) (SubEbx 07)))) (Data HexHigh 34 (Data HexLow 31 End))))))
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadByteEbx HexHigh)
+        (Seq
+          (CallProc Nybble)
+          (Seq
+            (MoveEcxEbx)
+            (Seq
+              (ShlEcx 04)
+              (Seq
+                (LoadByteEbx HexLow)
+                (Seq
+                  (CallProc Nybble)
+                  (Seq
+                    (OrEbxEcx)
+                    (Seq
+                      (WriteByteFromEbx)
+                      (Exit (Literal 00))))))))))
+      (Def
+        Nybble
+        NoFrame
+        (Seq
+          (SubEbx 30)
+          (Seq
+            (CmpEbx 09)
+            (IfBelowEq
+              Done
+              (Nop)
+              (SubEbx 07))))
+        (Data
+          HexHigh
+          34
+          (Data HexLow 31 End))))))

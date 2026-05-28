@@ -6,4 +6,26 @@
 ;
 ; The staged compiler uses EBX as the value register.  Start loads the input
 ; byte from static data, calls Nybble, then exits with the computed value.
-(QfcAssemble (Source Start (Def Start NoFrame (Seq (LoadByteEbx Digit) (Seq (CallProc Nybble) (ExitReg Ebx))) (Def Nybble NoFrame (Seq (SubEbx 30) (Seq (CmpEbx 09) (IfBelowEq Done (Nop) (SubEbx 07)))) (Data Digit 41 End)))))
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadByteEbx Digit)
+        (Seq
+          (CallProc Nybble)
+          (ExitReg Ebx)))
+      (Def
+        Nybble
+        NoFrame
+        (Seq
+          (SubEbx 30)
+          (Seq
+            (CmpEbx 09)
+            (IfBelowEq
+              Done
+              (Nop)
+              (SubEbx 07))))
+        (Data Digit 41 End)))))

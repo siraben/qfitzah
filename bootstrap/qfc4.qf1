@@ -5,93 +5,283 @@
 ; source is already read by Qfitzah as S-expressions; the Parse* rules below
 ; normalize it into an explicit AST before code generation.
 
-(DAppend End ys) ys
-(DAppend (Do instr rest) ys) (Do instr (DAppend rest ys))
+(Rule
+  (DAppend End ys)
+  ys)
+
+(Rule
+  (DAppend (Do instr rest) ys)
+  (Do instr (DAppend rest ys)))
 
 ; Stage 4.1: parse high-level source forms into an explicit AST.
-(ParseProgram (Source entry defs)) (AstProgram entry (ParseDefs defs))
-(ParseDefs End) End
-(ParseDefs (Def name frame body rest)) (AstDef name (ParseFrame frame) (ParseStmt body) (ParseDefs rest))
-(ParseDefs (Data name byte rest)) (AstData name byte (ParseDefs rest))
+(Rule
+  (ParseProgram (Source entry defs))
+  (AstProgram entry (ParseDefs defs)))
 
-(ParseFrame NoFrame) NoFrame
-(ParseFrame (Preserve Ecx)) (Frame (Save Ecx))
+(Rule
+  (ParseDefs End)
+  End)
 
-(ParseStmt (Exit value)) (Exit (ParseExpr value))
-(ParseStmt (ExitReg Ebx)) (ExitReg Ebx)
-(ParseStmt (CallProc name)) (CallProc name)
-(ParseStmt (LoadByteEbx name)) (LoadByteEbx name)
-(ParseStmt (SubEbx byte)) (SubEbx byte)
-(ParseStmt (CmpEbx byte)) (CmpEbx byte)
-(ParseStmt (MoveEcxEbx)) MoveEcxEbx
-(ParseStmt (ShlEcx byte)) (ShlEcx byte)
-(ParseStmt (OrEbxEcx)) OrEbxEcx
-(ParseStmt (StoreByte name)) (StoreByte name)
-(ParseStmt (WriteByte name)) (WriteByte name)
-(ParseStmt (WriteByteFromEbx)) WriteByteFromEbx
-(ParseStmt (IfBelowEq name then else)) (IfBelowEq name (ParseStmt then) (ParseStmt else))
-(ParseStmt (Nop)) Nop
-(ParseStmt (Return)) Return
-(ParseStmt (Seq first rest)) (Seq (ParseStmt first) (ParseStmt rest))
+(Rule
+  (ParseDefs (Def name frame body rest))
+  (AstDef name (ParseFrame frame) (ParseStmt body) (ParseDefs rest)))
 
-(ParseExpr (Literal byte)) (Literal byte)
-(ParseExpr (Zero)) Zero
-(ParseExpr (Add1 value)) (Add1 (ParseExpr value))
-(ParseExpr (ConstAtom payload)) (ConstAtom (TagConst payload))
-(ParseExpr (Match name test (Case Zero then) (Case Else otherwise))) (Match name (ParseExpr test) (Case Zero (ParseExpr then)) (Case Else (ParseExpr otherwise)))
+(Rule
+  (ParseDefs (Data name byte rest))
+  (AstData name byte (ParseDefs rest)))
+
+(Rule
+  (ParseFrame NoFrame)
+  NoFrame)
+
+(Rule
+  (ParseFrame (Preserve Ecx))
+  (Frame (Save Ecx)))
+
+(Rule
+  (ParseStmt (Exit value))
+  (Exit (ParseExpr value)))
+
+(Rule
+  (ParseStmt (ExitReg Ebx))
+  (ExitReg Ebx))
+
+(Rule
+  (ParseStmt (CallProc name))
+  (CallProc name))
+
+(Rule
+  (ParseStmt (LoadByteEbx name))
+  (LoadByteEbx name))
+
+(Rule
+  (ParseStmt (SubEbx byte))
+  (SubEbx byte))
+
+(Rule
+  (ParseStmt (CmpEbx byte))
+  (CmpEbx byte))
+
+(Rule
+  (ParseStmt (MoveEcxEbx))
+  MoveEcxEbx)
+
+(Rule
+  (ParseStmt (ShlEcx byte))
+  (ShlEcx byte))
+
+(Rule
+  (ParseStmt (OrEbxEcx))
+  OrEbxEcx)
+
+(Rule
+  (ParseStmt (StoreByte name))
+  (StoreByte name))
+
+(Rule
+  (ParseStmt (WriteByte name))
+  (WriteByte name))
+
+(Rule
+  (ParseStmt (WriteByteFromEbx))
+  WriteByteFromEbx)
+
+(Rule
+  (ParseStmt (IfBelowEq name then else))
+  (IfBelowEq name (ParseStmt then) (ParseStmt else)))
+
+(Rule
+  (ParseStmt (Nop))
+  Nop)
+
+(Rule
+  (ParseStmt (Return))
+  Return)
+
+(Rule
+  (ParseStmt (Seq first rest))
+  (Seq (ParseStmt first) (ParseStmt rest)))
+
+(Rule
+  (ParseExpr (Literal byte))
+  (Literal byte))
+
+(Rule
+  (ParseExpr (Zero))
+  Zero)
+
+(Rule
+  (ParseExpr (Add1 value))
+  (Add1 (ParseExpr value)))
+
+(Rule
+  (ParseExpr (ConstAtom payload))
+  (ConstAtom (TagConst payload)))
+
+(Rule
+  (ParseExpr (Match name test (Case Zero then) (Case Else otherwise)))
+  (Match
+    name
+    (ParseExpr test)
+    (Case Zero (ParseExpr then))
+    (Case Else (ParseExpr otherwise))))
 
 ; Stage 4.3: minimal generated tagging for aligned constant payloads.
 ; These tables model the compiler decision to preserve aligned payload bits and
 ; set the constant tag bits in the low byte.
-(TagConst 00) 03
-(TagConst 04) 07
-(TagConst 08) 0B
-(TagConst 0C) 0F
-(TagConst 10) 13
-(TagConst 14) 17
-(TagConst 18) 1B
-(TagConst 1C) 1F
-(TagConst 20) 23
-(TagConst 24) 27
-(TagConst 28) 2B
+(Rule (TagConst 00) 03)
+(Rule (TagConst 04) 07)
+(Rule (TagConst 08) 0B)
+(Rule (TagConst 0C) 0F)
+(Rule (TagConst 10) 13)
+(Rule (TagConst 14) 17)
+(Rule (TagConst 18) 1B)
+(Rule (TagConst 1C) 1F)
+(Rule (TagConst 20) 23)
+(Rule (TagConst 24) 27)
+(Rule (TagConst 28) 2B)
 
 ; Stage 4.4: frame requests become qfasm3 clobber preservation.
-(CompileFrame NoFrame) Empty
-(CompileFrame (Frame (Save Ecx))) (Clob Ecx Empty)
+(Rule
+  (CompileFrame NoFrame)
+  Empty)
+
+(Rule
+  (CompileFrame (Frame (Save Ecx)))
+  (Clob Ecx Empty))
 
 ; Module and procedure generation.
-(CompileProgram (AstProgram entry defs)) (M3Program entry (CompileDefs defs))
-(CompileDefs End) End
-(CompileDefs (AstDef name frame body rest)) (DAppend (CompileDef name frame body) (CompileDefs rest))
-(CompileDefs (AstData name byte rest)) (DAppend (CompileData name byte) (CompileDefs rest))
-(CompileDef name frame body) (Do (Proc name (CompileFrame frame) (CompileStmt body)) End)
-(CompileData name byte) (Do (Label name) (Do (Db byte) End))
+(Rule
+  (CompileProgram (AstProgram entry defs))
+  (M3Program entry (CompileDefs defs)))
+
+(Rule
+  (CompileDefs End)
+  End)
+
+(Rule
+  (CompileDefs (AstDef name frame body rest))
+  (DAppend (CompileDef name frame body) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstData name byte rest))
+  (DAppend (CompileData name byte) (CompileDefs rest)))
+
+(Rule
+  (CompileDef name frame body)
+  (Do (Proc name (CompileFrame frame) (CompileStmt body)) End))
+
+(Rule
+  (CompileData name byte)
+  (Do (Label name) (Do (Db byte) End)))
 
 ; Statement generation.
-(CompileStmt (Exit value)) (DAppend (CompileEbx value) (Do (MovEaxImm32 01) (Do (Int 80) End)))
-(CompileStmt (ExitReg Ebx)) (Do (MovEaxImm32 01) (Do (Int 80) End))
-(CompileStmt (CallProc name)) (Do (Invoke name Empty) End)
-(CompileStmt (LoadByteEbx name)) (Do (MovEbxLabel name) (Do (LoadByteEbx) End))
-(CompileStmt (SubEbx byte)) (Do (SubEbxImm8 byte) End)
-(CompileStmt (CmpEbx byte)) (Do (CmpEbxImm8 byte) End)
-(CompileStmt MoveEcxEbx) (Do (MovEcxEbx) End)
-(CompileStmt (ShlEcx byte)) (Do (ShlEcxImm8 byte) End)
-(CompileStmt OrEbxEcx) (Do (OrEbxEcx) End)
-(CompileStmt (StoreByte name)) (Do (MovEaxLabel name) (Do (StoreByteAtEaxFromBl) End))
-(CompileStmt (WriteByte name)) (Do (MovEaxImm32 04) (Do (MovEbxImm32 01) (Do (MovEcxLabel name) (Do (MovEdxImm32 01) (Do (Int 80) End)))))
-(CompileStmt WriteByteFromEbx) (Do (PushEbx) (Do (MovEaxImm32 04) (Do (MovEbxImm32 01) (Do (MovEcxEsp) (Do (MovEdxImm32 01) (Do (Int 80) End))))))
-(CompileStmt (IfBelowEq name then else)) (Do (IfBelowEq name (CompileStmt then) (CompileStmt else)) End)
-(CompileStmt Nop) (Do (Nop) End)
-(CompileStmt Return) End
-(CompileStmt (Seq first rest)) (DAppend (CompileStmt first) (CompileStmt rest))
+(Rule
+  (CompileStmt (Exit value))
+  (DAppend
+    (CompileEbx value)
+    (Do (MovEaxImm32 01) (Do (Int 80) End))))
+
+(Rule
+  (CompileStmt (ExitReg Ebx))
+  (Do (MovEaxImm32 01) (Do (Int 80) End)))
+
+(Rule
+  (CompileStmt (CallProc name))
+  (Do (Invoke name Empty) End))
+
+(Rule
+  (CompileStmt (LoadByteEbx name))
+  (Do (MovEbxLabel name) (Do (LoadByteEbx) End)))
+
+(Rule
+  (CompileStmt (SubEbx byte))
+  (Do (SubEbxImm8 byte) End))
+
+(Rule
+  (CompileStmt (CmpEbx byte))
+  (Do (CmpEbxImm8 byte) End))
+
+(Rule
+  (CompileStmt MoveEcxEbx)
+  (Do (MovEcxEbx) End))
+
+(Rule
+  (CompileStmt (ShlEcx byte))
+  (Do (ShlEcxImm8 byte) End))
+
+(Rule
+  (CompileStmt OrEbxEcx)
+  (Do (OrEbxEcx) End))
+
+(Rule
+  (CompileStmt (StoreByte name))
+  (Do (MovEaxLabel name) (Do (StoreByteAtEaxFromBl) End)))
+
+(Rule
+  (CompileStmt (WriteByte name))
+  (Do
+    (MovEaxImm32 04)
+    (Do
+      (MovEbxImm32 01)
+      (Do
+        (MovEcxLabel name)
+        (Do (MovEdxImm32 01) (Do (Int 80) End))))))
+
+(Rule
+  (CompileStmt WriteByteFromEbx)
+  (Do
+    (PushEbx)
+    (Do
+      (MovEaxImm32 04)
+      (Do
+        (MovEbxImm32 01)
+        (Do
+          (MovEcxEsp)
+          (Do (MovEdxImm32 01) (Do (Int 80) End)))))))
+
+(Rule
+  (CompileStmt (IfBelowEq name then else))
+  (Do (IfBelowEq name (CompileStmt then) (CompileStmt else)) End))
+
+(Rule
+  (CompileStmt Nop)
+  (Do (Nop) End))
+
+(Rule
+  (CompileStmt Return)
+  End)
+
+(Rule
+  (CompileStmt (Seq first rest))
+  (DAppend (CompileStmt first) (CompileStmt rest)))
 
 ; Expression generation: all expression compilers leave the result in EBX.
-(CompileEbx (Literal byte)) (Do (MovEbxImm32 byte) End)
-(CompileEbx Zero) (Do (XorEbxEbx) End)
-(CompileEbx (Add1 value)) (DAppend (CompileEbx value) (Do (IncEbx) End))
-(CompileEbx (ConstAtom tagged)) (Do (MovEbxImm32 tagged) End)
+(Rule
+  (CompileEbx (Literal byte))
+  (Do (MovEbxImm32 byte) End))
+
+(Rule
+  (CompileEbx Zero)
+  (Do (XorEbxEbx) End))
+
+(Rule
+  (CompileEbx (Add1 value))
+  (DAppend (CompileEbx value) (Do (IncEbx) End)))
+
+(Rule
+  (CompileEbx (ConstAtom tagged))
+  (Do (MovEbxImm32 tagged) End))
 
 ; Stage 4.2: declarative match lowering to a native conditional tree.
-(CompileEbx (Match name test (Case Zero then) (Case Else otherwise))) (DAppend (CompileEbx test) (Do (IfZero name (CompileEbx then) (CompileEbx otherwise)) End))
+(Rule
+  (CompileEbx (Match name test (Case Zero then) (Case Else otherwise)))
+  (DAppend
+    (CompileEbx test)
+    (Do
+      (IfZero name (CompileEbx then) (CompileEbx otherwise))
+      End)))
 
-(QfcAssemble source) (M3Assemble (CompileProgram (ParseProgram source)))
+(Rule
+  (QfcAssemble source)
+  (M3Assemble (CompileProgram (ParseProgram source))))

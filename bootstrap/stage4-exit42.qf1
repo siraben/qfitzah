@@ -1,2 +1,14 @@
 ; qfc4 input. Concatenate after qfasm2, qfasm3, and qfc4.
-(QfcAssemble (Source Start (Def Start (Preserve Ecx) (Exit (Match M0 (Zero) (Case Zero (Add1 (Literal 29))) (Case Else (Literal 63)))) End)))
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      (Preserve Ecx)
+      (Exit
+        (Match
+          M0
+          (Zero)
+          (Case Zero (Add1 (Literal 29)))
+          (Case Else (Literal 63))))
+      End)))

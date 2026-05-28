@@ -184,7 +184,9 @@ echo $?
 [bootstrap/qfc4.qf1](bootstrap/qfc4.qf1) is the current Stage 4 compiler
 slice. It is also hosted in Qfitzah. It accepts a small high-level source form,
 parses it into an explicit AST, compiles that AST to qfasm3 macro assembly, then
-hands the result to qfasm3/qfasm2.
+hands the result to qfasm3/qfasm2. The compiler rules are written with the
+multi-line `(Rule pattern replacement)` directive so the staged compiler source
+itself exercises the improved reader.
 
 The implemented source subset includes:
 
@@ -229,7 +231,8 @@ For input byte `41` (`A`), the generated ELF exits with status `10`.
 next byte-output step. It reads two static ASCII hex digits, calls `Nybble` for
 each, combines the high and low nybbles into a byte, and invokes Linux
 `write(1, sp, 1)` to emit that byte. The generated ELF writes byte `41`
-(`A`) to stdout and exits with status `0`.
+(`A`) to stdout and exits with status `0`. The Stage 4 sample programs are also
+formatted as multi-line Qfitzah forms.
 
 ## Tests
 
