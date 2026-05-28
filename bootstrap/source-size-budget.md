@@ -52,6 +52,11 @@ These checked fixtures fit:
   - emits a writable executable segment for a focused mutable-data proof
   - stores car/cdr dwords into a static heap cell, reads the car back, and exits
     with status `42`
+- `stage5-bump-alloc.qf1`
+  - reuses the optional heap extensions
+  - stores and reloads a mutable `HeapNext` cell
+  - constructs two pair cells and exits with the first car (`19`) to prove the
+    second allocation used the advanced pointer
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

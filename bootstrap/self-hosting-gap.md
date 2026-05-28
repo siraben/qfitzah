@@ -106,11 +106,15 @@ Progress so far:
 - `stage5-pair-allocation.qf1` uses optional heap extensions to compile dword
   stores, emits a writable executable segment, writes a pair cell into a static
   heap area, reads the car field back, and exits with status `42`.
+- `stage5-bump-alloc.qf1` adds a mutable `HeapNext` cell and performs two pair
+  constructions through it. The generated ELF exits with the first cell's car
+  (`19`), proving the second allocation used the advanced pointer instead of
+  overwriting the first cell.
 
 Still required for the byte-output path:
 
-- bump-pointer pair allocation with heap-next updates, bounds checks, and a GC
-  policy for reclaiming or moving objects
+- a reusable bump-pointer allocator routine, bounds checks, and a GC policy for
+  reclaiming or moving objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

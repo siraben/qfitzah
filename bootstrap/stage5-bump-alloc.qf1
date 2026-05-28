@@ -1,0 +1,88 @@
+; Stage 5 bump-pointer allocation fixture.
+;
+; This advances a HeapNext cell after constructing a pair. The program performs
+; two allocations, then reads the first cell's car. If HeapNext was not updated,
+; the second allocation would overwrite the first car and the exit status would
+; be 42 instead of 19.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax HeapNext)
+        (Seq
+          (CarEax)
+          (Seq
+            (SetEbx 13)
+            (Seq
+              (SetEcx 01)
+              (Seq
+                (StoreCarEbx)
+                (Seq
+                  (StoreCdrEcx)
+                  (Seq
+                    (PushEax)
+                    (Seq
+                      (PushEax)
+                      (Seq
+                        (PopEbx)
+                        (Seq
+                          (IncEbx)
+                          (Seq
+                            (IncEbx)
+                            (Seq
+                              (IncEbx)
+                              (Seq
+                                (IncEbx)
+                                (Seq
+                                  (IncEbx)
+                                  (Seq
+                                    (IncEbx)
+                                    (Seq
+                                      (IncEbx)
+                                      (Seq
+                                        (IncEbx)
+                                        (Seq
+                                          (LoadAddrEax HeapNext)
+                                          (Seq
+                                            (StoreCarEbx)
+                                            (Seq
+                                              (PopEax)
+                                              (Seq
+                                                (LoadAddrEax HeapNext)
+                                                (Seq
+                                                  (CarEax)
+                                                  (Seq
+                                                    (SetEbx 2A)
+                                                    (Seq
+                                                      (SetEcx 01)
+                                                      (Seq
+                                                        (StoreCarEbx)
+                                                        (Seq
+                                                          (StoreCdrEcx)
+                                                          (Seq
+                                                            (LoadAddrEax Heap)
+                                                            (Seq
+                                                              (LoadCarEbx)
+                                                              (ExitReg Ebx)))))))))))))))))))))))))))))
+      (PtrCell HeapNext Heap
+      (Data Heap 00
+      (Data Heap1 00
+      (Data Heap2 00
+      (Data Heap3 00
+      (Data Heap4 00
+      (Data Heap5 00
+      (Data Heap6 00
+      (Data Heap7 00
+      (Data Heap8 00
+      (Data Heap9 00
+      (Data Heap10 00
+      (Data Heap11 00
+      (Data Heap12 00
+      (Data Heap13 00
+      (Data Heap14 00
+      (Data Heap15 00
+      End))))))))))))))))))))

@@ -300,6 +300,11 @@ stores and a writable executable segment, plus
 [bootstrap/qfc4-heap-ext.qf1](bootstrap/qfc4-heap-ext.qf1) to expose those
 operations to qfc4. The generated ELF writes a pair cell into a static heap
 area, reads the car field back, and exits with status `42`.
+[bootstrap/stage5-bump-alloc.qf1](bootstrap/stage5-bump-alloc.qf1) advances
+that into a bump-pointer proof: it loads a `HeapNext` cell, constructs one
+pair, stores the advanced pointer, constructs a second pair through the updated
+pointer, then exits with the first pair's car (`19`) to prove the second
+allocation did not overwrite it.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

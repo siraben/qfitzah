@@ -20,8 +20,20 @@
   StoreCdrEcx)
 
 (Rule
+  (ParseStmt (PopEbx))
+  PopEbx)
+
+(Rule
+  (ParseStmt (IncEbx))
+  IncEbx)
+
+(Rule
   (ParseStmt (LoadCarEbx))
   LoadCarEbx)
+
+(Rule
+  (ParseDefs (PtrCell name ptr rest))
+  (AstPtrCell name ptr (ParseDefs rest)))
 
 (Rule
   (CompileStmt (SetEbx byte))
@@ -40,5 +52,23 @@
   (Do (StoreDwordAtEaxPlus4FromEcx) End))
 
 (Rule
+  (CompileStmt PopEbx)
+  (Do (PopEbx) End))
+
+(Rule
+  (CompileStmt IncEbx)
+  (Do (IncEbx) End))
+
+(Rule
   (CompileStmt LoadCarEbx)
   (Do (LoadEbxCarFromEax) End))
+
+(Rule
+  (CompileDefs (AstPtrCell name ptr rest))
+  (DAppend (CompilePtrCell name ptr) (CompileDefs rest)))
+
+(Rule
+  (CompilePtrCell name ptr)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (DwordLabel ptr) End))))

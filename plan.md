@@ -136,6 +136,10 @@ emit a 221-byte code segment, one byte past the common `N220` range.
 before GC can be meaningful: it compiles dword stores through optional heap
 extensions, writes a pair cell into a static heap area, reads the car field
 back, and exits with status `42`.
+`bootstrap/stage5-bump-alloc.qf1` adds a checked heap-next update: it allocates
+two pair cells through a mutable `HeapNext` pointer and exits with the first
+cell's car (`19`), proving the second allocation used the advanced pointer
+rather than overwriting the first cell.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
