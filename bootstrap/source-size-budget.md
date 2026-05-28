@@ -23,12 +23,15 @@ These checked fixtures fit:
   - content-based `IsBytes`
   - negative final-character path
   - local comparison rules
+- `stage4-is-bytes-content-output.qf1`
+  - content-based `IsBytes`
+  - gates a real byte-output path
+  - emits static `(Bytes 41)` as byte `41`
 
-These attempted combinations currently exceed the seed budget and crash before
-emitting a binary:
+These larger combinations have failed in previous attempts and remain unmerged
+until the common source is smaller or the combination is re-tested:
 
 - general `EmitBytes` plus content-based `IsBytes`
-- flat output path gated by content-based `IsBytes`
 - putting the content-comparison instructions into the common qfasm2/qfasm3/qfc4
   stages instead of keeping them local to a focused fixture
 
@@ -38,8 +41,8 @@ Before merging content-based `IsBytes` into the general compiled `EmitBytes`
 fixture, reduce the always-loaded source:
 
 - split optional qfasm2/qfasm3/qfc4 extensions into per-fixture files
-- replace explicit finite layout tables with generated arithmetic or smaller
-  range-specific local tables
+- continue replacing explicit finite layout tables with generated arithmetic or
+  smaller range-specific local tables
 - add a smaller branch primitive for fail-fast conditionals without growing the
   common compiler source
 

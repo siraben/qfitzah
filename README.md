@@ -269,10 +269,10 @@ compiler small enough for the seed runtime.
 [bootstrap/stage4-is-bytes-content-reject.qf1](bootstrap/stage4-is-bytes-content-reject.qf1)
 uses the same compiled check with a `Bytez` head atom and exits with status `1`,
 covering the negative path. [bootstrap/source-size-budget.md](bootstrap/source-size-budget.md)
-records the current seed-runtime limit that blocks combining the content-based
-check with the full compiled `EmitBytes` fixture until the common stages are
-shrunk or split. The Stage 4 sample programs are also formatted as multi-line
-Qfitzah forms.
+records the current seed-runtime limit for larger combinations.
+[bootstrap/stage4-is-bytes-content-output.qf1](bootstrap/stage4-is-bytes-content-output.qf1)
+uses content-based `IsBytes` to gate real byte output for static `(Bytes 41)`.
+The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
 

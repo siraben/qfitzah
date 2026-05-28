@@ -87,6 +87,8 @@ Progress so far:
 - `stage4-is-bytes-content-reject.qf1` uses the same compiled check with a
   `Bytez` atom and exits with status `1`, covering the negative path for the
   final-character comparison.
+- `stage4-is-bytes-content-output.qf1` uses content-based `IsBytes` to gate a
+  real byte-output path for static `(Bytes 41)`, then emits byte `41`.
 
 Still required for the byte-output path:
 

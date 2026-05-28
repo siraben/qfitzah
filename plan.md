@@ -118,6 +118,8 @@ the closer `is_bytes` head check, recognizing a static `Bytes` atom by length
 and character contents rather than by a shared pointer.
 `bootstrap/stage4-is-bytes-content-reject.qf1` covers the negative path with a
 same-shaped `Bytez` atom.
+`bootstrap/stage4-is-bytes-content-output.qf1` uses the content-based check to
+gate real byte output for static `(Bytes 41)`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
