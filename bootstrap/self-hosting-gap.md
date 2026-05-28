@@ -93,7 +93,8 @@ Still required for the byte-output path:
 - allocation or loading of non-static pair and atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
-  fixture without exceeding the seed runtime's current source-size budget
+  fixture without exceeding the seed runtime's current source-size budget; see
+  `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs
 - integration with evaluated expression output and the normal printer
 

@@ -118,6 +118,9 @@ the closer `is_bytes` head check, recognizing a static `Bytes` atom by length
 and character contents rather than by a shared pointer.
 `bootstrap/stage4-is-bytes-content-reject.qf1` covers the negative path with a
 same-shaped `Bytez` atom.
+`bootstrap/source-size-budget.md` records the current seed-runtime source-size
+boundary that prevents merging content-based `is_bytes` into the full compiled
+`EmitBytes` fixture before the common stages are shrunk or split.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged
