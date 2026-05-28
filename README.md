@@ -143,7 +143,7 @@ It adds a symbolic assembly layer over direct `(Bytes ...)` emission:
 - pass 1 builds a symbol table from `(Label name)` forms
 - pass 2 emits instruction bytes and resolves labels
 - `(Jump label)` computes a short PC-relative offset
-- `(Call label)` computes a direct call displacement for the bootstrap range
+- `(Call label)` computes a signed direct call displacement for the bootstrap range
 - ELF `p_filesz`/`p_memsz` are selected from the assembled code size
 
 The current implementation intentionally uses finite arithmetic tables for the
@@ -233,7 +233,14 @@ For input byte `41` (`A`), the generated ELF exits with status `10`.
 next byte-output step. It reads two static ASCII hex digits, calls `Nybble` for
 each, combines the high and low nybbles into a byte, and invokes Linux
 `write(1, sp, 1)` to emit that byte. The generated ELF writes byte `41`
-(`A`) to stdout and exits with status `0`. The Stage 4 sample programs are also
+(`A`) to stdout and exits with status `0`.
+
+[bootstrap/stage4-emit-bytes.qf1](bootstrap/stage4-emit-bytes.qf1) compiles a
+recursive `EmitBytes`-shaped routine. It keeps a byte pointer in `ECX`, a count
+in `EDX`, writes the current byte, advances the pointer, decrements the count,
+and recursively calls itself until the count reaches zero. The generated ELF
+writes bytes `41 42 43 44 45` (`ABCDE`). This example requires qfasm2 to encode
+a signed backward call displacement. The Stage 4 sample programs are also
 formatted as multi-line Qfitzah forms.
 
 ## Tests
@@ -245,10 +252,10 @@ nix flake check
 The test suite covers basic rewriting, fast multi-line piped input, repeated
 pattern variables, structural equality for repeated list-valued variables,
 unmatched template variables, reader ergonomics, empty-list matching, nested
-byte-stream flattening, the example compilers, and the Qfitzah-hosted assembler
-stage. Test programs live in `tests/cases/*.qf1`, with expected snippets in
-matching `.expected` files and forbidden snippets in optional `.unexpected`
-files.
+byte-stream flattening, the example compilers, the Qfitzah-hosted assembler
+stages, and runnable Stage 4 byte-output runtime slices. Test programs live in
+`tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
+forbidden snippets in optional `.unexpected` files.
 
 You can also run it against a built binary:
 

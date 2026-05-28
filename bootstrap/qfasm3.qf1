@@ -25,6 +25,10 @@
   (Ins (PushEcx) (Save rest)))
 
 (Rule
+  (Save (Clob Edx rest))
+  (Ins (PushEdx) (Save rest)))
+
+(Rule
   (Restore Empty)
   End)
 
@@ -35,6 +39,10 @@
 (Rule
   (Restore (Clob Ecx rest))
   (Append (Restore rest) (Ins (PopEcx) End)))
+
+(Rule
+  (Restore (Clob Edx rest))
+  (Append (Restore rest) (Ins (PopEdx) End)))
 
 (Rule
   (MoveArgs Empty)
@@ -85,8 +93,20 @@
   (Ins (IncEbx) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (IncEcx) rest) scope)
+  (Ins (IncEcx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (DecEdx) rest) scope)
+  (Ins (DecEdx) (Expand rest scope)))
+
+(Rule
   (Expand (Do (LoadByteEbx) rest) scope)
   (Ins (LoadByteEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadByteEbxFromEcx) rest) scope)
+  (Ins (LoadByteEbxFromEcx) (Expand rest scope)))
 
 (Rule
   (Expand (Do (SubEbxImm8 byte) rest) scope)
@@ -95,6 +115,10 @@
 (Rule
   (Expand (Do (CmpEbxImm8 byte) rest) scope)
   (Ins (CmpEbxImm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEdxImm8 byte) rest) scope)
+  (Ins (CmpEdxImm8 byte) (Expand rest scope)))
 
 (Rule
   (Expand (Do (ShlEcxImm8 byte) rest) scope)
@@ -113,8 +137,24 @@
   (Ins (PushEbx) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (PushEcx) rest) scope)
+  (Ins (PushEcx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PushEdx) rest) scope)
+  (Ins (PushEdx) (Expand rest scope)))
+
+(Rule
   (Expand (Do (PopEbx) rest) scope)
   (Ins (PopEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PopEcx) rest) scope)
+  (Ins (PopEcx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PopEdx) rest) scope)
+  (Ins (PopEdx) (Expand rest scope)))
 
 (Rule
   (Expand (Do (OrEbxEcx) rest) scope)

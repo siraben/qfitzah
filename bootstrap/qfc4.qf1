@@ -39,6 +39,10 @@
   (Frame (Save Ecx)))
 
 (Rule
+  (ParseFrame (Preserve Edx))
+  (Frame (Save Edx)))
+
+(Rule
   (ParseStmt (Exit value))
   (Exit (ParseExpr value)))
 
@@ -55,12 +59,36 @@
   (LoadByteEbx name))
 
 (Rule
+  (ParseStmt (LoadAddrEcx name))
+  (LoadAddrEcx name))
+
+(Rule
+  (ParseStmt (LoadByteEbxFromEcx))
+  LoadByteEbxFromEcx)
+
+(Rule
   (ParseStmt (SubEbx byte))
   (SubEbx byte))
 
 (Rule
   (ParseStmt (CmpEbx byte))
   (CmpEbx byte))
+
+(Rule
+  (ParseStmt (SetEdx byte))
+  (SetEdx byte))
+
+(Rule
+  (ParseStmt (CmpEdx byte))
+  (CmpEdx byte))
+
+(Rule
+  (ParseStmt (IncEcx))
+  IncEcx)
+
+(Rule
+  (ParseStmt (DecEdx))
+  DecEdx)
 
 (Rule
   (ParseStmt (MoveEcxEbx))
@@ -89,6 +117,10 @@
 (Rule
   (ParseStmt (IfBelowEq name then else))
   (IfBelowEq name (ParseStmt then) (ParseStmt else)))
+
+(Rule
+  (ParseStmt (IfZero name then else))
+  (IfZero name (ParseStmt then) (ParseStmt else)))
 
 (Rule
   (ParseStmt (Nop))
@@ -150,6 +182,10 @@
   (CompileFrame (Frame (Save Ecx)))
   (Clob Ecx Empty))
 
+(Rule
+  (CompileFrame (Frame (Save Edx)))
+  (Clob Edx Empty))
+
 ; Module and procedure generation.
 (Rule
   (CompileProgram (AstProgram entry defs))
@@ -195,12 +231,36 @@
   (Do (MovEbxLabel name) (Do (LoadByteEbx) End)))
 
 (Rule
+  (CompileStmt (LoadAddrEcx name))
+  (Do (MovEcxLabel name) End))
+
+(Rule
+  (CompileStmt LoadByteEbxFromEcx)
+  (Do (LoadByteEbxFromEcx) End))
+
+(Rule
   (CompileStmt (SubEbx byte))
   (Do (SubEbxImm8 byte) End))
 
 (Rule
   (CompileStmt (CmpEbx byte))
   (Do (CmpEbxImm8 byte) End))
+
+(Rule
+  (CompileStmt (SetEdx byte))
+  (Do (MovEdxImm32 byte) End))
+
+(Rule
+  (CompileStmt (CmpEdx byte))
+  (Do (CmpEdxImm8 byte) End))
+
+(Rule
+  (CompileStmt IncEcx)
+  (Do (IncEcx) End))
+
+(Rule
+  (CompileStmt DecEdx)
+  (Do (DecEdx) End))
 
 (Rule
   (CompileStmt MoveEcxEbx)
@@ -231,18 +291,32 @@
 (Rule
   (CompileStmt WriteByteFromEbx)
   (Do
-    (PushEbx)
+    (PushEcx)
     (Do
-      (MovEaxImm32 04)
+      (PushEdx)
       (Do
-        (MovEbxImm32 01)
+        (PushEbx)
         (Do
-          (MovEcxEsp)
-          (Do (MovEdxImm32 01) (Do (Int 80) End)))))))
+          (MovEaxImm32 04)
+          (Do
+            (MovEbxImm32 01)
+            (Do
+              (MovEcxEsp)
+              (Do
+                (MovEdxImm32 01)
+                (Do
+                  (Int 80)
+                  (Do
+                    (PopEbx)
+                    (Do (PopEdx) (Do (PopEcx) End))))))))))))
 
 (Rule
   (CompileStmt (IfBelowEq name then else))
   (Do (IfBelowEq name (CompileStmt then) (CompileStmt else)) End))
+
+(Rule
+  (CompileStmt (IfZero name then else))
+  (Do (IfZero name (CompileStmt then) (CompileStmt else)) End))
 
 (Rule
   (CompileStmt Nop)

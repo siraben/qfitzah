@@ -36,8 +36,9 @@ Implemented as `bootstrap/qfasm2.qf1`, a Qfitzah-hosted assembler rule file.
 It runs under `qfitzah`, resolves symbolic labels, emits a complete i386 ELF
 binary, and is tested with runnable output. The current arithmetic tables cover
 the small bootstrap range. Branch lowering currently covers short jumps and
-direct calls in that range; widening to fully automatic short-vs-near jump
-selection remains part of making this stage general.
+signed direct calls in that range, including backward recursive calls; widening
+to fully automatic short-vs-near jump selection remains part of making this
+stage general.
 
 ---
 
@@ -98,10 +99,12 @@ Current self-hosting progress: `bootstrap/stage4-nybble.qf1` compiles the
 `nybble` routine shape from `qfitzah.s` through qfc4 -> qfasm3 -> qfasm2 into a
 runnable ELF. This proves calls, static data loads, byte arithmetic, compare,
 and conditional branch lowering for one real runtime subsystem. It is not yet
-enough for `emit_byte`, recursive `emit_bytes`, or the full interpreter.
+enough for `is_bytes`, Qfitzah object traversal, or the full interpreter.
 `bootstrap/stage4-emit-byte.qf1` extends this by compiling an `emit_byte`-shaped
 routine that calls `Nybble` twice, combines the nybbles, and writes byte `41`
-to stdout from the generated ELF.
+to stdout from the generated ELF. `bootstrap/stage4-emit-bytes.qf1` adds a
+recursive `EmitBytes`-shaped byte-span walker that writes `ABCDE` and requires a
+signed backward call displacement.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged

@@ -1,0 +1,50 @@
+; Recursive byte-output runtime target.
+;
+; This compiles an emit_bytes-shaped routine that walks a static byte span.
+; ECX holds the current byte address and EDX holds the remaining byte count.
+; The recursive call is intentionally backward so qfasm2 must emit a signed
+; relative call displacement.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEcx Payload)
+        (Seq
+          (SetEdx 05)
+          (Seq
+            (CallProc EmitBytes)
+            (Exit (Literal 00)))))
+      (Def
+        EmitBytes
+        NoFrame
+        (Seq
+          (CmpEdx 00)
+          (IfZero
+            Done
+            (Return)
+            (Seq
+              (LoadByteEbxFromEcx)
+              (Seq
+                (WriteByteFromEbx)
+                (Seq
+                  (IncEcx)
+                  (Seq
+                    (DecEdx)
+                    (CallProc EmitBytes)))))))
+        (Data
+          Payload
+          41
+          (Data
+            Payload1
+            42
+            (Data
+              Payload2
+              43
+              (Data
+                Payload3
+                44
+                (Data Payload4 45 End)))))))))

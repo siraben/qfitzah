@@ -38,7 +38,8 @@ The current qfc4 compiler slice only covers a tiny source subset:
 - exit statements
 - literals, zero, add-one, tagged constants
 - a zero-match conditional
-- one frame-preservation request
+- byte loads, byte stores through `write(2)`, small register arithmetic, and
+  frame-preservation requests for the bootstrap byte-output path
 
 That is enough to prove the staged assembler/compiler pipeline, but not enough
 to compile the interpreter.
@@ -63,14 +64,18 @@ Progress so far:
 - `stage4-emit-byte.qf1` compiles the next routine shape: load two ASCII hex
   digits, call `Nybble` twice, combine high/low nybbles, and write one byte to
   stdout. The generated ELF writes byte `41` (`A`) and exits with status `0`.
+- `stage4-emit-bytes.qf1` compiles a recursive `EmitBytes`-shaped byte-span
+  walker. It loads bytes through `ECX`, preserves `ECX` and `EDX` around
+  `write(2)`, decrements a count in `EDX`, and performs a backward recursive
+  call until the count reaches zero. The generated ELF writes `ABCDE`.
 
 Still required for the byte-output path:
 
 - memory loads from pair and atom objects, not just static bytes
 - conditionals over tag bits and byte comparisons
-- loops or tail calls over `(Bytes ...)` lists
+- tail calls over real `(Bytes ...)` cons lists
 - enough data layout notation to express Qfitzah objects
-- compiled `is_bytes` and recursive `emit_bytes`
+- compiled `is_bytes` and recursive `emit_bytes` over tagged Qfitzah objects
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
 

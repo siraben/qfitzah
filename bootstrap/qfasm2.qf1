@@ -221,6 +221,8 @@
 (Sub n m) (Sub (Dec n) (Dec m))
 (Sub n N0) n
 (Sub n n) N0
+(Sub N0 n) (Neg n)
+(Sub N0 N0) N0
 
 (Byte N0) 00
 (Byte N1) 01
@@ -323,6 +325,109 @@
 (Byte N98) 62
 (Byte N99) 63
 (Byte N100) 64
+(Byte (Neg N1)) FF
+(Byte (Neg N2)) FE
+(Byte (Neg N3)) FD
+(Byte (Neg N4)) FC
+(Byte (Neg N5)) FB
+(Byte (Neg N6)) FA
+(Byte (Neg N7)) F9
+(Byte (Neg N8)) F8
+(Byte (Neg N9)) F7
+(Byte (Neg N10)) F6
+(Byte (Neg N11)) F5
+(Byte (Neg N12)) F4
+(Byte (Neg N13)) F3
+(Byte (Neg N14)) F2
+(Byte (Neg N15)) F1
+(Byte (Neg N16)) F0
+(Byte (Neg N17)) EF
+(Byte (Neg N18)) EE
+(Byte (Neg N19)) ED
+(Byte (Neg N20)) EC
+(Byte (Neg N21)) EB
+(Byte (Neg N22)) EA
+(Byte (Neg N23)) E9
+(Byte (Neg N24)) E8
+(Byte (Neg N25)) E7
+(Byte (Neg N26)) E6
+(Byte (Neg N27)) E5
+(Byte (Neg N28)) E4
+(Byte (Neg N29)) E3
+(Byte (Neg N30)) E2
+(Byte (Neg N31)) E1
+(Byte (Neg N32)) E0
+(Byte (Neg N33)) DF
+(Byte (Neg N34)) DE
+(Byte (Neg N35)) DD
+(Byte (Neg N36)) DC
+(Byte (Neg N37)) DB
+(Byte (Neg N38)) DA
+(Byte (Neg N39)) D9
+(Byte (Neg N40)) D8
+(Byte (Neg N41)) D7
+(Byte (Neg N42)) D6
+(Byte (Neg N43)) D5
+(Byte (Neg N44)) D4
+(Byte (Neg N45)) D3
+(Byte (Neg N46)) D2
+(Byte (Neg N47)) D1
+(Byte (Neg N48)) D0
+(Byte (Neg N49)) CF
+(Byte (Neg N50)) CE
+(Byte (Neg N51)) CD
+(Byte (Neg N52)) CC
+(Byte (Neg N53)) CB
+(Byte (Neg N54)) CA
+(Byte (Neg N55)) C9
+(Byte (Neg N56)) C8
+(Byte (Neg N57)) C7
+(Byte (Neg N58)) C6
+(Byte (Neg N59)) C5
+(Byte (Neg N60)) C4
+(Byte (Neg N61)) C3
+(Byte (Neg N62)) C2
+(Byte (Neg N63)) C1
+(Byte (Neg N64)) C0
+(Byte (Neg N65)) BF
+(Byte (Neg N66)) BE
+(Byte (Neg N67)) BD
+(Byte (Neg N68)) BC
+(Byte (Neg N69)) BB
+(Byte (Neg N70)) BA
+(Byte (Neg N71)) B9
+(Byte (Neg N72)) B8
+(Byte (Neg N73)) B7
+(Byte (Neg N74)) B6
+(Byte (Neg N75)) B5
+(Byte (Neg N76)) B4
+(Byte (Neg N77)) B3
+(Byte (Neg N78)) B2
+(Byte (Neg N79)) B1
+(Byte (Neg N80)) B0
+(Byte (Neg N81)) AF
+(Byte (Neg N82)) AE
+(Byte (Neg N83)) AD
+(Byte (Neg N84)) AC
+(Byte (Neg N85)) AB
+(Byte (Neg N86)) AA
+(Byte (Neg N87)) A9
+(Byte (Neg N88)) A8
+(Byte (Neg N89)) A7
+(Byte (Neg N90)) A6
+(Byte (Neg N91)) A5
+(Byte (Neg N92)) A4
+(Byte (Neg N93)) A3
+(Byte (Neg N94)) A2
+(Byte (Neg N95)) A1
+(Byte (Neg N96)) A0
+(Byte (Neg N97)) 9F
+(Byte (Neg N98)) 9E
+(Byte (Neg N99)) 9D
+(Byte (Neg N100)) 9C
+
+(Rel32 n) (Bytes (Byte n) 00 00 00)
+(Rel32 (Neg n)) (Bytes (Byte (Neg n)) FF FF FF)
 
 ; Virtual addresses for labels at code offsets from the ELF entry point
 ; 0x08048054.
@@ -541,18 +646,24 @@
 (Size (IncEbx)) N1
 (Size (PushEcx)) N1
 (Size (PushEbx)) N1
+(Size (PushEdx)) N1
 (Size (PopEcx)) N1
 (Size (PopEbx)) N1
+(Size (PopEdx)) N1
 (Size (Db byte)) N1
 (Size (Int byte)) N2
+(Size (IncEcx)) N1
+(Size (DecEdx)) N1
 (Size (XorEbxEbx)) N2
 (Size (Jump label)) N2
 (Size (Jz label)) N2
 (Size (Jnz label)) N2
 (Size (Jbe label)) N2
 (Size (LoadByteEbx)) N3
+(Size (LoadByteEbxFromEcx)) N3
 (Size (SubEbxImm8 byte)) N3
 (Size (CmpEbxImm8 byte)) N3
+(Size (CmpEdxImm8 byte)) N3
 (Size (ShlEcxImm8 byte)) N3
 (Size (Call label)) N5
 (Size (MovEcxEbx)) N2
@@ -582,14 +693,20 @@
 (Pass2 (Ins (IncEbx) rest) pc sym) (Bytes 43 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEcx) rest) pc sym) (Bytes 51 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEbx) rest) pc sym) (Bytes 53 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PushEdx) rest) pc sym) (Bytes 52 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEcx) rest) pc sym) (Bytes 59 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEbx) rest) pc sym) (Bytes 5B (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PopEdx) rest) pc sym) (Bytes 5A (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Db byte) rest) pc sym) (Bytes byte (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Int byte) rest) pc sym) (Bytes CD byte (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (IncEcx) rest) pc sym) (Bytes 41 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (DecEdx) rest) pc sym) (Bytes 4A (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (XorEbxEbx) rest) pc sym) (Bytes 31 DB (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (LoadByteEbx) rest) pc sym) (Bytes 0F B6 1B (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (LoadByteEbxFromEcx) rest) pc sym) (Bytes 0F B6 19 (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (SubEbxImm8 byte) rest) pc sym) (Bytes 83 EB byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (CmpEbxImm8 byte) rest) pc sym) (Bytes 83 FB byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (CmpEdxImm8 byte) rest) pc sym) (Bytes 83 FA byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (ShlEcxImm8 byte) rest) pc sym) (Bytes C1 E1 byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (MovEcxEbx) rest) pc sym) (Bytes 89 D9 (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (MovEcxEsp) rest) pc sym) (Bytes 89 E1 (Pass2 rest (Add pc N2) sym))
@@ -606,7 +723,7 @@
 (Pass2 (Ins (Jz label) rest) pc sym) (Bytes 74 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jnz label) rest) pc sym) (Bytes 75 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jbe label) rest) pc sym) (Bytes 76 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
-(Pass2 (Ins (Call label) rest) pc sym) (Bytes E8 (Byte (Sub (Lookup label sym) (Add pc N5))) 00 00 00 (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (Call label) rest) pc sym) (Bytes E8 (Rel32 (Sub (Lookup label sym) (Add pc N5))) (Pass2 rest (Add pc N5) sym))
 
 ; ELF emission.
 (ElfHeader entry size) (Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (Addr entry) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (FileSize size) (FileSize size) 05 00 00 00 00 10 00 00)
