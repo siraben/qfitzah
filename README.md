@@ -342,7 +342,12 @@ after the copied root, and exits with the copied car (`19`).
 extends that proof to a two-pair graph: the root pair's cdr points at a second
 pair, recovery copies both cells, rewrites the copied cdr to the new tail, then
 allocates after the copied graph. The generated ELF exits with the copied tail
-car (`19`), so an uncopied or overwritten tail is observable.
+car (`19`). The old tail is deliberately reused for the retry allocation and
+overwritten with `42`, so a missed cdr rewrite is observable.
+[bootstrap/qfc4-copy-ext.qf1](bootstrap/qfc4-copy-ext.qf1) and
+[bootstrap/stage5-copy-graph-gc-qfc4.qf1](bootstrap/stage5-copy-graph-gc-qfc4.qf1)
+lift that fixed graph-copy proof through qfc4 with compact staged copy
+statements.
 [bootstrap/stage5-copy-list-gc.qf1](bootstrap/stage5-copy-list-gc.qf1)
 replaces that fixed-shape copy with a loop over a nil-terminated pair list. It
 uses a `LinkSlot` cell to thread the root slot and copied cdr fields, copies a

@@ -169,7 +169,12 @@ single deeply nested compiler input.
 `bootstrap/stage5-copy-graph-gc.qf1` extends that qfasm2-level recovery proof
 to a two-pair graph: the copied root's cdr is rewritten to the copied tail,
 allocation resumes after both copied cells, and the ELF exits with the copied
-tail car (`19`).
+tail car (`19`). The fixture now reuses the old tail as the retry allocation
+cell, so a missed cdr rewrite exits `42`.
+`bootstrap/stage5-copy-graph-gc-qfc4.qf1` lifts the same fixed graph-copy shape
+through qfc4 using the optional `bootstrap/qfc4-copy-ext.qf1` statement layer.
+That keeps the staged source below the seed runtime's practical rule budget
+while still lowering the copy operations through Qfitzah rules.
 `bootstrap/stage5-copy-list-gc.qf1` replaces the fixed two-cell shape with a
 loop over a nil-terminated list. It threads a `LinkSlot` through the root slot
 and copied cdr fields, copies three pairs until nil, then proves old internal

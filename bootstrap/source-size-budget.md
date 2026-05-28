@@ -91,6 +91,15 @@ These checked fixtures fit:
   - copies a root pair and its tail pair, rewrites the copied root's cdr to the
     copied tail, resumes allocation after both copied cells, and exits with the
     copied tail car (`19`)
+  - reuses the old tail as the retry allocation cell, so a stale internal
+    pointer would exit `42`
+- `stage5-copy-graph-gc-qfc4.qf1`
+  - uses `qfc4-copy-ext.qf1` with the plain qfc4 heap path
+  - compacts repeated copy/update instruction sequences into optional qfc4
+    statement rules; loading the heap-check extension in the same combination
+    still exceeds the seed runtime's stable budget
+  - proves the fixed two-cell graph-copy shape through qfc4 and exits with the
+    copied tail car (`19`)
 - `stage5-copy-list-gc.qf1`
   - uses `qfasm-stage5-list-ext.qf1` to keep the larger traversal range local
   - traverses a nil-terminated pair list with a `LinkSlot` update cell

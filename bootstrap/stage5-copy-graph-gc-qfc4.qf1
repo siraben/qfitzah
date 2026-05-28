@@ -1,0 +1,67 @@
+; Stage 5 two-pair graph-copy recovery lifted through qfc4.
+;
+; Compile with qfc4-copy-ext.qf1. Root points at OldRoot, whose cdr points at
+; OldTail. The staged source copies OldRoot into Heap, copies OldTail into
+; HeapTail, rewrites the copied root's cdr to HeapTail, updates Root, and
+; advances HeapNext to HeapAfterCopied.
+; For this fixture HeapAfterCopied is the old tail, so AllocAfterCopy overwrites
+; the old tail with 42. The final read follows Root through the copied cdr and
+; exits with the copied tail car, 19; a missed cdr rewrite exits 42.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (CopyPairFromPtrCell Heap Root)
+        (Seq
+          (CopyPairFromCdrOfPtrCell HeapTail Root)
+          (Seq
+            (StoreCdrPtr Heap HeapTail)
+            (Seq
+              (SetPtrCell Root Heap)
+              (Seq
+                (SetPtrCell HeapNext OldTail)
+                (Seq
+                  (AllocAtNext 2A 01)
+                  (Seq
+                    (LoadAddrEax Root)
+                    (Seq
+                      (CarEax)
+                      (Seq
+                        (CdrEax)
+                        (Seq
+                          (LoadCarEbx)
+                          (ExitReg Ebx)))))))))))
+          (PtrCell HeapNext Heap
+          (PtrCell Root OldRoot
+          (Data Heap 00
+          (Data Heap1 00
+          (Data Heap2 00
+          (Data Heap3 00
+          (Data Heap4 00
+          (Data Heap5 00
+          (Data Heap6 00
+          (Data Heap7 00
+          (Data HeapTail 00
+          (Data HeapTail1 00
+          (Data HeapTail2 00
+          (Data HeapTail3 00
+          (Data HeapTail4 00
+          (Data HeapTail5 00
+          (Data HeapTail6 00
+          (Data HeapTail7 00
+          (Data OldTail 13
+          (Data OldTail1 00
+          (Data OldTail2 00
+          (Data OldTail3 00
+          (Data OldTail4 01
+          (Data OldTail5 00
+          (Data OldTail6 00
+          (Data OldTail7 00
+          (PtrCell OldRoot Heap
+          (PtrCell OldRootCdr OldTail
+          End))))))))))))))))))))))))))))
+)))

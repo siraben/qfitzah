@@ -139,7 +139,12 @@ Progress so far:
 - `stage5-copy-graph-gc.qf1` extends that to one internal pointer: overflow
   copies a root pair and its tail pair, rewrites the copied root's cdr to the
   copied tail, allocates after both copied cells, and exits with the copied tail
-  car (`19`).
+  car (`19`). The old tail is reused as the retry allocation cell, so an
+  unrevised internal pointer exits `42`.
+- `stage5-copy-graph-gc-qfc4.qf1` lifts the same fixed graph-copy shape through
+  qfc4. It uses the optional `qfc4-copy-ext.qf1` statement layer to keep the
+  staged source small while compiling copy, root update, and retry allocation
+  operations through Qfitzah rules.
 - `stage5-copy-list-gc.qf1` replaces the fixed two-cell copy with a traversal
   loop over a nil-terminated pair list. It threads a `LinkSlot` through the root
   slot and copied cdr fields, copies three pairs, overwrites the old tail, then
@@ -147,8 +152,8 @@ Progress so far:
 
 Still required for the byte-output path:
 
-- lifting graph/list traversal through qfc4, then replacing the list-only
-  traversal proof with traversal of arbitrary live objects
+- lifting list traversal through qfc4, then replacing the list-only traversal
+  proof with traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

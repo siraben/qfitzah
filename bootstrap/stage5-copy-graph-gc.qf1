@@ -4,8 +4,9 @@
 ; path copies OldRoot to Heap, copies OldTail to HeapTail, updates Root to the
 ; new OldRoot copy, updates the copied cdr to the new OldTail copy, allocates
 ; one more pair after the copied graph, and exits with the copied tail car, 19.
-; If the internal pointer were not updated, this would read the old tail; if the
-; retry allocation overwrote the copied tail, this would exit 42.
+; OldTail is deliberately aliased to HeapAfterCopied, so the retry allocation
+; overwrites the old tail with 42. If the copied cdr still pointed at the old
+; tail, the final exit would be 42 instead of 19.
 
 (Assemble
   (Program
@@ -92,20 +93,12 @@
     (Ins (Db 00)
     (Ins (Db 00)
     (Ins (Label HeapAfterCopied)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
-    (Ins (Db 00)
+    (Ins (Label OldTail)
+    (Ins (Dword 13)
+    (Ins (Dword 01)
     (Ins (Label HeapLimit)
     (Ins (Db 00)
     (Ins (Label OldRoot)
     (Ins (Dword 07)
     (Ins (DwordLabel OldTail)
-    (Ins (Label OldTail)
-    (Ins (Dword 13)
-    (Ins (Dword 01)
-    End))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+    End))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))

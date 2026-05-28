@@ -1,0 +1,109 @@
+; Optional qfc4 copy/recovery surface.
+;
+; These compact statement forms keep the graph-copy fixture below the seed
+; interpreter's practical source budget while still lowering through qfc4 rules
+; into qfasm3/qfasm2 instructions.
+
+(Rule
+  (ParseStmt (CopyPairFromPtrCell dst src))
+  (CopyPairFromPtrCell dst src))
+
+(Rule
+  (ParseStmt (CopyPairFromCdrOfPtrCell dst src))
+  (CopyPairFromCdrOfPtrCell dst src))
+
+(Rule
+  (ParseStmt (StoreCdrPtr dst ptr))
+  (StoreCdrPtr dst ptr))
+
+(Rule
+  (ParseStmt (SetPtrCell cell ptr))
+  (SetPtrCell cell ptr))
+
+(Rule
+  (ParseStmt (AllocAtNext car cdr))
+  (AllocAtNext car cdr))
+
+(Rule
+  (CompileStmt (CopyPairFromPtrCell dst src))
+  (Do
+    (MovEaxLabel src)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (LoadEbxCarFromEax)
+          (Do
+            (MovEaxLabel dst)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (PopEax)
+                (Do
+                  (LoadEcxCdrFromEax)
+                  (Do
+                    (MovEaxLabel dst)
+                    (Do (StoreDwordAtEaxPlus4FromEcx) End)))))))))))
+
+(Rule
+  (CompileStmt (CopyPairFromCdrOfPtrCell dst src))
+  (Do
+    (MovEaxLabel src)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCdr)
+        (Do
+          (PushEax)
+          (Do
+            (LoadEbxCarFromEax)
+            (Do
+              (MovEaxLabel dst)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (PopEax)
+                  (Do
+                    (LoadEcxCdrFromEax)
+                    (Do
+                      (MovEaxLabel dst)
+                      (Do (StoreDwordAtEaxPlus4FromEcx) End))))))))))))
+
+(Rule
+  (CompileStmt (StoreCdrPtr dst ptr))
+  (Do
+    (MovEcxLabel ptr)
+    (Do (MovEaxLabel dst) (Do (StoreDwordAtEaxPlus4FromEcx) End))))
+
+(Rule
+  (CompileStmt (SetPtrCell cell ptr))
+  (Do
+    (MovEbxLabel ptr)
+    (Do (MovEaxLabel cell) (Do (StoreDwordAtEaxFromEbx) End))))
+
+(Rule
+  (CompileStmt (AllocAtNext car cdr))
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEbxEax)
+          (Do
+            (AddEbxImm8 08)
+            (Do
+              (MovEaxLabel HeapNext)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (PopEax)
+                  (Do
+                    (MovEbxImm32 car)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (MovEcxImm32 cdr)
+                        (Do (StoreDwordAtEaxPlus4FromEcx) End)))))))))))))
