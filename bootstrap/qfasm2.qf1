@@ -241,17 +241,23 @@
 (Size (IncEbx)) N1
 (Size (PushEcx)) N1
 (Size (PopEcx)) N1
+(Size (Db byte)) N1
 (Size (Int byte)) N2
 (Size (XorEbxEbx)) N2
 (Size (Jump label)) N2
 (Size (Jz label)) N2
 (Size (Jnz label)) N2
+(Size (Jbe label)) N2
+(Size (LoadByteEbx)) N3
+(Size (SubEbxImm8 byte)) N3
+(Size (CmpEbxImm8 byte)) N3
 (Size (Call label)) N5
 (Size (MovEaxImm32 byte)) N5
 (Size (MovEbxImm32 byte)) N5
 (Size (MovEcxImm32 byte)) N5
 (Size (MovEdxImm32 byte)) N5
 (Size (MovEaxLabel label)) N5
+(Size (MovEbxLabel label)) N5
 
 (Pass1 End pc sym) sym
 (Pass1 (Ins instr rest) pc sym) (Pass1 rest (Add pc (Size instr)) sym)
@@ -268,16 +274,22 @@
 (Pass2 (Ins (IncEbx) rest) pc sym) (Bytes 43 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEcx) rest) pc sym) (Bytes 51 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEcx) rest) pc sym) (Bytes 59 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (Db byte) rest) pc sym) (Bytes byte (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Int byte) rest) pc sym) (Bytes CD byte (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (XorEbxEbx) rest) pc sym) (Bytes 31 DB (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (LoadByteEbx) rest) pc sym) (Bytes 0F B6 1B (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (SubEbxImm8 byte) rest) pc sym) (Bytes 83 EB byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (CmpEbxImm8 byte) rest) pc sym) (Bytes 83 FB byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (MovEaxImm32 byte) rest) pc sym) (Bytes B8 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEbxImm32 byte) rest) pc sym) (Bytes BB byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEcxImm32 byte) rest) pc sym) (Bytes B9 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEdxImm32 byte) rest) pc sym) (Bytes BA byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEaxLabel label) rest) pc sym) (Bytes B8 (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEbxLabel label) rest) pc sym) (Bytes BB (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (Jump label) rest) pc sym) (Bytes EB (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jz label) rest) pc sym) (Bytes 74 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jnz label) rest) pc sym) (Bytes 75 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (Jbe label) rest) pc sym) (Bytes 76 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Call label) rest) pc sym) (Bytes E8 (Byte (Sub (Lookup label sym) (Add pc N5))) 00 00 00 (Pass2 rest (Add pc N5) sym))
 
 ; ELF emission.

@@ -12,11 +12,20 @@
 (ParseProgram (Source entry defs)) (AstProgram entry (ParseDefs defs))
 (ParseDefs End) End
 (ParseDefs (Def name frame body rest)) (AstDef name (ParseFrame frame) (ParseStmt body) (ParseDefs rest))
+(ParseDefs (Data name byte rest)) (AstData name byte (ParseDefs rest))
 
 (ParseFrame NoFrame) NoFrame
 (ParseFrame (Preserve Ecx)) (Frame (Save Ecx))
 
 (ParseStmt (Exit value)) (Exit (ParseExpr value))
+(ParseStmt (ExitReg Ebx)) (ExitReg Ebx)
+(ParseStmt (CallProc name)) (CallProc name)
+(ParseStmt (LoadByteEbx name)) (LoadByteEbx name)
+(ParseStmt (SubEbx byte)) (SubEbx byte)
+(ParseStmt (CmpEbx byte)) (CmpEbx byte)
+(ParseStmt (IfBelowEq name then else)) (IfBelowEq name (ParseStmt then) (ParseStmt else))
+(ParseStmt (Nop)) Nop
+(ParseStmt (Return)) Return
 (ParseStmt (Seq first rest)) (Seq (ParseStmt first) (ParseStmt rest))
 
 (ParseExpr (Literal byte)) (Literal byte)
@@ -48,10 +57,20 @@
 (CompileProgram (AstProgram entry defs)) (M3Program entry (CompileDefs defs))
 (CompileDefs End) End
 (CompileDefs (AstDef name frame body rest)) (DAppend (CompileDef name frame body) (CompileDefs rest))
+(CompileDefs (AstData name byte rest)) (DAppend (CompileData name byte) (CompileDefs rest))
 (CompileDef name frame body) (Do (Proc name (CompileFrame frame) (CompileStmt body)) End)
+(CompileData name byte) (Do (Label name) (Do (Db byte) End))
 
 ; Statement generation.
 (CompileStmt (Exit value)) (DAppend (CompileEbx value) (Do (MovEaxImm32 01) (Do (Int 80) End)))
+(CompileStmt (ExitReg Ebx)) (Do (MovEaxImm32 01) (Do (Int 80) End))
+(CompileStmt (CallProc name)) (Do (Invoke name Empty) End)
+(CompileStmt (LoadByteEbx name)) (Do (MovEbxLabel name) (Do (LoadByteEbx) End))
+(CompileStmt (SubEbx byte)) (Do (SubEbxImm8 byte) End)
+(CompileStmt (CmpEbx byte)) (Do (CmpEbxImm8 byte) End)
+(CompileStmt (IfBelowEq name then else)) (Do (IfBelowEq name (CompileStmt then) (CompileStmt else)) End)
+(CompileStmt Nop) (Do (Nop) End)
+(CompileStmt Return) End
 (CompileStmt (Seq first rest)) (DAppend (CompileStmt first) (CompileStmt rest))
 
 ; Expression generation: all expression compilers leave the result in EBX.

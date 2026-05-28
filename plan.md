@@ -93,6 +93,12 @@ express the whole `qfitzah.s` runtime. See
 `bootstrap/self-hosting-gap.md` for the concrete missing runtime mechanisms and
 the next subsystem-sized milestone.
 
+Current self-hosting progress: `bootstrap/stage4-nybble.qf1` compiles the
+`nybble` routine shape from `qfitzah.s` through qfc4 -> qfasm3 -> qfasm2 into a
+runnable ELF. This proves calls, static data loads, byte arithmetic, compare,
+and conditional branch lowering for one real runtime subsystem. It is not yet
+enough for `emit_byte`, recursive `emit_bytes`, or the full interpreter.
+
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.
 - [ ] **Task 5.2: Compile Multiple Dispatch Tables**

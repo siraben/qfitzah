@@ -27,16 +27,25 @@
 (Expand (Do (Int byte) rest) scope) (Ins (Int byte) (Expand rest scope))
 (Expand (Do (XorEbxEbx) rest) scope) (Ins (XorEbxEbx) (Expand rest scope))
 (Expand (Do (IncEbx) rest) scope) (Ins (IncEbx) (Expand rest scope))
+(Expand (Do (LoadByteEbx) rest) scope) (Ins (LoadByteEbx) (Expand rest scope))
+(Expand (Do (SubEbxImm8 byte) rest) scope) (Ins (SubEbxImm8 byte) (Expand rest scope))
+(Expand (Do (CmpEbxImm8 byte) rest) scope) (Ins (CmpEbxImm8 byte) (Expand rest scope))
+(Expand (Do (Db byte) rest) scope) (Ins (Db byte) (Expand rest scope))
+(Expand (Do (Label name) rest) scope) (Ins (Label name) (Expand rest scope))
 (Expand (Do (MovEaxImm32 byte) rest) scope) (Ins (MovEaxImm32 byte) (Expand rest scope))
 (Expand (Do (MovEbxImm32 byte) rest) scope) (Ins (MovEbxImm32 byte) (Expand rest scope))
+(Expand (Do (MovEbxLabel name) rest) scope) (Ins (MovEbxLabel name) (Expand rest scope))
 (Expand (Do (Local name) rest) scope) (Ins (Label (Scoped scope name)) (Expand rest scope))
 (Expand (Do (JumpLocal name) rest) scope) (Ins (Jump (Scoped scope name)) (Expand rest scope))
 (Expand (Do (Invoke name args) rest) scope) (Append (MoveArgs args) (Ins (Call name) (Expand rest scope)))
 (Expand (Do (IfZero name then else) rest) scope) (Append (IfZero scope name then else) (Expand rest scope))
+(Expand (Do (IfBelowEq name then else) rest) scope) (Append (IfBelowEqExpand scope name then else) (Expand rest scope))
 (Expand (Do (Proc name clob body) rest) scope) (Append (ProcExpand name clob body) (Expand rest scope))
 
 (ProcExpand name clob body) (Ins (Label name) (Append (Save clob) (Append (Expand body name) (Append (Restore clob) (Ins (Ret) End)))))
 
 (IfZero scope name then else) (Ins (Jnz (Scoped scope (Else name))) (Append (Expand then scope) (Ins (Jump (Scoped scope (End name))) (Ins (Label (Scoped scope (Else name))) (Append (Expand else scope) (Ins (Label (Scoped scope (End name))) End))))))
+
+(IfBelowEqExpand scope name then else) (Ins (Jbe (Scoped scope (Then name))) (Append (Expand else scope) (Ins (Jump (Scoped scope (End name))) (Ins (Label (Scoped scope (Then name))) (Append (Expand then scope) (Ins (Label (Scoped scope (End name))) End))))))
 
 (M3Assemble (M3Program entry body)) (Assemble (Program entry (Expand body Global)))

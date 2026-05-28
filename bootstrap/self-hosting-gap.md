@@ -53,12 +53,20 @@ first target is the byte-output path because it is small but real:
 is_bytes + emit_bytes + emit_byte + nybble
 ```
 
-That requires extending qfc4 with:
+Progress so far:
 
-- memory loads from pair and atom objects
+- `stage4-nybble.qf1` compiles the `nybble` routine shape through qfc4,
+  qfasm3, and qfasm2 into a runnable ELF.
+- The compiled program loads byte `A` from static data, calls `Nybble`,
+  performs the subtract/compare/conditional-subtract sequence, and exits with
+  status `10`.
+
+Still required for the byte-output path:
+
+- memory loads from pair and atom objects, not just static bytes
 - conditionals over tag bits and byte comparisons
-- loops or tail calls
-- calls between compiled procedures
+- loops or tail calls over `(Bytes ...)` lists
 - enough data layout notation to express Qfitzah objects
+- compiled `is_bytes`, `emit_byte`, and recursive `emit_bytes`
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.

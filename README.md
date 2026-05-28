@@ -184,6 +184,21 @@ The tagged-constant example in
 compiles an aligned constant payload with low tag bits set and exits with
 status `43`.
 
+[bootstrap/stage4-nybble.qf1](bootstrap/stage4-nybble.qf1) is the first
+runtime-subsystem target. It compiles the `nybble` logic from `qfitzah.s` into
+the staged language pipeline:
+
+```text
+load byte from static data
+call Nybble
+subtract '0'
+compare with 9
+conditionally subtract 7
+exit with the computed value
+```
+
+For input byte `41` (`A`), the generated ELF exits with status `10`.
+
 ## Tests
 
 ```sh
