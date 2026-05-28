@@ -147,8 +147,11 @@ checked program.
 `bootstrap/stage5-alloc-checked.qf1` and
 `bootstrap/stage5-alloc-overflow.qf1` add a lower-level qfasm2 bounds-check
 proof: compare `HeapNext + 8` with `HeapLimit` before storing, exercise both
-the success path (`19`) and overflow path (`7`), and keep the qfc4 limitation
-explicit until the checked allocator can be lifted back up.
+the success path (`19`) and overflow path (`7`).
+`bootstrap/stage5-alloc-checked-qfc4.qf1` and
+`bootstrap/stage5-alloc-overflow-qfc4.qf1` lift that first bounds-check branch
+back through qfc4, proving the staged compiler surface can now express the
+checked commit and overflow paths.
 `bootstrap/stage5-alloc-reset-gc.qf1` adds the first lower-level recovery
 policy: the overflow path resets `HeapNext` to the heap base, retries the
 allocation, stores one pair, and exits `19`. This is a no-live-objects GC proof,

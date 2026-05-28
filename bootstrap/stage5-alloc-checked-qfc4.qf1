@@ -1,0 +1,56 @@
+; Stage 5 checked allocation lifted through qfc4.
+;
+; This is the qfc4 version of the direct qfasm2 checked-allocation proof. It
+; computes HeapNext + 8 in EBX, compares it with HeapLimit, commits HeapNext only
+; on the in-bounds path, writes one pair, and exits with the pair car, 19.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax HeapNext)
+        (Seq
+          (CarEax)
+          (Seq
+            (PushEax)
+            (Seq
+              (MoveEbxEax)
+              (Seq
+                (AddEbx 08)
+                (Seq
+                  (CmpEbxLabel HeapLimit)
+                  (IfBelowEq
+                    BoundsOk
+                    (Seq
+                      (LoadAddrEax HeapNext)
+                      (Seq
+                        (StoreCarEbx)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (SetEbx 13)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (SetEcx 01)
+                                (Seq
+                                  (StoreCdrEcx)
+                                  (Seq
+                                    (LoadCarEbx)
+                                    (ExitReg Ebx)))))))))
+                    (Exit (Literal 07)))))))))
+      (PtrCell HeapNext Heap
+      (Data Heap 00
+      (Data Heap1 00
+      (Data Heap2 00
+      (Data Heap3 00
+      (Data Heap4 00
+      (Data Heap5 00
+      (Data Heap6 00
+      (Data Heap7 00
+      (Data HeapLimit 00
+      End)))))))))))
+))

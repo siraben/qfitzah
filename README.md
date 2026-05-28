@@ -316,6 +316,12 @@ add the first allocator bounds-check proof at the qfasm2 layer. The success
 case checks `HeapNext + 8 <= HeapLimit` before storing a pair and exits `19`;
 the overflow case starts `HeapNext` at `HeapLimit` and exits `7` before
 committing the bump or storing fields.
+[bootstrap/stage5-alloc-checked-qfc4.qf1](bootstrap/stage5-alloc-checked-qfc4.qf1)
+and
+[bootstrap/stage5-alloc-overflow-qfc4.qf1](bootstrap/stage5-alloc-overflow-qfc4.qf1)
+lift that first bounds-check path back through qfc4. The staged source now
+expresses the `HeapNext + 8 <= HeapLimit` branch, and the generated ELFs cover
+both commit (`19`) and overflow (`7`).
 [bootstrap/stage5-alloc-reset-gc.qf1](bootstrap/stage5-alloc-reset-gc.qf1)
 adds the first recovery policy proof: on overflow it resets `HeapNext` to the
 heap base, retries the allocation, stores a pair, and exits `19`. This models a

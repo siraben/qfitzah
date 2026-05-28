@@ -444,6 +444,59 @@ run_qfc4_heap_binary "stage5-pair-allocation" 42
 run_qfc4_heap_binary "stage5-bump-alloc" 19
 run_qfc4_heap_binary "stage5-alloc-proc" 19
 
+run_qfc4_heap_check_binary() {
+  local name=$1
+  local expected_status=$2
+  local tmp
+  local actual_hex
+  local expected_hex
+  local flags_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
+      "$repo_root/bootstrap/qfasm-heap-check-ext.qf1" \
+      "$repo_root/bootstrap/qfc4.qf1" \
+      "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
+      "$repo_root/bootstrap/$name.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/$name"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  flags_hex=$(od -An -j76 -N1 -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  if [[ "$flags_hex" != "07" ]]; then
+    printf 'FAIL %s: expected writable executable segment flag 07, got %s\n' "$name" "$flags_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/$name"
+  set +e
+  "$tmp/$name"
+  status=$?
+  set -e
+
+  if [[ $status -ne $expected_status ]]; then
+    printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - %s\n' "$name"
+}
+
+run_qfc4_heap_check_binary "stage5-alloc-checked-qfc4" 19
+run_qfc4_heap_check_binary "stage5-alloc-overflow-qfc4" 7
+
 run_qfasm2_heap_check_binary() {
   local name=$1
   local expected_status=$2

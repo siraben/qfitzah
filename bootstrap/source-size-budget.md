@@ -64,8 +64,11 @@ These checked fixtures fit:
 - `stage5-alloc-checked.qf1` and `stage5-alloc-overflow.qf1`
   - use `qfasm-heap-check-ext.qf1`
   - prove the first allocator bounds check at the qfasm2 layer
-  - cover success (`19`) and overflow (`7`) before the checked allocator is
-    lifted back through qfc4
+  - cover success (`19`) and overflow (`7`) as the direct lower-level baseline
+- `stage5-alloc-checked-qfc4.qf1` and `stage5-alloc-overflow-qfc4.qf1`
+  - use `qfasm-heap-check-ext.qf1` through the qfc4 -> qfasm3 -> qfasm2 path
+  - prove qfc4 can express the first checked allocator branch
+  - cover successful commit (`19`) and overflow (`7`)
 - `stage5-alloc-reset-gc.qf1`
   - uses the same qfasm2 heap-check extension
   - resets `HeapNext` to `Heap` on overflow and retries allocation

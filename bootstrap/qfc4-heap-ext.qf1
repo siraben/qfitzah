@@ -32,6 +32,10 @@
   (AddEbx byte))
 
 (Rule
+  (ParseStmt (CmpEbxLabel name))
+  (CmpEbxLabel name))
+
+(Rule
   (ParseStmt (MoveEbxEax))
   MoveEbxEax)
 
@@ -70,6 +74,10 @@
 (Rule
   (CompileStmt (AddEbx byte))
   (Do (AddEbxImm8 byte) End))
+
+(Rule
+  (CompileStmt (CmpEbxLabel name))
+  (Do (CmpEbxLabel name) End))
 
 (Rule
   (CompileStmt MoveEbxEax)

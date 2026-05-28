@@ -1,0 +1,45 @@
+; Stage 5 checked allocation overflow path lifted through qfc4.
+;
+; HeapNext starts at HeapLimit, so the staged qfc4 checked allocation must take
+; the overflow branch and exit 7 before committing HeapNext or storing fields.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax HeapNext)
+        (Seq
+          (CarEax)
+          (Seq
+            (PushEax)
+            (Seq
+              (MoveEbxEax)
+              (Seq
+                (AddEbx 08)
+                (Seq
+                  (CmpEbxLabel HeapLimit)
+                  (IfBelowEq
+                    BoundsOk
+                    (Seq
+                      (LoadAddrEax HeapNext)
+                      (Seq
+                        (StoreCarEbx)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (SetEbx 13)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (SetEcx 01)
+                                (Seq
+                                  (StoreCdrEcx)
+                                  (Exit (Literal 63)))))))))
+                    (Exit (Literal 07)))))))))
+      (PtrCell HeapNext HeapLimit
+      (Data HeapLimit 00
+      End))))
+)

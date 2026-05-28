@@ -117,7 +117,11 @@ Progress so far:
 - `stage5-alloc-checked.qf1` and `stage5-alloc-overflow.qf1` prove the first
   allocator bounds check at the qfasm2 layer. They compare `HeapNext + 8` with
   `HeapLimit` before storing and cover both successful allocation (`19`) and
-  overflow (`7`). This is not lifted through qfc4 yet.
+  overflow (`7`).
+- `stage5-alloc-checked-qfc4.qf1` and `stage5-alloc-overflow-qfc4.qf1` lift
+  that first bounds-check branch through qfc4. The source now expresses
+  `HeapNext + 8 <= HeapLimit` with the qfc4 `IfBelowEq` surface, and the
+  generated ELFs cover commit (`19`) and overflow (`7`).
 - `stage5-alloc-reset-gc.qf1` proves a minimal no-live-objects recovery policy
   at the qfasm2 layer: overflow resets `HeapNext` to `Heap`, retries, stores a
   pair, and exits with status `19`.
@@ -136,8 +140,8 @@ Progress so far:
 
 Still required for the byte-output path:
 
-- lifting allocator bounds checks and recovery through qfc4, then replacing the
-  list-only traversal proof with traversal of arbitrary live objects
+- lifting recovery through qfc4, then replacing the list-only traversal proof
+  with traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
