@@ -142,6 +142,42 @@ to:
 (Push 2 (Push 3 (Push 4 (Mul (Add Done)))))
 ```
 
+## Example Meta-II Style Parser
+
+[examples/meta2-arithmetic.qf1](examples/meta2-arithmetic.qf1) shows how
+to build a more Meta-II-like language layer without changing the tiny Qfitzah
+reader. The example parses token streams, builds arithmetic ASTs with precedence,
+then feeds those ASTs into the stack compiler.
+
+The object language token stream:
+
+```text
+2 Plus 3 Star 4
+```
+
+is represented as data:
+
+```text
+(Tok (N 2) (Tok Plus (Tok (N 3) (Tok Star (Tok (N 4) End)))))
+```
+
+and parsed by rules shaped like a grammar:
+
+```text
+(ParseExpr tokens) (ParseExprTail (ParseTerm tokens))
+(ParseTerm tokens) (ParseTermTail (ParseFactor tokens))
+(ParseFactor (Tok (N n) rest)) (Ok (Num n) rest)
+```
+
+Run it:
+
+```sh
+nix run < examples/meta2-arithmetic.qf1
+```
+
+It proves the core runtime does not require languages built on top of it to be
+S-expression languages; only the current bootstrap reader is S-expression-based.
+
 ## Example Lisp
 
 [examples/lisp.qf1](examples/lisp.qf1) bootstraps a small Lisp-like

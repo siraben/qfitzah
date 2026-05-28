@@ -83,6 +83,20 @@ fi
 
 printf 'ok - arithmetic compiler example\n'
 
+meta2_output=$(timeout 5s "$qfitzah" < "$repo_root/examples/meta2-arithmetic.qf1")
+
+for expected in \
+  "(Push 2 (Push 3 (Push 4 (Mul (Add Done)))))" \
+  "(Push 2 (Push 3 (Mul (Push 4 (Add Done)))))"
+do
+  if ! grep -Fq "$expected" <<<"$meta2_output"; then
+    printf 'FAIL Meta-II arithmetic example: expected to find %q in output:\n%s\n' "$expected" "$meta2_output" >&2
+    exit 1
+  fi
+done
+
+printf 'ok - Meta-II arithmetic example\n'
+
 lisp_output=$(timeout 5s "$qfitzah" < "$repo_root/examples/lisp-reverse.qf1")
 lisp_expected="(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))"
 
