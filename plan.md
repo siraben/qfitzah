@@ -120,6 +120,10 @@ and character contents rather than by a shared pointer.
 same-shaped `Bytez` atom.
 `bootstrap/stage4-is-bytes-content-output.qf1` uses the content-based check to
 gate real byte output for static `(Bytes 41)`.
+`bootstrap/stage4-is-bytes-content-linear.qf1` recompiles that path with
+explicit local labels and fail-fast `jnz` branches, proving a smaller
+control-flow primitive for runtime predicates without adding it to the common
+compiler source.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

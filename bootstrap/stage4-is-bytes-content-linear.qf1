@@ -1,0 +1,209 @@
+; Content-based IsBytes with explicit local fail-fast branches.
+;
+; This keeps the local branch primitives out of the common qfc4 source while
+; proving that Stage 4 can compile scoped labels and local jumps for a runtime
+; predicate shaped like qfitzah.s:is_bytes.
+
+(Rule
+  (Add n N6)
+  (Add (Inc n) N5))
+
+(Rule
+  (Size (CmpDwordAtEaxImm32 b1 b2 b3 b4))
+  N6)
+
+(Rule
+  (Size (CmpByteAtEaxPlus4Imm8 byte))
+  N4)
+
+(Rule
+  (Pass2 (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) pc sym)
+  (Bytes 81 38 b1 b2 b3 b4 (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpByteAtEaxPlus4Imm8 byte) rest) pc sym)
+  (Bytes 80 78 04 byte (Pass2 rest (Add pc N4) sym)))
+
+(Rule
+  (Expand (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) scope)
+  (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpByteAtEaxPlus4Imm8 byte) rest) scope)
+  (Ins (CmpByteAtEaxPlus4Imm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JumpNotZeroLocal name) rest) scope)
+  (Ins (Jnz (Scoped scope name)) (Expand rest scope)))
+
+(Rule
+  (ParseStmt (Local name))
+  (Local name))
+
+(Rule
+  (ParseStmt (JumpLocal name))
+  (JumpLocal name))
+
+(Rule
+  (ParseStmt (JumpNotZeroLocal name))
+  (JumpNotZeroLocal name))
+
+(Rule
+  (ParseStmt (UntagEax))
+  UntagEax)
+
+(Rule
+  (ParseStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (CmpDwordAtEax b1 b2 b3 b4))
+
+(Rule
+  (ParseStmt (CmpByteAtEaxPlus4 byte))
+  (CmpByteAtEaxPlus4 byte))
+
+(Rule
+  (CompileStmt (Local name))
+  (Do (Local name) End))
+
+(Rule
+  (CompileStmt (JumpLocal name))
+  (Do (JumpLocal name) End))
+
+(Rule
+  (CompileStmt (JumpNotZeroLocal name))
+  (Do (JumpNotZeroLocal name) End))
+
+(Rule
+  (CompileStmt UntagEax)
+  (Do (AndEaxNotTag) End))
+
+(Rule
+  (CompileStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) End))
+
+(Rule
+  (CompileStmt (CmpByteAtEaxPlus4 byte))
+  (Do (CmpByteAtEaxPlus4Imm8 byte) End))
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax BytesExpr)
+        (Seq
+          (CallProc IsBytes)
+          (IfZero
+            IsBytesOk
+            (Seq
+              (LoadAddrEax BytesTail)
+              (Seq
+                (CarEax)
+                (Seq
+                  (CallProc EmitByte)
+                  (Exit (Literal 00)))))
+            (Exit (Literal 01)))))
+      (Def
+        IsBytes
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (Seq
+            (JumpNotZeroLocal IsBytesNo)
+            (Seq
+              (CarEax)
+              (Seq
+                (UntagEax)
+                (Seq
+                  (PushEax)
+                  (Seq
+                    (CdrEax)
+                    (Seq
+                      (CmpEax 05)
+                      (Seq
+                        (JumpNotZeroLocal IsBytesNoPop)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (CarEax)
+                            (Seq
+                              (CmpDwordAtEax 42 79 74 65)
+                              (Seq
+                                (JumpNotZeroLocal IsBytesNo)
+                                (Seq
+                                  (CmpByteAtEaxPlus4 73)
+                                  (Seq
+                                    (JumpLocal IsBytesDone)
+                                    (Seq
+                                      (Local IsBytesNoPop)
+                                      (Seq
+                                        (PopEax)
+                                        (Seq
+                                          (Local IsBytesNo)
+                                          (Seq
+                                            (CmpEax 00)
+                                            (Local IsBytesDone)))))))))))))))))))
+        (Def
+          EmitByte
+          NoFrame
+          (Seq
+            (LoadAtomCharsEcx)
+            (Seq
+              (LoadByteEbxFromEcx)
+              (Seq
+                (CallProc Nybble)
+                (Seq
+                  (ShlEbx 04)
+                  (Seq
+                    (PushEbx)
+                    (Seq
+                      (IncEcx)
+                      (Seq
+                        (LoadByteEbxFromEcx)
+                        (Seq
+                          (CallProc Nybble)
+                          (Seq
+                            (PopEcx)
+                            (Seq
+                              (OrEbxEcx)
+                              (WriteByteFromEbx)))))))))))
+          (Def
+            Nybble
+            NoFrame
+            (Seq
+              (SubEbx 30)
+              (Seq
+                (CmpEbx 09)
+                (IfBelowEq
+                  Done
+                  (Nop)
+                  (SubEbx 07))))
+            (Atom
+              AtomNotSharedBytes
+              BytesChars
+              05
+              (Atom
+                Atom41
+                Chars41
+                02
+                (String5
+                  BytesChars
+                  42
+                  79
+                  74
+                  65
+                  73
+                  (String2
+                    Chars41
+                    34
+                    31
+                    (Pair
+                      BytesExpr
+                      (Const AtomNotSharedBytes)
+                      (Ptr BytesTail)
+                      (Pair
+                        BytesTail
+                        (Const Atom41)
+                        Nil
+                        End))))))))))))

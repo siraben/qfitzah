@@ -233,3 +233,4 @@ run_qfc4_binary "stage4-emit-bytes-general" 0 "41"
 run_qfc4_binary "stage4-is-bytes-content" 42
 run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"
+run_qfc4_binary "stage4-is-bytes-content-linear" 0 "41"

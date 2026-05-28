@@ -89,6 +89,10 @@ Progress so far:
   final-character comparison.
 - `stage4-is-bytes-content-output.qf1` uses content-based `IsBytes` to gate a
   real byte-output path for static `(Bytes 41)`, then emits byte `41`.
+- `stage4-is-bytes-content-linear.qf1` compiles the same successful byte-output
+  path with explicit scoped local labels and fail-fast `jnz` branches. This
+  proves the smaller branch primitive locally, without growing the common
+  qfasm3/qfc4 sources.
 
 Still required for the byte-output path:
 

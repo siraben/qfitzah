@@ -27,6 +27,11 @@ These checked fixtures fit:
   - content-based `IsBytes`
   - gates a real byte-output path
   - emits static `(Bytes 41)` as byte `41`
+- `stage4-is-bytes-content-linear.qf1`
+  - content-based `IsBytes`
+  - gates the same byte-output path
+  - uses fixture-local scoped labels and fail-fast `jnz` branches
+  - emits static `(Bytes 41)` as byte `41`
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
@@ -43,8 +48,8 @@ fixture, reduce the always-loaded source:
 - split optional qfasm2/qfasm3/qfc4 extensions into per-fixture files
 - continue replacing explicit finite layout tables with generated arithmetic or
   smaller range-specific local tables
-- add a smaller branch primitive for fail-fast conditionals without growing the
-  common compiler source
+- move the proven local fail-fast branch primitive into a smaller optional
+  extension layer only when a larger fixture needs it
 
 Only after that should the byte-output milestone try to combine:
 

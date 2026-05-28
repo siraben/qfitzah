@@ -272,6 +272,10 @@ covering the negative path. [bootstrap/source-size-budget.md](bootstrap/source-s
 records the current seed-runtime limit for larger combinations.
 [bootstrap/stage4-is-bytes-content-output.qf1](bootstrap/stage4-is-bytes-content-output.qf1)
 uses content-based `IsBytes` to gate real byte output for static `(Bytes 41)`.
+[bootstrap/stage4-is-bytes-content-linear.qf1](bootstrap/stage4-is-bytes-content-linear.qf1)
+compiles the same byte-output path with explicit scoped local labels and
+fail-fast `jnz` branches, proving a smaller control-flow shape for runtime
+predicates without adding those branch forms to the common compiler source.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
