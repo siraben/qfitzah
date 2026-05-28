@@ -495,3 +495,4 @@ run_qfasm2_heap_check_binary "stage5-alloc-checked" 19
 run_qfasm2_heap_check_binary "stage5-alloc-overflow" 7
 run_qfasm2_heap_check_binary "stage5-alloc-reset-gc" 19
 run_qfasm2_heap_check_binary "stage5-copy-root-gc" 19
+run_qfasm2_heap_check_binary "stage5-copy-graph-gc" 19

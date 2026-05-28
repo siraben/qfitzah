@@ -74,6 +74,11 @@ These checked fixtures fit:
   - copies one live root pair into the reset heap
   - updates the root slot, retries allocation after the copied root, and exits
     with the copied root car (`19`)
+- `stage5-copy-graph-gc.qf1`
+  - uses the same qfasm2 heap-check extension, plus size facts through `N225`
+  - copies a root pair and its tail pair, rewrites the copied root's cdr to the
+    copied tail, resumes allocation after both copied cells, and exits with the
+    copied tail car (`19`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

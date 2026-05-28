@@ -324,6 +324,11 @@ minimal no-live-objects collection pass at the qfasm2 level.
 that recovery path to one live root: it copies the root pair into the reset
 heap, updates the root slot, allocates another pair after it, and exits with
 the copied root car (`19`).
+[bootstrap/stage5-copy-graph-gc.qf1](bootstrap/stage5-copy-graph-gc.qf1)
+extends that proof to a two-pair graph: the root pair's cdr points at a second
+pair, recovery copies both cells, rewrites the copied cdr to the new tail, then
+allocates after the copied graph. The generated ELF exits with the copied tail
+car (`19`), so an uncopied or overwritten tail is observable.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
@@ -338,7 +343,7 @@ repeated pattern variables, structural equality for repeated list-valued
 variables, unmatched template variables, reader ergonomics, empty-list
 matching, nested byte-stream flattening, the example compilers, the
 Qfitzah-hosted assembler stages, runnable Stage 4 byte-output runtime slices,
-and the first Stage 5 mutable pair-construction slice.
+and the current Stage 5 mutable allocation and recovery slices.
 Test programs live in
 `tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
 forbidden snippets in optional `.unexpected` files.

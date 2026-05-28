@@ -125,11 +125,15 @@ Progress so far:
   layer: overflow copies the root pair into the reset heap, updates the root
   slot, allocates another pair after it, and exits with the copied root car
   (`19`).
+- `stage5-copy-graph-gc.qf1` extends that to one internal pointer: overflow
+  copies a root pair and its tail pair, rewrites the copied root's cdr to the
+  copied tail, allocates after both copied cells, and exits with the copied tail
+  car (`19`).
 
 Still required for the byte-output path:
 
 - lifting allocator bounds checks and recovery through qfc4, then replacing the
-  one-root copy proof with traversal of arbitrary live objects
+  two-cell copy proof with traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

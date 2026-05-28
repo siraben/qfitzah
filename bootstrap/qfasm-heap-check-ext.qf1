@@ -1,5 +1,21 @@
 ; Optional heap bounds-check assembler extension.
 
+; Stage 5 graph-copy fixtures are a few bytes past qfasm2's common N220
+; program-size table. Their labels still fit inside the common address range,
+; so this extension only needs the size and ELF file-size facts below.
+
+(Inc N220) N221
+(Inc N221) N222
+(Inc N222) N223
+(Inc N223) N224
+(Inc N224) N225
+
+(FileSize N221) (Bytes 31 01 00 00)
+(FileSize N222) (Bytes 32 01 00 00)
+(FileSize N223) (Bytes 33 01 00 00)
+(FileSize N224) (Bytes 34 01 00 00)
+(FileSize N225) (Bytes 35 01 00 00)
+
 (Rule
   (Add n N6)
   (Add (Inc n) N5))
