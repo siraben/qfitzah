@@ -65,6 +65,7 @@ run_case() {
 
 run_case "basic-rewrite"
 run_case "multi-line-pipe"
+run_case "multiline-forms"
 run_case "repeated-atom-variable"
 run_case "repeated-list-variable"
 

@@ -55,6 +55,19 @@ Lines with two expressions define a rewrite rule:
 3
 ```
 
+Parenthesized forms may span physical lines. A rewrite record is processed once
+its parenthesis depth returns to zero:
+
+```text
+(Pair
+  x
+  y) (Cons x y)
+
+(Pair
+  A
+  B)
+```
+
 Rules are tried from newest to oldest. Lowercase names and names beginning with
 `_` are pattern variables. Constants are atoms beginning with characters from
 `!` through `'` or `*` through `^`, which includes digits, uppercase letters,

@@ -572,6 +572,8 @@ input_buffer:
 atoms:  .fill 8192
         my inptr, input_buffer
         my lineptr, input_buffer
+        my paren_depth, 0
+        my in_comment, 0
         ## Output is handled by setting %edi to point into this output
         ## buffer, then using stosb to add stuff to it.
         .bss
@@ -587,10 +589,32 @@ read_more:
         test %eax, %eax         # EOF on input?
         jz quit
         mov inptr-globals(%ebp), %esi
-        cmpb $'\n, (%esi)
+        mov (%esi), %al
         lea 1(%esi), %esi
         mov %esi, inptr-globals(%ebp)
+        cmpl $0, in_comment-globals(%ebp)
+        je 1f
+        cmp $'\n, %al
         jne read_more
+        movl $0, in_comment-globals(%ebp)
+        jmp 2f
+1:      cmp $';, %al
+        jne 1f
+        movl $1, in_comment-globals(%ebp)
+        jmp read_more
+1:      cmp $'(, %al
+        jne 1f
+        incl paren_depth-globals(%ebp)
+        jmp read_more
+1:      cmp $'), %al
+        jne 2f
+        decl paren_depth-globals(%ebp)
+        jmp read_more
+2:      cmp $'\n, %al
+        jne read_more
+        cmpl $0, paren_depth-globals(%ebp)
+        jne read_more
+        movb $0, -1(%esi)       # logical-record terminator
         mov lineptr-globals(%ebp), %esi # parse the complete line
         do handle_line
         do flush
@@ -730,9 +754,9 @@ proc handle_line
         ret
 1:      push %eax
         do skip_whitespace
-        lodsb    # lodsb;dec: 2 bytes, cmp $'\n, %al: 2; cmp $':, (%esi): 3
+        lodsb    # lodsb;dec: 2 bytes, cmp $0, %al: 2; cmp $':, (%esi): 3
         dec %esi # so this approach saves bytes only because of second cmp
-        cmp $'\n, %al # if there’s only one expression on the line, not a rule
+        cmp $0, %al # if there’s only one expression in the record, not a rule
         jnz 1f
         pop %eax
         do ev
@@ -818,6 +842,8 @@ proc skip_whitespace
 1:      lodsb
         cmp $9, %al
         je 1b
+        cmp $'\n, %al
+        je 1b
         cmp $13, %al
         je 1b
         cmp $32, %al
@@ -825,6 +851,8 @@ proc skip_whitespace
         cmp $';, %al
         jne 2f
 1:      lodsb
+        cmp $0, %al
+        je 2f
         cmp $'\n, %al
         jne 1b
 2:

@@ -1,0 +1,15 @@
+; The rule pattern spans physical lines.
+(Pair
+  x
+  y) (Cons x y)
+
+; The expression spans physical lines too.
+(Pair
+  A
+  B)
+
+; Parentheses in comments must not affect record balancing.
+(Id
+  z) z ; )
+(Id
+  OK)

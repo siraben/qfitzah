@@ -73,3 +73,15 @@ Still required for the byte-output path:
 - compiled `is_bytes` and recursive `emit_bytes`
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
+
+## Reader Progress
+
+The seed reader now supports parenthesized forms spanning physical lines. The
+input loop accumulates bytes until parenthesis depth returns to zero, ignores
+parentheses inside semicolon comments, terminates the logical record with NUL,
+and lets the parser treat embedded newlines as whitespace.
+
+This improves the bootstrap substrate for readable staged sources, but it is
+not yet a fully general stream reader. In particular, a rewrite rule is still a
+single logical record containing one or two forms; there is not yet a separate
+blank-line or form-count based rule reader.
