@@ -265,8 +265,11 @@ and emits static `(Bytes (Bytes 41))` as byte `41`.
 compiles the closer `is_bytes` check from `qfitzah.s`: it recognizes a `Bytes`
 head atom by length and character contents rather than by pointer identity. Its
 extra comparison rules are local to that fixture to keep the common staged
-compiler small enough for the seed runtime. The Stage 4 sample programs are
-also formatted as multi-line Qfitzah forms.
+compiler small enough for the seed runtime.
+[bootstrap/stage4-is-bytes-content-reject.qf1](bootstrap/stage4-is-bytes-content-reject.qf1)
+uses the same compiled check with a `Bytez` head atom and exits with status `1`,
+covering the negative path. The Stage 4 sample programs are also formatted as
+multi-line Qfitzah forms.
 
 ## Tests
 

@@ -84,6 +84,9 @@ Progress so far:
   after untagging the atom entry, it checks length `5`, the first four bytes
   `"Byte"`, and the final byte `"s"`. The object deliberately uses a distinct
   static atom label so pointer identity is not enough.
+- `stage4-is-bytes-content-reject.qf1` uses the same compiled check with a
+  `Bytez` atom and exits with status `1`, covering the negative path for the
+  final-character comparison.
 
 Still required for the byte-output path:
 

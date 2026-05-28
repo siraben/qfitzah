@@ -116,6 +116,8 @@ nested `Bytes` flattening in one compiled `EmitBytes` routine using tail-call
 jumps for the outer-list loop. `bootstrap/stage4-is-bytes-content.qf1` compiles
 the closer `is_bytes` head check, recognizing a static `Bytes` atom by length
 and character contents rather than by a shared pointer.
+`bootstrap/stage4-is-bytes-content-reject.qf1` covers the negative path with a
+same-shaped `Bytez` atom.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged

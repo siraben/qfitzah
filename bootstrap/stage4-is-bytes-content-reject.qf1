@@ -1,0 +1,133 @@
+; Negative content-based IsBytes runtime target.
+;
+; This mirrors stage4-is-bytes-content.qf1 but the head atom is "Bytez".
+; The generated ELF must exit with status 1, proving the content check is not
+; merely accepting any length-5 atom with a "Byte" prefix.
+
+(Rule
+  (Add n N6)
+  (Add (Inc n) N5))
+
+(Rule
+  (Size (CmpDwordAtEaxPlus4Imm8 byte))
+  N4)
+
+(Rule
+  (Size (CmpDwordAtEaxImm32 b1 b2 b3 b4))
+  N6)
+
+(Rule
+  (Size (CmpByteAtEaxPlus4Imm8 byte))
+  N4)
+
+(Rule
+  (Pass2 (Ins (CmpDwordAtEaxPlus4Imm8 byte) rest) pc sym)
+  (Bytes 83 78 04 byte (Pass2 rest (Add pc N4) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) pc sym)
+  (Bytes 81 38 b1 b2 b3 b4 (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpByteAtEaxPlus4Imm8 byte) rest) pc sym)
+  (Bytes 80 78 04 byte (Pass2 rest (Add pc N4) sym)))
+
+(Rule
+  (Expand (Do (CmpDwordAtEaxPlus4Imm8 byte) rest) scope)
+  (Ins (CmpDwordAtEaxPlus4Imm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) rest) scope)
+  (Ins (CmpDwordAtEaxImm32 b1 b2 b3 b4) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpByteAtEaxPlus4Imm8 byte) rest) scope)
+  (Ins (CmpByteAtEaxPlus4Imm8 byte) (Expand rest scope)))
+
+(Rule
+  (ParseStmt (UntagEax))
+  UntagEax)
+
+(Rule
+  (ParseStmt (CmpDwordAtEaxPlus4 byte))
+  (CmpDwordAtEaxPlus4 byte))
+
+(Rule
+  (ParseStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (CmpDwordAtEax b1 b2 b3 b4))
+
+(Rule
+  (ParseStmt (CmpByteAtEaxPlus4 byte))
+  (CmpByteAtEaxPlus4 byte))
+
+(Rule
+  (CompileStmt UntagEax)
+  (Do (AndEaxNotTag) End))
+
+(Rule
+  (CompileStmt (CmpDwordAtEaxPlus4 byte))
+  (Do (CmpDwordAtEaxPlus4Imm8 byte) End))
+
+(Rule
+  (CompileStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) End))
+
+(Rule
+  (CompileStmt (CmpByteAtEaxPlus4 byte))
+  (Do (CmpByteAtEaxPlus4Imm8 byte) End))
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax BytesExpr)
+        (Seq
+          (CallProc IsBytes)
+          (IfZero
+            Ok
+            (Exit (Literal 2A))
+            (Exit (Literal 01)))))
+      (Def
+        IsBytes
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (IfZero
+            Pair
+            (Seq
+              (CarEax)
+              (Seq
+                (UntagEax)
+                (Seq
+                  (CmpDwordAtEaxPlus4 05)
+                  (IfZero
+                    Len
+                    (Seq
+                      (CarEax)
+                      (Seq
+                        (CmpDwordAtEax 42 79 74 65)
+                        (IfZero
+                          Word
+                          (CmpByteAtEaxPlus4 73)
+                          (CmpEax 00))))
+                    (CmpEax 00)))))
+            (CmpEax 00)))
+        (Atom
+          AtomBytez
+          BytezChars
+          05
+          (String5
+            BytezChars
+            42
+            79
+            74
+            65
+            7A
+            (Pair
+              BytesExpr
+              (Const AtomBytez)
+              Nil
+              End)))))))
