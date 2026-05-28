@@ -49,6 +49,20 @@ run_case \
   "(Yes 4)"
 
 run_case \
+  "repeated list variables use structural equality" \
+  $'(Same x x) (Yes)\n(Same (A B) (A B))\n(Same (A B) (A C))\n' \
+  "(Yes)"
+
+structural_output=$(timeout 5s "$qfitzah" <<<'(Same x x) (Yes)
+(Same (A B) (A B))
+(Same (A B) (A C))')
+
+if [[ $(grep -Fc "(Yes)" <<<"$structural_output") -ne 1 ]]; then
+  printf 'FAIL repeated list variables use structural equality: expected exactly one success:\n%s\n' "$structural_output" >&2
+  exit 1
+fi
+
+run_case \
   "unmatched template variables are preserved" \
   $'(Do Nothing) no\n(Do Nothing)\n' \
   "no"

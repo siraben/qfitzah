@@ -29,7 +29,7 @@
 
               as --32 qfitzah.s -o qfitzah.o
               ld -m elf_i386 -static -z noseparate-code -o qfitzah.bloated qfitzah.o
-              objcopy -S -R .note.gnu.build-id qfitzah.bloated qfitzah
+              objcopy -S -R .note.gnu.build-id -R .note.gnu.property qfitzah.bloated qfitzah
 
               runHook postBuild
             '';

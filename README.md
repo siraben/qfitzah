@@ -32,6 +32,10 @@ nix run
 The flake builds `qfitzah.s` with GNU `as`, links a static i386 executable with
 `ld`, and strips nonessential metadata with `objcopy`.
 
+The current build is a 32-bit static Linux executable of about 1.2 KiB. It keeps
+the runtime small by using direct syscalls, a bump allocator, pointer tagging,
+and ordered tree rewrite rules instead of a larger parser or object system.
+
 ## Language
 
 Qfitzah reads one form per line.
@@ -80,7 +84,8 @@ nix flake check
 ```
 
 The test suite covers basic rewriting, fast multi-line piped input, repeated
-pattern variables, unmatched template variables, and empty-list matching.
+pattern variables, structural equality for repeated list-valued variables,
+unmatched template variables, and empty-list matching.
 
 You can also run it against a built binary:
 

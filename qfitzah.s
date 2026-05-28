@@ -37,12 +37,15 @@
         ## no
         ##
         ## Using the same variable more than once checks that the
-        ## repeated atom is equal to the first match:
+        ## repeated term is structurally equal to the first match:
         ## ↪ (Eq x x) (Yes x)
         ## ↪ (Eq 3 3)
         ## (Yes 3)
         ## ↪ (Eq 3 4)
         ## (Eq 3 4)
+        ## ↪ (Same x x) (Yes)
+        ## ↪ (Same (A B) (A B))
+        ## (Yes)
 
         ## On calling conventions:
 
@@ -366,6 +369,27 @@ proc assq                       # look up an item %eax in a dictionary %ecx
         ## (Gallygoogle ()) matches the same patterns (Gallygoogle x)
         ## would.
 
+proc equal
+        cmp %ecx, %eax
+        je 1f
+        push %eax
+        push %ecx
+        jnpair %al, 2f
+        jnpair %cl, 2f
+        car %eax
+        car %ecx
+        call equal
+        jne 2f
+        pop %ecx
+        pop %eax
+        cdr %eax
+        cdr %ecx
+        jmp equal
+2:      pop %ecx
+        pop %eax
+        or $1, %al
+1:      ret
+
 proc match
         ## Case for pattern being an unadorned var:
         jnvar %cl, 2f           # If the pattern is a var,
@@ -379,7 +403,7 @@ proc match
         cdr %eax
         pop %ecx
         pop %ecx
-        cmp %ecx, %eax
+        call equal
         pop %eax
         ret
 3:      pop %ecx
@@ -444,33 +468,11 @@ proc evlis
         # FALL THROUGH into cons (tail call)
         cons_here
 
-        ## I’m thinking I’ll provide primitive procedures for
-        ## arithmetic and file I/O by way of terms whose head is the
-        ## integer “0”.  For example: integer subtraction.  Here we
-        ## have the term in %eax.  This untested strawman evprim
-        ## weighs 25 bytes, plus 7 bytes for the test and branch in
-        ## ev.
-proc evprim
-        cdr %eax
-        car %eax, %ebx
-        cdr %eax
-        cmp $5, %ebx  # (0 0 x y) returns x - y assuming both are ints
-        jnz 1f
-        car %eax, %ebx
-        cdr %eax
-        car %eax
-        sub %ecx, %eax      # XXX is this backwards?
-        or $5, %al          # low-order bits got zeroed by subtraction
-1:      ret
-
         my rules, -1            # global set of rules, initially nil
 proc ev
         jpair %al, 1f
         ret                     # atoms always evaluate to themselves
 1:      do evlis
-        car %eax, %ecx                # check for primitive invocation
-        cmp $5, %ecx                  # is the car of the list (tagged) 0?
-        jz evprim
         mov rules-globals(%ebp), %ecx # initial rules argument to ap: the global
         # FALL THROUGH to ap
 
@@ -784,84 +786,6 @@ proc read_var
         or $2, %al
         cmp %eax, %eax
         ret
-
-        ## Octal to tagged integer.  Digit count in %ecx, input starts
-        ## at %esi.  19 bytes.  Not used yet.
-proc o2ti
-        xor %eax, %eax
-        xor %ebx, %ebx          # accumulate result in %ebx
-1:      lodsb
-        sub $'0, %al            # convert digit from ASCII
-        add %eax, %ebx
-        shl $3, %ebx     # by shifting after the add instead of before,
-        loop 1b
-        xchg %eax, %ebx
-        add $5, %eax            # we leave space for this type tag
-        ret
-
-        ## Decimal to tagged integer.  Digit count in %ecx, input
-        ## starts at %esi.  22 bytes.  Not used yet.  If the
-        ## difference is only like 6 bytes maybe I’ll just use
-        ## decimal.
-proc d2ti
-        xor %eax, %eax
-        xor %ebx, %ebx          # accumulate result in %ebx
-1:      lodsb
-        sub $'0, %al            # convert digit from ASCII
-        imul $10, %ebx
-        add %eax, %ebx
-        loop 1b
-        xchg %eax, %ebx
-        shl $3, %eax
-        add $5, %eax
-        ret
-
-        ## Tagged integer to octal, taking integer in %eax.  Outputs
-        ## to buffer at %edi.  25 bytes.  Not used yet.
-proc ti2o
-        xchg %eax, %ebx
-        xor %eax, %eax          # clear high bytes of %eax for the loop
-1:      shr $3, %ebx            # shift first to remove type tag
-        mov %bl, %al            # still only 2 bytes!
-        and $7, %al             # 2 bytes, shorter than `and $7, %eax`
-        add $'0, %al            # convert to ASCII
-        test %ebx, %ebx         # don’t recurse if no digits remain
-        jz 1f
-        push %eax               # buffer up digit for later emission
-        call 1b
-        pop %eax
-1:      stosb
-        ret
-
-        ## I’m thinking about adding character string literals, in a
-        ## form like this maybe.  This function would be called after
-        ## the open-quote.  51 bytes.
-proc read_string
-        xor %eax, %eax
-        lodsb
-        cmp $'", %al
-        jne 1f
-2:      xor %eax, %eax          # tagged integer 0 as list terminator
-        mov $5, %al # this is 4 bytes rather than the 5 of mov $5, %eax
-        ret
-1:      cmp $'\n, %al
-        je 2b                   # just treat this as end of string
-        cmp $'\\, %al           # treat \" as embedded "
-        jne 1f
-        lodsb
-        cmp $'\n, %al
-        je 2b
-1:      push %eax
-        do read_string          # read rest of string
-        pop %ecx
-        xchg %eax, %ecx         # get saved character back in %eax
-        shl $3, %eax
-        or $5, %al              # add integer tag
-        do cons
-        xchg %eax, %ecx
-        xor %eax, %eax
-        mov $13, %al            # tagged integer 1
-        jmp cons # XXX probably place this closer to cons so this jump is short
 
         ## Always succeeds.
 proc read_atom
