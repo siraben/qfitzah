@@ -1,0 +1,142 @@
+; General tagged-object byte-output runtime target.
+;
+; This compiles a static object graph for:
+;   (Bytes (Bytes 41))
+;
+; EmitBytes combines cons-tail traversal with nested Bytes flattening.  Nested
+; Bytes objects are flattened by taking their cdr, then traversal resumes on
+; the outer tail.  The nested tail exercises the ordinary atom branch.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax BytesOuter)
+        (Seq
+          (CdrEax)
+          (Seq
+            (CallProc EmitBytes)
+            (Exit (Literal 00)))))
+      (Def
+        IsBytes
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (IfZero
+            Pair
+            (Seq
+              (CarEax)
+              (CmpEaxLabel AtomBytes))
+            (CmpEax 00)))
+        (Def
+          EmitBytes
+          NoFrame
+          (Seq
+            (TestPairEax)
+            (IfZero
+              Cons
+              (Seq
+                (PushEax)
+                (Seq
+                  (CarEax)
+                  (Seq
+                    (PushEax)
+                    (Seq
+                      (CallProc IsBytes)
+                      (IfZero
+                        Nested
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (CdrEax)
+                            (Seq
+                              (CallProc EmitBytes)
+                              (Seq
+                                (PopEax)
+                                (Seq
+                                  (CdrEax)
+                                  (TailCallProc EmitBytes))))))
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (CallProc EmitByte)
+                            (Seq
+                              (PopEax)
+                              (Seq
+                                (CdrEax)
+                                (TailCallProc EmitBytes))))))))))
+              (Return)))
+          (Def
+            EmitByte
+            NoFrame
+            (Seq
+              (LoadAtomCharsEcx)
+              (Seq
+                (LoadByteEbxFromEcx)
+                (Seq
+                  (CallProc Nybble)
+                  (Seq
+                    (ShlEbx 04)
+                    (Seq
+                      (PushEbx)
+                      (Seq
+                        (IncEcx)
+                        (Seq
+                          (LoadByteEbxFromEcx)
+                          (Seq
+                            (CallProc Nybble)
+                            (Seq
+                              (PopEcx)
+                              (Seq
+                                (OrEbxEcx)
+                                (WriteByteFromEbx)))))))))))
+            (Def
+              Nybble
+              NoFrame
+              (Seq
+                (SubEbx 30)
+                (Seq
+                  (CmpEbx 09)
+                  (IfBelowEq
+                    Done
+                    (Nop)
+                    (SubEbx 07))))
+              (Atom
+                AtomBytes
+                BytesChars
+                05
+                (Atom
+                  Atom41
+                  Chars41
+                  02
+                  (String5
+                    BytesChars
+                    42
+                    79
+                    74
+                    65
+                    73
+                    (String2
+                      Chars41
+                      34
+                      31
+                      (Pair
+                        BytesOuter
+                        (Const AtomBytes)
+                        (Ptr OuterTail)
+                        (Pair
+                          OuterTail
+                          (Ptr BytesInner)
+                          Nil
+                          (Pair
+                            BytesInner
+                            (Const AtomBytes)
+                            (Ptr InnerTail)
+                            (Pair
+                              InnerTail
+                              (Const Atom41)
+                              Nil
+                              End)))))))))))))))

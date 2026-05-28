@@ -111,6 +111,9 @@ pair cells, tagged atom pointers, nil, field loads, a `Bytes` head check, and
 recursive cons-tail traversal. `bootstrap/stage4-emit-bytes-nested.qf1` adds a
 focused static-object slice for nested `(Bytes ...)` flattening by compiling
 `(Bytes (Bytes 41))` and recursively emitting the nested cdr.
+`bootstrap/stage4-emit-bytes-general.qf1` combines cons-tail traversal and
+nested `Bytes` flattening in one compiled `EmitBytes` routine using tail-call
+jumps for the outer-list loop.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged

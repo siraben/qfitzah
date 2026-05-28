@@ -83,6 +83,10 @@
   (CallProc name))
 
 (Rule
+  (ParseStmt (TailCallProc name))
+  (TailCallProc name))
+
+(Rule
   (ParseStmt (LoadByteEbx name))
   (LoadByteEbx name))
 
@@ -357,6 +361,10 @@
 (Rule
   (CompileStmt (CallProc name))
   (Do (Invoke name Empty) End))
+
+(Rule
+  (CompileStmt (TailCallProc name))
+  (Do (JumpProc name) End))
 
 (Rule
   (CompileStmt (LoadByteEbx name))

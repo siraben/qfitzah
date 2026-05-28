@@ -277,6 +277,10 @@
   (Ins (Jump (Scoped scope name)) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (JumpProc name) rest) scope)
+  (Ins (Jump name) (Expand rest scope)))
+
+(Rule
   (Expand (Do (Invoke name args) rest) scope)
   (Append (MoveArgs args) (Ins (Call name) (Expand rest scope))))
 

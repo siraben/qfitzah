@@ -76,12 +76,15 @@ Progress so far:
   `(Bytes (Bytes 41))`. It checks a list element with `IsBytes`, recognizes the
   nested `Bytes` object, takes its cdr, recursively emits the nested tail, and
   writes byte `41`.
+- `stage4-emit-bytes-general.qf1` combines cons-tail traversal and nested
+  `Bytes` flattening in one compiled `EmitBytes` routine. It uses
+  `TailCallProc` for the recursive outer-list loop and emits static
+  `(Bytes (Bytes 41))` as byte `41`.
 
 Still required for the byte-output path:
 
 - allocation or loading of non-static pair and atom objects
-- combined arbitrary cons-tail traversal and nested `(Bytes ...)` flattening in
-  one general compiled routine
+- larger object graphs beyond the current finite layout budget
 - full `is_bytes` behavior over arbitrary interned atoms, not just the shared
   static `Bytes` atom used by the compiled object fixtures
 - enough data layout notation to express larger Qfitzah object graphs

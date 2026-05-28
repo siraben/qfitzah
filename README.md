@@ -172,6 +172,7 @@ supports:
 - scoped local labels represented as `(Local proc name)`
 - `(IfZero name then else)` structured conditionals
 - `(Invoke name args)` call setup for register arguments
+- `(TailCallProc name)` procedure jumps for tail-recursive loops
 - `Ecx` clobber save/restore with `PushEcx`/`PopEcx`
 
 The sample program is built by concatenating the stages:
@@ -253,8 +254,13 @@ field loads, and aligned data emission in the staged compiler pipeline.
 [bootstrap/stage4-emit-bytes-nested.qf1](bootstrap/stage4-emit-bytes-nested.qf1)
 focuses on nested `Bytes` flattening over static objects. It builds
 `(Bytes (Bytes 41))`, checks the list element with `IsBytes`, takes the nested
-object's cdr, recursively emits that tail, and writes byte `41`. The Stage 4
-sample programs are also formatted as multi-line Qfitzah forms.
+object's cdr, recursively emits that tail, and writes byte `41`.
+
+[bootstrap/stage4-emit-bytes-general.qf1](bootstrap/stage4-emit-bytes-general.qf1)
+combines cons-tail traversal and nested `Bytes` flattening in one compiled
+`EmitBytes` routine. It uses `TailCallProc` for the recursive outer-list loop
+and emits static `(Bytes (Bytes 41))` as byte `41`. The Stage 4 sample programs
+are also formatted as multi-line Qfitzah forms.
 
 ## Tests
 
