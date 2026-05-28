@@ -128,6 +128,8 @@ compiler source.
 split that focused path into a direct byte-output compiler slice plus an
 optional assembler extension. `bootstrap/stage4-is-bytes-content-linear-direct.qf1`
 uses the split stages and produces the same byte-output ELF.
+`bootstrap/qfasm2-exit42-n221.qf1` proves the optional assembler extension can
+emit a 221-byte code segment, one byte past the common `N220` range.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

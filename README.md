@@ -281,6 +281,9 @@ predicates without adding those branch forms to the common compiler source.
 split that path into a direct byte-output compiler slice plus a small optional
 assembler extension. [bootstrap/stage4-is-bytes-content-linear-direct.qf1](bootstrap/stage4-is-bytes-content-linear-direct.qf1)
 uses those split stages and emits the same byte `41`.
+[bootstrap/qfasm2-exit42-n221.qf1](bootstrap/qfasm2-exit42-n221.qf1)
+checks the first optional code-size extension past the common `N220` boundary:
+it emits a 221-byte code segment and exits with status `42`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

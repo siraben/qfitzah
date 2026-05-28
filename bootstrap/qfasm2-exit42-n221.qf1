@@ -1,0 +1,7 @@
+; qfasm2 input that assembles a 221-byte code segment.
+;
+; Concatenate after bootstrap/qfasm2.qf1 and bootstrap/qfasm-n221-ext.qf1.
+; This proves the optional N221 ELF file-size path without loading a broad range
+; table. The pseudo-instruction expands to 209 Nops followed by exit(42).
+
+(Assemble (Program Start (Ins (Label Start) (Ins (BigExit42N221) End))))

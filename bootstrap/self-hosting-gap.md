@@ -98,6 +98,9 @@ Progress so far:
   path into a direct compiler slice, an optional assembler extension, and a
   source-only fixture. The generated ELF is byte-identical to the linear
   fixture and emits byte `41`.
+- `qfasm2-exit42-n221.qf1` proves the optional assembler extension can emit a
+  221-byte code segment, one byte past the common `N220` file-size range, and
+  still produce a runnable ELF.
 
 Still required for the byte-output path:
 

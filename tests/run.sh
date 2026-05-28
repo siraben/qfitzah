@@ -134,6 +134,42 @@ run_qfasm2_exit42() {
 
 run_qfasm2_exit42
 
+run_qfasm2_exit42_n221() {
+  local tmp
+  local actual_size
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm-n221-ext.qf1" \
+      "$repo_root/bootstrap/qfasm2-exit42-n221.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/exit42-n221"
+
+  actual_size=$(wc -c < "$tmp/exit42-n221")
+  if [[ $actual_size -ne 305 ]]; then
+    printf 'FAIL qfasm2-exit42-n221: expected 305-byte ELF, got %s bytes\n' "$actual_size" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/exit42-n221"
+  set +e
+  "$tmp/exit42-n221"
+  status=$?
+  set -e
+
+  if [[ $status -ne 42 ]]; then
+    printf 'FAIL qfasm2-exit42-n221: expected exit status 42, got %s\n' "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - qfasm2-exit42-n221\n'
+}
+
+run_qfasm2_exit42_n221
+
 run_qfasm3_exit42() {
   local tmp
   local actual_hex

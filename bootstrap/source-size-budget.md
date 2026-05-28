@@ -37,6 +37,11 @@ These checked fixtures fit:
   - uses `qfc4-byte-output.qf1` and `qfasm-byte-output-ext.qf1`
   - keeps qfc4-local rules out of the fixture source
   - emits a byte-identical ELF and static `(Bytes 41)` as byte `41`
+- `qfasm2-exit42-n221.qf1`
+  - uses `qfasm-n221-ext.qf1`
+  - assembles a 221-byte code segment, one byte past qfasm2's common `N220`
+    file-size range
+  - emits a runnable ELF that exits with status `42`
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
@@ -55,8 +60,8 @@ fixture, reduce the always-loaded source:
   files; the focused content-output path now has a checked split
 - continue replacing explicit finite layout tables with generated arithmetic or
   smaller range-specific local tables
-- find a representation for extending the code-size range beyond `N220` without
-  overflowing the seed's atom/rule budget
+- extend the code-size range beyond the checked `N221` proof to real label,
+  branch, and data addresses without overflowing the seed's atom/rule budget
 
 Only after that should the byte-output milestone try to combine:
 
