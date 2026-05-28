@@ -59,8 +59,9 @@ This stage introduces high-level control abstractions and calling conventions to
   Include automatic saving (`push`) and restoring (`pop`) of clobbered registers at function boundaries based on the calling convention.
 
 Implemented as `bootstrap/qfasm3.qf1`, a Qfitzah-hosted macro layer that expands
-to qfasm2 data. The test program uses scoped local labels, an `IfZero` block,
-`Invoke`, and `Ecx` clobber preservation, then emits and runs an ELF binary.
+to qfasm2 data. Its source rules and test program use readable multi-line
+forms. The test program uses scoped local labels, an `IfZero` block, `Invoke`,
+and `Ecx` clobber preservation, then emits and runs an ELF binary.
 
 ---
 
@@ -106,8 +107,8 @@ Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged
 rules and programs more readable. Rules can be written either as the traditional
 two-form logical record or as an explicit multi-line `(Rule pattern replacement)`
-directive. The Stage 4 compiler source and sample inputs now use that readable
-multi-line style.
+directive. The Stage 3 macro assembler, the Stage 4 compiler source, and their
+sample inputs now use that readable multi-line style.
 
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.

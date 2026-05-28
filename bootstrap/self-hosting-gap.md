@@ -85,6 +85,6 @@ This improves the bootstrap substrate for readable staged sources, but it is
 not yet a fully general stream reader. A traditional two-form rewrite rule is
 still a single logical record containing the pattern and replacement, but
 readable multi-line rules can now be written as `(Rule pattern replacement)`.
-`bootstrap/qfc4.qf1` and the Stage 4 sample inputs now use that style, so the
-compiler stage depends on the improved reader rather than merely testing it in
-isolation.
+`bootstrap/qfasm3.qf1`, `bootstrap/qfc4.qf1`, and their sample inputs now use
+that style, so the macro-assembler and compiler stages depend on the improved
+reader rather than merely testing it in isolation.

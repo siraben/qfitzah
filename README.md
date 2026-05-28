@@ -38,7 +38,7 @@ and ordered tree rewrite rules instead of a larger parser or object system.
 
 ## Language
 
-Qfitzah reads one form per line.
+Qfitzah reads one logical record at a time.
 
 Lines with one expression evaluate that expression:
 
@@ -163,7 +163,9 @@ The expected status is `42`.
 
 [bootstrap/qfasm3.qf1](bootstrap/qfasm3.qf1) is the next macro layer, also
 hosted in Qfitzah. It expands structured macro assembly into qfasm2 data before
-assembly. The current macro layer supports:
+assembly. Its rules and sample input are written as multi-line forms with the
+explicit `(Rule pattern replacement)` directive. The current macro layer
+supports:
 
 - `(Proc name clobbers body)` procedure blocks
 - scoped local labels represented as `(Local proc name)`

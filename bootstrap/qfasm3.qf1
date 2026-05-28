@@ -4,61 +4,224 @@
 ; invokes the qfasm2 assembler.  It adds scoped local labels, simple structured
 ; conditional expansion, invoke argument loading, and clobber save/restore.
 
-(Append End ys) ys
-(Append (Ins instr rest) ys) (Ins instr (Append rest ys))
+(Rule
+  (Append End ys)
+  ys)
 
-(Save Empty) End
-(Save (Clob Ebx rest)) (Ins (PushEbx) (Save rest))
-(Save (Clob Ecx rest)) (Ins (PushEcx) (Save rest))
+(Rule
+  (Append (Ins instr rest) ys)
+  (Ins instr (Append rest ys)))
 
-(Restore Empty) End
-(Restore (Clob Ebx rest)) (Append (Restore rest) (Ins (PopEbx) End))
-(Restore (Clob Ecx rest)) (Append (Restore rest) (Ins (PopEcx) End))
+(Rule
+  (Save Empty)
+  End)
 
-(MoveArgs Empty) End
-(MoveArgs (Arg Eax byte rest)) (Ins (MovEaxImm32 byte) (MoveArgs rest))
-(MoveArgs (Arg Ebx byte rest)) (Ins (MovEbxImm32 byte) (MoveArgs rest))
-(MoveArgs (Arg Ecx byte rest)) (Ins (MovEcxImm32 byte) (MoveArgs rest))
-(MoveArgs (Arg Edx byte rest)) (Ins (MovEdxImm32 byte) (MoveArgs rest))
+(Rule
+  (Save (Clob Ebx rest))
+  (Ins (PushEbx) (Save rest)))
 
-(Scoped scope name) (Local scope name)
+(Rule
+  (Save (Clob Ecx rest))
+  (Ins (PushEcx) (Save rest)))
 
-(Expand End scope) End
-(Expand (Do (Nop) rest) scope) (Ins (Nop) (Expand rest scope))
-(Expand (Do (Ret) rest) scope) (Ins (Ret) (Expand rest scope))
-(Expand (Do (Int byte) rest) scope) (Ins (Int byte) (Expand rest scope))
-(Expand (Do (XorEbxEbx) rest) scope) (Ins (XorEbxEbx) (Expand rest scope))
-(Expand (Do (IncEbx) rest) scope) (Ins (IncEbx) (Expand rest scope))
-(Expand (Do (LoadByteEbx) rest) scope) (Ins (LoadByteEbx) (Expand rest scope))
-(Expand (Do (SubEbxImm8 byte) rest) scope) (Ins (SubEbxImm8 byte) (Expand rest scope))
-(Expand (Do (CmpEbxImm8 byte) rest) scope) (Ins (CmpEbxImm8 byte) (Expand rest scope))
-(Expand (Do (ShlEcxImm8 byte) rest) scope) (Ins (ShlEcxImm8 byte) (Expand rest scope))
-(Expand (Do (MovEcxEbx) rest) scope) (Ins (MovEcxEbx) (Expand rest scope))
-(Expand (Do (MovEcxEsp) rest) scope) (Ins (MovEcxEsp) (Expand rest scope))
-(Expand (Do (PushEbx) rest) scope) (Ins (PushEbx) (Expand rest scope))
-(Expand (Do (PopEbx) rest) scope) (Ins (PopEbx) (Expand rest scope))
-(Expand (Do (OrEbxEcx) rest) scope) (Ins (OrEbxEcx) (Expand rest scope))
-(Expand (Do (StoreByteAtEaxFromBl) rest) scope) (Ins (StoreByteAtEaxFromBl) (Expand rest scope))
-(Expand (Do (Db byte) rest) scope) (Ins (Db byte) (Expand rest scope))
-(Expand (Do (Label name) rest) scope) (Ins (Label name) (Expand rest scope))
-(Expand (Do (MovEaxImm32 byte) rest) scope) (Ins (MovEaxImm32 byte) (Expand rest scope))
-(Expand (Do (MovEbxImm32 byte) rest) scope) (Ins (MovEbxImm32 byte) (Expand rest scope))
-(Expand (Do (MovEcxImm32 byte) rest) scope) (Ins (MovEcxImm32 byte) (Expand rest scope))
-(Expand (Do (MovEdxImm32 byte) rest) scope) (Ins (MovEdxImm32 byte) (Expand rest scope))
-(Expand (Do (MovEaxLabel name) rest) scope) (Ins (MovEaxLabel name) (Expand rest scope))
-(Expand (Do (MovEbxLabel name) rest) scope) (Ins (MovEbxLabel name) (Expand rest scope))
-(Expand (Do (MovEcxLabel name) rest) scope) (Ins (MovEcxLabel name) (Expand rest scope))
-(Expand (Do (Local name) rest) scope) (Ins (Label (Scoped scope name)) (Expand rest scope))
-(Expand (Do (JumpLocal name) rest) scope) (Ins (Jump (Scoped scope name)) (Expand rest scope))
-(Expand (Do (Invoke name args) rest) scope) (Append (MoveArgs args) (Ins (Call name) (Expand rest scope)))
-(Expand (Do (IfZero name then else) rest) scope) (Append (IfZero scope name then else) (Expand rest scope))
-(Expand (Do (IfBelowEq name then else) rest) scope) (Append (IfBelowEqExpand scope name then else) (Expand rest scope))
-(Expand (Do (Proc name clob body) rest) scope) (Append (ProcExpand name clob body) (Expand rest scope))
+(Rule
+  (Restore Empty)
+  End)
 
-(ProcExpand name clob body) (Ins (Label name) (Append (Save clob) (Append (Expand body name) (Append (Restore clob) (Ins (Ret) End)))))
+(Rule
+  (Restore (Clob Ebx rest))
+  (Append (Restore rest) (Ins (PopEbx) End)))
 
-(IfZero scope name then else) (Ins (Jnz (Scoped scope (Else name))) (Append (Expand then scope) (Ins (Jump (Scoped scope (End name))) (Ins (Label (Scoped scope (Else name))) (Append (Expand else scope) (Ins (Label (Scoped scope (End name))) End))))))
+(Rule
+  (Restore (Clob Ecx rest))
+  (Append (Restore rest) (Ins (PopEcx) End)))
 
-(IfBelowEqExpand scope name then else) (Ins (Jbe (Scoped scope (Then name))) (Append (Expand else scope) (Ins (Jump (Scoped scope (End name))) (Ins (Label (Scoped scope (Then name))) (Append (Expand then scope) (Ins (Label (Scoped scope (End name))) End))))))
+(Rule
+  (MoveArgs Empty)
+  End)
 
-(M3Assemble (M3Program entry body)) (Assemble (Program entry (Expand body Global)))
+(Rule
+  (MoveArgs (Arg Eax byte rest))
+  (Ins (MovEaxImm32 byte) (MoveArgs rest)))
+
+(Rule
+  (MoveArgs (Arg Ebx byte rest))
+  (Ins (MovEbxImm32 byte) (MoveArgs rest)))
+
+(Rule
+  (MoveArgs (Arg Ecx byte rest))
+  (Ins (MovEcxImm32 byte) (MoveArgs rest)))
+
+(Rule
+  (MoveArgs (Arg Edx byte rest))
+  (Ins (MovEdxImm32 byte) (MoveArgs rest)))
+
+(Rule
+  (Scoped scope name)
+  (Local scope name))
+
+(Rule
+  (Expand End scope)
+  End)
+
+(Rule
+  (Expand (Do (Nop) rest) scope)
+  (Ins (Nop) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Ret) rest) scope)
+  (Ins (Ret) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Int byte) rest) scope)
+  (Ins (Int byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (XorEbxEbx) rest) scope)
+  (Ins (XorEbxEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (IncEbx) rest) scope)
+  (Ins (IncEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadByteEbx) rest) scope)
+  (Ins (LoadByteEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (SubEbxImm8 byte) rest) scope)
+  (Ins (SubEbxImm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEbxImm8 byte) rest) scope)
+  (Ins (CmpEbxImm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (ShlEcxImm8 byte) rest) scope)
+  (Ins (ShlEcxImm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEcxEbx) rest) scope)
+  (Ins (MovEcxEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEcxEsp) rest) scope)
+  (Ins (MovEcxEsp) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PushEbx) rest) scope)
+  (Ins (PushEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PopEbx) rest) scope)
+  (Ins (PopEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (OrEbxEcx) rest) scope)
+  (Ins (OrEbxEcx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (StoreByteAtEaxFromBl) rest) scope)
+  (Ins (StoreByteAtEaxFromBl) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Db byte) rest) scope)
+  (Ins (Db byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Label name) rest) scope)
+  (Ins (Label name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEaxImm32 byte) rest) scope)
+  (Ins (MovEaxImm32 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEbxImm32 byte) rest) scope)
+  (Ins (MovEbxImm32 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEcxImm32 byte) rest) scope)
+  (Ins (MovEcxImm32 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEdxImm32 byte) rest) scope)
+  (Ins (MovEdxImm32 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEaxLabel name) rest) scope)
+  (Ins (MovEaxLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEbxLabel name) rest) scope)
+  (Ins (MovEbxLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEcxLabel name) rest) scope)
+  (Ins (MovEcxLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Local name) rest) scope)
+  (Ins (Label (Scoped scope name)) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JumpLocal name) rest) scope)
+  (Ins (Jump (Scoped scope name)) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Invoke name args) rest) scope)
+  (Append (MoveArgs args) (Ins (Call name) (Expand rest scope))))
+
+(Rule
+  (Expand (Do (IfZero name then else) rest) scope)
+  (Append (IfZero scope name then else) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (IfBelowEq name then else) rest) scope)
+  (Append (IfBelowEqExpand scope name then else) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Proc name clob body) rest) scope)
+  (Append (ProcExpand name clob body) (Expand rest scope)))
+
+(Rule
+  (ProcExpand name clob body)
+  (Ins
+    (Label name)
+    (Append
+      (Save clob)
+      (Append
+        (Expand body name)
+        (Append (Restore clob) (Ins (Ret) End))))))
+
+(Rule
+  (IfZero scope name then else)
+  (Ins
+    (Jnz (Scoped scope (Else name)))
+    (Append
+      (Expand then scope)
+      (Ins
+        (Jump (Scoped scope (End name)))
+        (Ins
+          (Label (Scoped scope (Else name)))
+          (Append
+            (Expand else scope)
+            (Ins (Label (Scoped scope (End name))) End)))))))
+
+(Rule
+  (IfBelowEqExpand scope name then else)
+  (Ins
+    (Jbe (Scoped scope (Then name)))
+    (Append
+      (Expand else scope)
+      (Ins
+        (Jump (Scoped scope (End name)))
+        (Ins
+          (Label (Scoped scope (Then name)))
+          (Append
+            (Expand then scope)
+            (Ins (Label (Scoped scope (End name))) End)))))))
+
+(Rule
+  (M3Assemble (M3Program entry body))
+  (Assemble (Program entry (Expand body Global))))
