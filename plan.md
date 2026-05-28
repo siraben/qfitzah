@@ -132,6 +132,10 @@ uses the split stages and produces the same byte-output ELF.
 emit a 221-byte code segment, one byte past the common `N220` range.
 `bootstrap/qfasm2-entry-n221.qf1` then proves an ELF entry label at offset
 `N221`, covering optional address emission as well as file size.
+`bootstrap/stage5-pair-allocation.qf1` starts the mutable-runtime work needed
+before GC can be meaningful: it compiles dword stores through optional heap
+extensions, writes a pair cell into a static heap area, reads the car field
+back, and exits with status `42`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

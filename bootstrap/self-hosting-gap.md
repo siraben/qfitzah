@@ -103,10 +103,15 @@ Progress so far:
   still produce a runnable ELF.
 - `qfasm2-entry-n221.qf1` places the ELF entry label at code offset `N221`,
   proving the optional `Addr N221` path for a runnable ELF.
+- `stage5-pair-allocation.qf1` uses optional heap extensions to compile dword
+  stores, emits a writable executable segment, writes a pair cell into a static
+  heap area, reads the car field back, and exits with status `42`.
 
 Still required for the byte-output path:
 
-- allocation or loading of non-static pair and atom objects
+- bump-pointer pair allocation with heap-next updates, bounds checks, and a GC
+  policy for reclaiming or moving objects
+- loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
   fixture without exceeding the seed runtime's current source-size budget; see

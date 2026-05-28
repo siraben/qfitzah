@@ -293,6 +293,13 @@ it emits a 221-byte code segment and exits with status `42`.
 [bootstrap/qfasm2-entry-n221.qf1](bootstrap/qfasm2-entry-n221.qf1)
 then puts the ELF entry label at offset `N221`, proving optional `Addr N221`
 emission for a runnable binary.
+[bootstrap/stage5-pair-allocation.qf1](bootstrap/stage5-pair-allocation.qf1)
+is the first mutable pair-construction slice. It uses
+[bootstrap/qfasm-heap-ext.qf1](bootstrap/qfasm-heap-ext.qf1) to add dword
+stores and a writable executable segment, plus
+[bootstrap/qfc4-heap-ext.qf1](bootstrap/qfc4-heap-ext.qf1) to expose those
+operations to qfc4. The generated ELF writes a pair cell into a static heap
+area, reads the car field back, and exits with status `42`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
@@ -306,7 +313,8 @@ multi-line records at EOF, the Stage 1 multi-line-rule bootstrap fixture,
 repeated pattern variables, structural equality for repeated list-valued
 variables, unmatched template variables, reader ergonomics, empty-list
 matching, nested byte-stream flattening, the example compilers, the
-Qfitzah-hosted assembler stages, and runnable Stage 4 byte-output runtime slices.
+Qfitzah-hosted assembler stages, runnable Stage 4 byte-output runtime slices,
+and the first Stage 5 mutable pair-construction slice.
 Test programs live in
 `tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
 forbidden snippets in optional `.unexpected` files.

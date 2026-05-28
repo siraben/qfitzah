@@ -1,0 +1,44 @@
+; Optional qfc4 heap-construction surface.
+;
+; This is the first compiled mutable pair-cell slice: the source can place car
+; and cdr words into memory and then use the existing pair-field load macro.
+
+(Rule
+  (ParseStmt (SetEbx byte))
+  (SetEbx byte))
+
+(Rule
+  (ParseStmt (SetEcx byte))
+  (SetEcx byte))
+
+(Rule
+  (ParseStmt (StoreCarEbx))
+  StoreCarEbx)
+
+(Rule
+  (ParseStmt (StoreCdrEcx))
+  StoreCdrEcx)
+
+(Rule
+  (ParseStmt (LoadCarEbx))
+  LoadCarEbx)
+
+(Rule
+  (CompileStmt (SetEbx byte))
+  (Do (MovEbxImm32 byte) End))
+
+(Rule
+  (CompileStmt (SetEcx byte))
+  (Do (MovEcxImm32 byte) End))
+
+(Rule
+  (CompileStmt StoreCarEbx)
+  (Do (StoreDwordAtEaxFromEbx) End))
+
+(Rule
+  (CompileStmt StoreCdrEcx)
+  (Do (StoreDwordAtEaxPlus4FromEcx) End))
+
+(Rule
+  (CompileStmt LoadCarEbx)
+  (Do (LoadEbxCarFromEax) End))

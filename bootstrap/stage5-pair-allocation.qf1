@@ -1,0 +1,34 @@
+; Stage 5 mutable pair-construction fixture.
+;
+; Compile with qfasm-heap-ext.qf1 and qfc4-heap-ext.qf1. The program writes a
+; pair cell into a static heap area, reads the car back through the existing
+; pair-load instruction, and exits with that value.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (SetEbx 2A)
+        (Seq
+          (SetEcx 01)
+          (Seq
+            (LoadAddrEax Heap)
+            (Seq
+              (StoreCarEbx)
+              (Seq
+                (StoreCdrEcx)
+                (Seq
+                  (LoadCarEbx)
+                  (ExitReg Ebx)))))))
+      (Data Heap 00
+      (Data Heap1 00
+      (Data Heap2 00
+      (Data Heap3 00
+      (Data Heap4 00
+      (Data Heap5 00
+      (Data Heap6 00
+      (Data Heap7 00
+      End)))))))))))

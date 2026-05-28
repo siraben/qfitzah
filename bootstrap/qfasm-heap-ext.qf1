@@ -1,0 +1,39 @@
+; Optional qfasm2/qfasm3 heap-construction extension.
+;
+; This keeps mutable-data support out of the common assembler until the staged
+; sources are smaller. The fixture using this extension needs a writable load
+; segment because it stores pair fields into its own static heap area.
+
+(Rule
+  (ElfHeader entry size)
+  (Bytes
+    7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00
+    02 00 03 00 01 00 00 00 (Addr entry) 34 00 00 00
+    00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00
+    00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08
+    00 80 04 08 (FileSize size) (FileSize size) 07 00 00 00
+    00 10 00 00))
+
+(Rule
+  (Size (StoreDwordAtEaxFromEbx))
+  N2)
+
+(Rule
+  (Pass2 (Ins (StoreDwordAtEaxFromEbx) rest) pc sym)
+  (Bytes 89 18 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Size (StoreDwordAtEaxPlus4FromEcx))
+  N3)
+
+(Rule
+  (Pass2 (Ins (StoreDwordAtEaxPlus4FromEcx) rest) pc sym)
+  (Bytes 89 48 04 (Pass2 rest (Add pc N3) sym)))
+
+(Rule
+  (Expand (Do (StoreDwordAtEaxFromEbx) rest) scope)
+  (Ins (StoreDwordAtEaxFromEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (StoreDwordAtEaxPlus4FromEcx) rest) scope)
+  (Ins (StoreDwordAtEaxPlus4FromEcx) (Expand rest scope)))

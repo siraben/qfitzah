@@ -47,6 +47,11 @@ These checked fixtures fit:
   - places the ELF entry label at code offset `N221`
   - checks optional `Addr N221`, `FileSize N233`, and arithmetic through the
     following 12-byte exit sequence
+- `stage5-pair-allocation.qf1`
+  - uses `qfasm-heap-ext.qf1` and `qfc4-heap-ext.qf1`
+  - emits a writable executable segment for a focused mutable-data proof
+  - stores car/cdr dwords into a static heap cell, reads the car back, and exits
+    with status `42`
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
