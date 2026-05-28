@@ -1,0 +1,43 @@
+; Source language compiler: AST -> bytecode, then bytecode VM execution.
+(CompileRun defs expr) (Run (Compile expr Halt) (CompileDefs defs))
+(CompileDefs NoDefs) NoCDefs
+(CompileDefs (Def name (Fn1 param body) rest)) (CDef name (CFn1 param (Compile body Return)) (CompileDefs rest))
+(CompileDefs (Def name (Fn2 left right body) rest)) (CDef name (CFn2 left right (Compile body Return)) (CompileDefs rest))
+
+; Compiler.
+(Compile (Quote value) k) (Push value k)
+(Compile (Var name) k) (Load name k)
+(Compile (If cond then else) k) (Compile cond (Branch (Compile then k) (Compile else k)))
+(Compile (Call fn arg) k) (Compile arg (Call1 fn k))
+(Compile (Call fn left right) k) (Compile left (Compile right (Call2 fn k)))
+(Compile (Call Cons left right) k) (Compile left (Compile right (ConsI k)))
+(Compile (Call Car arg) k) (Compile arg (CarI k))
+(Compile (Call Cdr arg) k) (Compile arg (CdrI k))
+(Compile (Call Nullp arg) k) (Compile arg (NullpI k))
+
+; VM state: code, stack, env, compiled definitions, return continuation.
+(Run code defs) (Exec code EmptyStack EmptyEnv defs Done)
+(Exec Halt (Stack value EmptyStack) env defs Done) value
+(Exec Return (Stack value EmptyStack) env defs (Cont k stack callerEnv callerRet)) (Exec k (Stack value stack) callerEnv defs callerRet)
+(Exec (Push value k) stack env defs ret) (Exec k (Stack value stack) env defs ret)
+(Exec (Load name k) stack env defs ret) (Exec k (Stack (Lookup name env) stack) env defs ret)
+(Exec (ConsI k) (Stack tail (Stack head stack)) env defs ret) (Exec k (Stack (Cons head tail) stack) env defs ret)
+(Exec (CarI k) (Stack (Cons head tail) stack) env defs ret) (Exec k (Stack head stack) env defs ret)
+(Exec (CdrI k) (Stack (Cons head tail) stack) env defs ret) (Exec k (Stack tail stack) env defs ret)
+(Exec (NullpI k) (Stack value stack) env defs ret) (Exec k (Stack False stack) env defs ret)
+(Exec (NullpI k) (Stack Nil stack) env defs ret) (Exec k (Stack True stack) env defs ret)
+(Exec (Branch then else) (Stack False stack) env defs ret) (Exec else stack env defs ret)
+(Exec (Branch then else) (Stack True stack) env defs ret) (Exec then stack env defs ret)
+(Exec (Call1 name k) (Stack arg stack) env defs ret) (Enter1 (LookupCFun name defs) arg k stack env defs ret)
+(Exec (Call2 name k) (Stack arg2 (Stack arg1 stack)) env defs ret) (Enter2 (LookupCFun name defs) arg1 arg2 k stack env defs ret)
+
+; Environments and compiled functions.
+(Lookup name (Bind other value env)) (Lookup name env)
+(Lookup name (Bind name value env)) value
+(LookupCFun name (CDef other fn rest)) (LookupCFun name rest)
+(LookupCFun name (CDef name fn rest)) fn
+(Enter1 (CFn1 param code) arg k stack env defs ret) (Exec code EmptyStack (Bind param arg EmptyEnv) defs (Cont k stack env ret))
+(Enter2 (CFn2 left right code) arg1 arg2 k stack env defs ret) (Exec code EmptyStack (Bind right arg2 (Bind left arg1 EmptyEnv)) defs (Cont k stack env ret))
+
+; Compile and run a recursive reverse program through the VM.
+(CompileRun (Def Reverse (Fn1 XS (Call RevAppend (Var XS) (Quote Nil))) (Def RevAppend (Fn2 XS ACC (If (Call Nullp (Var XS)) (Var ACC) (Call RevAppend (Call Cdr (Var XS)) (Call Cons (Call Car (Var XS)) (Var ACC))))) NoDefs)) (Call Reverse (Quote (Cons A (Cons B (Cons C (Cons D (Cons E Nil))))))))

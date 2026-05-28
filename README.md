@@ -190,6 +190,43 @@ nix run < examples/meta2-arithmetic.qf1
 It proves the core runtime does not require languages built on top of it to be
 S-expression languages; only the current bootstrap reader is S-expression-based.
 
+## Example Compiler And VM
+
+[examples/self-hosting-compiler.qf1](examples/self-hosting-compiler.qf1)
+is a compile-and-run pipeline for a small Lisp-like AST language. It compiles
+source forms to stack bytecode, then runs that bytecode in a VM written in
+Qfitzah.
+
+The source language includes:
+
+- `(Quote value)`
+- `(Var name)`
+- `(If condition then else)`
+- `(Call Cons left right)`
+- `(Call Car value)`
+- `(Call Cdr value)`
+- `(Call Nullp value)`
+- one- and two-argument global function calls
+
+The compiler emits bytecode such as:
+
+```text
+(Push value k)
+(Load name k)
+(ConsI k)
+(Branch then else)
+(Call1 name k)
+(Call2 name k)
+```
+
+The VM executes bytecode with an explicit stack, environment, compiled
+definition table, and return continuation. The example compiles recursive
+`Reverse`/`RevAppend` definitions, then executes the compiled program to produce:
+
+```text
+(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))
+```
+
 ## Example Lisp
 
 [examples/lisp.qf1](examples/lisp.qf1) bootstraps a small Lisp-like
