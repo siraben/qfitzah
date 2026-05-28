@@ -47,6 +47,14 @@
   (Bytes 89 C3 (Pass2 rest (Add pc N2) sym)))
 
 (Rule
+  (Size (LoadEcxCdrFromEax))
+  N3)
+
+(Rule
+  (Pass2 (Ins (LoadEcxCdrFromEax) rest) pc sym)
+  (Bytes 8B 48 04 (Pass2 rest (Add pc N3) sym)))
+
+(Rule
   (Expand (Do (StoreDwordAtEaxFromEbx) rest) scope)
   (Ins (StoreDwordAtEaxFromEbx) (Expand rest scope)))
 
@@ -61,3 +69,7 @@
 (Rule
   (Expand (Do (MovEbxEax) rest) scope)
   (Ins (MovEbxEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEcxCdrFromEax) rest) scope)
+  (Ins (LoadEcxCdrFromEax) (Expand rest scope)))

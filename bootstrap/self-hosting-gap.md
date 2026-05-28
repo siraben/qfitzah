@@ -129,11 +129,15 @@ Progress so far:
   copies a root pair and its tail pair, rewrites the copied root's cdr to the
   copied tail, allocates after both copied cells, and exits with the copied tail
   car (`19`).
+- `stage5-copy-list-gc.qf1` replaces the fixed two-cell copy with a traversal
+  loop over a nil-terminated pair list. It threads a `LinkSlot` through the root
+  slot and copied cdr fields, copies three pairs, overwrites the old tail, then
+  exits through the copied tail (`19`).
 
 Still required for the byte-output path:
 
 - lifting allocator bounds checks and recovery through qfc4, then replacing the
-  two-cell copy proof with traversal of arbitrary live objects
+  list-only traversal proof with traversal of arbitrary live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

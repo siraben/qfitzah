@@ -160,6 +160,10 @@ allocates another pair after it, and exits with the copied root car (`19`).
 to a two-pair graph: the copied root's cdr is rewritten to the copied tail,
 allocation resumes after both copied cells, and the ELF exits with the copied
 tail car (`19`).
+`bootstrap/stage5-copy-list-gc.qf1` replaces the fixed two-cell shape with a
+loop over a nil-terminated list. It threads a `LinkSlot` through the root slot
+and copied cdr fields, copies three pairs until nil, then proves old internal
+pointers are gone by overwriting the old tail before reading the copied tail.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

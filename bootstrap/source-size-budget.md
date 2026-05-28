@@ -79,6 +79,11 @@ These checked fixtures fit:
   - copies a root pair and its tail pair, rewrites the copied root's cdr to the
     copied tail, resumes allocation after both copied cells, and exits with the
     copied tail car (`19`)
+- `stage5-copy-list-gc.qf1`
+  - uses `qfasm-stage5-list-ext.qf1` to keep the larger traversal range local
+  - traverses a nil-terminated pair list with a `LinkSlot` update cell
+  - copies three pairs, overwrites the old tail, allocates after the copied
+    list, and exits with the copied tail car (`19`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

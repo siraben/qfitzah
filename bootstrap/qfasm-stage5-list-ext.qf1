@@ -1,0 +1,44 @@
+; Optional qfasm2 support for the Stage 5 list-copy traversal fixture.
+;
+; The traversal program is larger than qfasm2's common finite size table. Its
+; data labels are deliberately placed before code so address emission still uses
+; the common range; branch arithmetic only needs to peel symbolic Inc chains.
+; The ELF segment size is overprovisioned for this focused runnable proof.
+
+(FileSize size) (Bytes 00 04 00 00)
+
+(Dec (Inc n)) n
+(Dec N221) N220
+(Dec N222) N221
+(Dec N223) N222
+(Dec N224) N223
+(Dec N225) N224
+
+(Byte (Neg N101)) 9B
+(Byte (Neg N102)) 9A
+(Byte (Neg N103)) 99
+(Byte (Neg N104)) 98
+(Byte (Neg N105)) 97
+(Byte (Neg N106)) 96
+(Byte (Neg N107)) 95
+(Byte (Neg N108)) 94
+(Byte (Neg N109)) 93
+(Byte (Neg N110)) 92
+(Byte (Neg N111)) 91
+(Byte (Neg N112)) 90
+(Byte (Neg N113)) 8F
+(Byte (Neg N114)) 8E
+(Byte (Neg N115)) 8D
+(Byte (Neg N116)) 8C
+(Byte (Neg N117)) 8B
+(Byte (Neg N118)) 8A
+(Byte (Neg N119)) 89
+(Byte (Neg N120)) 88
+(Byte (Neg N121)) 87
+(Byte (Neg N122)) 86
+(Byte (Neg N123)) 85
+(Byte (Neg N124)) 84
+(Byte (Neg N125)) 83
+(Byte (Neg N126)) 82
+(Byte (Neg N127)) 81
+(Byte (Neg N128)) 80

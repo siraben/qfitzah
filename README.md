@@ -329,6 +329,11 @@ extends that proof to a two-pair graph: the root pair's cdr points at a second
 pair, recovery copies both cells, rewrites the copied cdr to the new tail, then
 allocates after the copied graph. The generated ELF exits with the copied tail
 car (`19`), so an uncopied or overwritten tail is observable.
+[bootstrap/stage5-copy-list-gc.qf1](bootstrap/stage5-copy-list-gc.qf1)
+replaces that fixed-shape copy with a loop over a nil-terminated pair list. It
+uses a `LinkSlot` cell to thread the root slot and copied cdr fields, copies a
+three-pair list until nil, overwrites the old tail, allocates after the copied
+list, and exits with the copied tail car (`19`).
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
