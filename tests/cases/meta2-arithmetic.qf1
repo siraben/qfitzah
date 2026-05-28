@@ -1,0 +1,17 @@
+(ParseThenCompile tokens) (EmitProgram (ParseExpr tokens))
+(EmitProgram (Ok ast End)) (Compiler ast)
+(ParseExpr tokens) (ParseExprTail (ParseTerm tokens))
+(ParseExprTail result) result
+(ParseExprTail (Ok lhs (Tok Plus rest))) (FinishAdd lhs (ParseTerm rest))
+(FinishAdd lhs (Ok rhs rest)) (ParseExprTail (Ok (Add lhs rhs) rest))
+(ParseTerm tokens) (ParseTermTail (ParseFactor tokens))
+(ParseTermTail result) result
+(ParseTermTail (Ok lhs (Tok Star rest))) (FinishMul lhs (ParseFactor rest))
+(FinishMul lhs (Ok rhs rest)) (ParseTermTail (Ok (Mul lhs rhs) rest))
+(ParseFactor (Tok (N n) rest)) (Ok (Num n) rest)
+(Compiler expr) (Compile expr Done)
+(Compile (Num n) k) (Push n k)
+(Compile (Add left right) k) (Compile left (Compile right (Add k)))
+(Compile (Mul left right) k) (Compile left (Compile right (Mul k)))
+(ParseThenCompile (Tok (N 2) (Tok Plus (Tok (N 3) (Tok Star (Tok (N 4) End))))))
+(ParseThenCompile (Tok (N 2) (Tok Star (Tok (N 3) (Tok Plus (Tok (N 4) End))))))

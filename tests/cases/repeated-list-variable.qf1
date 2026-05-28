@@ -1,0 +1,3 @@
+(Same x x) (Yes)
+(Same (A B) (A B))
+(Same (A B) (A C))

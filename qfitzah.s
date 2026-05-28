@@ -653,11 +653,12 @@ proc flush                      # Send output buffer to actual stdout
         ## Our grammar looks something like:
         ## prog ::= _ (factor (_ "\n" | _ factor _"\n"))*
         ## factor ::= constant | var | "(" (_ atom)* _ ")"
-        ## _ ::= " "*
-        ## constant ::= [*-^][*-~]*
-        ## var ::= [_a-~][*-~]*
+        ## _ ::= (" " | "\t" | "\r" | ";" [^\n]* "\n")*
+        ## constant ::= [!-'*-^][!-~]*
+        ## var ::= [_a-~][!-~]*
         ##
-        ## Constants and vars chew up as many characters as they can.
+        ## Constants and vars chew up as many characters as they can,
+        ## stopping before whitespace, parentheses, or semicolon comments.
         ##
         ## A line with two S-expressions (“factors”) defines a rule; a
         ## line with just one offers an expression to evaluate
@@ -726,7 +727,11 @@ proc read_factor
         cmp $'), %al            # indicate success
         pop %eax
         ret
-1:      cmp $'*, %al            # [*-^] starts a constant
+1:      cmp $'!, %al            # [!-'] starts a constant
+        jb 2f
+        cmp $'', %al
+        jbe read_constant
+2:      cmp $'*, %al            # [*-^] starts a constant
         ## <https://stackoverflow.com/a/29577037> explains that with
         ## cmp $2, %eax, jg jumps when %eax > 2, though this is
         ## confusing as
@@ -749,9 +754,19 @@ proc read_factor
         ## Advance input pointer %esi into NUL-terminated input string
         ## to first non-whitespace character.
 proc skip_whitespace
-        lodsb
+1:      lodsb
+        cmp $9, %al
+        je 1b
+        cmp $13, %al
+        je 1b
         cmp $32, %al
-        je skip_whitespace
+        je 1b
+        cmp $';, %al
+        jne 2f
+1:      lodsb
+        cmp $'\n, %al
+        jne 1b
+2:
         dec %esi
         ret
 
@@ -791,8 +806,14 @@ proc read_var
 proc read_atom
         mov %esi, %edx          # save address of start byte
 1:      lodsb
-        cmp $'*, %al
+        cmp $'!, %al
         jb 1f
+        cmp $';, %al
+        je 1f
+        cmp $'(, %al
+        je 1f
+        cmp $'), %al
+        je 1f
         cmp $'~, %al
         jbe 1b
 1:      dec %esi                # put back last character read

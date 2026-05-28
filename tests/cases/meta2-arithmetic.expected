@@ -1,0 +1,2 @@
+(Push 2 (Push 3 (Push 4 (Mul (Add Done)))))
+(Push 2 (Push 3 (Mul (Push 4 (Add Done)))))

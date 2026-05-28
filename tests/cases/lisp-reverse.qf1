@@ -1,0 +1,24 @@
+(Lisp defs expr) (Eval expr EmptyEnv defs)
+(Eval (Quote value) env defs) value
+(Eval (Var name) env defs) (Lookup name env)
+(Eval (If cond then else) env defs) (EvalIf (Eval cond env defs) then else env defs)
+(Eval (Call fn arg) env defs) (Apply1 (LookupFun fn defs) (Eval arg env defs) defs)
+(Eval (Call fn left right) env defs) (Apply2 (LookupFun fn defs) (Eval left env defs) (Eval right env defs) defs)
+(EvalIf False then else env defs) (Eval else env defs)
+(EvalIf True then else env defs) (Eval then env defs)
+(Lookup name (Bind other value env)) (Lookup name env)
+(Lookup name (Bind name value env)) value
+(LookupFun name (Def other fn rest)) (LookupFun name rest)
+(LookupFun name (Def name fn rest)) fn
+(LookupFun Cons defs) PrimCons
+(LookupFun Car defs) PrimCar
+(LookupFun Cdr defs) PrimCdr
+(LookupFun Nullp defs) PrimNullp
+(Apply1 (Fn1 param body) arg defs) (Eval body (Bind param arg EmptyEnv) defs)
+(Apply2 (Fn2 left right body) arg1 arg2 defs) (Eval body (Bind right arg2 (Bind left arg1 EmptyEnv)) defs)
+(Apply2 PrimCons head tail defs) (Cons head tail)
+(Apply1 PrimCar (Cons head tail) defs) head
+(Apply1 PrimCdr (Cons head tail) defs) tail
+(Apply1 PrimNullp value defs) False
+(Apply1 PrimNullp Nil defs) True
+(Lisp (Def Reverse (Fn1 XS (Call RevAppend (Var XS) (Quote Nil))) (Def RevAppend (Fn2 XS ACC (If (Call Nullp (Var XS)) (Var ACC) (Call RevAppend (Call Cdr (Var XS)) (Call Cons (Call Car (Var XS)) (Var ACC))))) NoDefs)) (Call Reverse (Quote (Cons A (Cons B (Cons C (Cons D (Cons E Nil))))))))

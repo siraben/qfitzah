@@ -1,0 +1,16 @@
+A
+(Cons A (Cons B Nil))
+B Nil
+Then
+Good
+Same
+Different
+IdentityWorks
+Captured
+Inner
+First
+(Cons Left (Cons Right Nil))
+(Cons A (Cons B (Cons C Nil)))
+(Cons L1 (Cons L2 (Cons L3 Nil)))
+(Cons M1 (Cons M2 (Cons M3 Nil)))
+(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))

@@ -57,9 +57,19 @@ Lines with two expressions define a rewrite rule:
 
 Rules are tried from newest to oldest. Lowercase names and names beginning with
 `_` are pattern variables. Constants are atoms beginning with characters from
-`*` through `^`, which includes digits and uppercase letters.
+`!` through `'` or `*` through `^`, which includes digits, uppercase letters,
+and punctuation such as `#`, `$`, `%`, `+`, `-`, and `=`.
 
-Repeated variables in a pattern must match the same atom:
+Spaces, tabs, and carriage returns are whitespace. Semicolons start comments
+that run to the end of the line:
+
+```text
+; identity rule
+(Id x) x
+(Id Bang!) ; => Bang!
+```
+
+Repeated variables in a pattern must match the same term:
 
 ```text
 ↪ (Eq x x) (Yes x)
@@ -85,7 +95,9 @@ nix flake check
 
 The test suite covers basic rewriting, fast multi-line piped input, repeated
 pattern variables, structural equality for repeated list-valued variables,
-unmatched template variables, and empty-list matching.
+unmatched template variables, reader ergonomics, and empty-list matching. Test
+programs live in `tests/cases/*.qf1`, with expected snippets in matching
+`.expected` files and forbidden snippets in optional `.unexpected` files.
 
 You can also run it against a built binary:
 
@@ -187,16 +199,18 @@ evaluator inside Qfitzah. It supports:
 - `(Var name)` with explicit environments
 - `(Lambda name body)` lexical closures
 - `(App function argument)` for first-class unary functions
+- `(LambdaN params body)` and `(AppN function args)` for variadic application
 - `(Let name value body)`
 - `(If condition then else)`
-- one- and two-argument `(Call ...)`
-- global `Fn1` and `Fn2` definitions
-- primitive `Cons`, `Car`, `Cdr`, `Nullp`, `Atomp`, and atom `Eqp`
+- one-, two-, and variadic `(Call ...)` forms
+- global `Fn1`, `Fn2`, and `FnN` definitions
+- explicit rest parameters as `(Rest name)` without dotted-list syntax
+- primitive `Cons`, `Car`, `Cdr`, `List`, `Nullp`, `Atomp`, and atom `Eqp`
 
 The example checks quoting, list primitives, conditionals, atom equality,
 closures, lexical capture, lexical shadowing, higher-order function return, and
-a recursive `Reverse` function written in the object Lisp using a tail-recursive
-helper `RevAppend`.
+variadic/rest-parameter calls, plus a recursive `Reverse` function written in
+the object Lisp using a tail-recursive helper `RevAppend`.
 
 Run the full example:
 
@@ -226,4 +240,5 @@ Some sample object Lisp forms:
 (Lisp NoDefs (App (Lambda X (Var X)) (Quote IdentityWorks)))
 (Lisp NoDefs (Let X (Quote Captured) (App (Lambda Y (Var X)) (Quote Ignored))))
 (Lisp NoDefs (App (App (Lambda X (Lambda Y (Var X))) (Quote First)) (Quote Second)))
+(Lisp NoDefs (AppN (LambdaN (Cons Head (Rest Tail)) (Call Cons (Var Head) (Var Tail))) (Cons (Quote A) (Cons (Quote B) (Cons (Quote C) Nil)))))
 ```

@@ -1,0 +1,4 @@
+; comment-only line
+	(Id x)	x
+(Id Bang!) ; trailing comment
+(! # $ %)

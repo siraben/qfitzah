@@ -1,0 +1,6 @@
+(Compiler expr) (Compile expr Done)
+(Compile (Num n) k) (Push n k)
+(Compile (Add left right) k) (Compile left (Compile right (Add k)))
+(Compile (Sub left right) k) (Compile left (Compile right (Sub k)))
+(Compile (Mul left right) k) (Compile left (Compile right (Mul k)))
+(Compiler (Add (Num 2) (Mul (Num 3) (Num 4))))

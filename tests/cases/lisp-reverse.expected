@@ -1,0 +1,1 @@
+(Cons E (Cons D (Cons C (Cons B (Cons A Nil)))))
