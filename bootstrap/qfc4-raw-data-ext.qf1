@@ -1,0 +1,19 @@
+; Optional qfc4 raw data layout support.
+;
+; Keep this out of the common heap extension until the qfc4/rule budget is less
+; fragile. Stage 5 root-copy fixtures use it to model an existing pair cell with
+; immediate car/cdr words.
+
+(Rule
+  (ParseDefs (RawPair name car cdr rest))
+  (AstRawPair name car cdr (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstRawPair name car cdr rest))
+  (DAppend (CompileRawPair name car cdr) (CompileDefs rest)))
+
+(Rule
+  (CompileRawPair name car cdr)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword car) (Do (Dword cdr) End)))))

@@ -1,0 +1,105 @@
+; Stage 5 one-root copy recovery lifted through qfc4.
+;
+; Root points at OldRoot. The qfc4 source calls CopyRoot to copy that pair into
+; Heap, update Root, and advance HeapNext past the copy. It then allocates one
+; more pair after the copied root and exits with Root's copied car, 19. If the
+; copied root is overwritten by the later allocation, this exits 42.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (CallProc CopyRoot)
+        (Seq
+          (CallProc AllocAfterCopy)
+          (Seq
+            (LoadAddrEax Root)
+            (Seq
+              (CarEax)
+              (Seq
+                (LoadCarEbx)
+                (ExitReg Ebx))))))
+      (Def
+        CopyRoot
+        NoFrame
+        (Seq
+          (LoadAddrEax Root)
+          (Seq
+            (CarEax)
+            (Seq
+              (LoadCarEbx)
+              (Seq
+                (LoadAddrEax Heap)
+                (Seq
+                  (StoreCarEbx)
+                  (Seq
+                    (SetEcx 01)
+                    (Seq
+                      (StoreCdrEcx)
+                      (Seq
+                        (LoadAddrEax Heap)
+                        (Seq
+                          (MoveEbxEax)
+                          (Seq
+                            (LoadAddrEax Root)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (AddEbx 08)
+                                (Seq
+                                  (LoadAddrEax HeapNext)
+                                  (Seq
+                                    (StoreCarEbx)
+                                    (Return)))))))))))))))
+        (Def
+          AllocAfterCopy
+          NoFrame
+          (Seq
+            (LoadAddrEax HeapNext)
+            (Seq
+              (CarEax)
+              (Seq
+                (PushEax)
+                (Seq
+                  (MoveEbxEax)
+                  (Seq
+                    (AddEbx 08)
+                    (Seq
+                      (LoadAddrEax HeapNext)
+                      (Seq
+                        (StoreCarEbx)
+                        (Seq
+                          (PopEax)
+                          (Seq
+                            (SetEbx 2A)
+                            (Seq
+                              (StoreCarEbx)
+                              (Seq
+                                (SetEcx 01)
+                                (Seq
+                                  (StoreCdrEcx)
+                                  (Return)))))))))))))
+          (PtrCell HeapNext Heap
+          (PtrCell Root OldRoot
+          (Data Heap 00
+          (Data Heap1 00
+          (Data Heap2 00
+          (Data Heap3 00
+          (Data Heap4 00
+          (Data Heap5 00
+          (Data Heap6 00
+          (Data Heap7 00
+          (Data Heap8 00
+          (Data Heap9 00
+          (Data Heap10 00
+          (Data Heap11 00
+          (Data Heap12 00
+          (Data Heap13 00
+          (Data Heap14 00
+          (Data Heap15 00
+          (RawPair OldRoot 13 01
+          End)))))))))))))))))))))
+)))

@@ -81,6 +81,11 @@ These checked fixtures fit:
   - copies one live root pair into the reset heap
   - updates the root slot, retries allocation after the copied root, and exits
     with the copied root car (`19`)
+- `stage5-copy-root-gc-qfc4.qf1`
+  - uses the qfc4 -> qfasm3 -> qfasm2 heap path
+  - loads optional `qfc4-raw-data-ext.qf1` for raw pair data layout
+  - copies and updates one root through staged `CopyRoot` and `AllocAfterCopy`
+    procedures, then exits with the copied root car (`19`)
 - `stage5-copy-graph-gc.qf1`
   - uses the same qfasm2 heap-check extension, plus size facts through `N225`
   - copies a root pair and its tail pair, rewrites the copied root's cdr to the

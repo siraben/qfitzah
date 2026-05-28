@@ -162,6 +162,10 @@ commit, and recovered allocation output.
 `bootstrap/stage5-copy-root-gc.qf1` then preserves one live root across that
 recovery: it copies the root pair into the reset heap, updates the root slot,
 allocates another pair after it, and exits with the copied root car (`19`).
+`bootstrap/stage5-copy-root-gc-qfc4.qf1` lifts the same root-copy/update
+mechanics through qfc4, factoring the staged source into `CopyRoot` and
+`AllocAfterCopy` procedures so larger recovery logic can be expressed without a
+single deeply nested compiler input.
 `bootstrap/stage5-copy-graph-gc.qf1` extends that qfasm2-level recovery proof
 to a two-pair graph: the copied root's cdr is rewritten to the copied tail,
 allocation resumes after both copied cells, and the ELF exits with the copied

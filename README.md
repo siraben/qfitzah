@@ -334,6 +334,10 @@ with the recovered pair car (`19`).
 that recovery path to one live root: it copies the root pair into the reset
 heap, updates the root slot, allocates another pair after it, and exits with
 the copied root car (`19`).
+[bootstrap/stage5-copy-root-gc-qfc4.qf1](bootstrap/stage5-copy-root-gc-qfc4.qf1)
+lifts the root-copy/update mechanics through qfc4. The staged source copies
+`Root` into `Heap`, rewrites the root slot, advances `HeapNext`, allocates
+after the copied root, and exits with the copied car (`19`).
 [bootstrap/stage5-copy-graph-gc.qf1](bootstrap/stage5-copy-graph-gc.qf1)
 extends that proof to a two-pair graph: the root pair's cdr points at a second
 pair, recovery copies both cells, rewrites the copied cdr to the new tail, then
