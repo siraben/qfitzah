@@ -580,14 +580,8 @@ outbuf: .fill 131072
 init
         mov $outbuf, %edi
 
-        .data
-prompt: .ascii "↪ "
-prompt_end:
 init
-repl:   mov $prompt, %eax
-        mov $(prompt_end - prompt), %ecx
-        do emit
-        do flush
+repl:
 read_more:
         sys3 $__NR_read, $0, inptr, $1
         test %eax, %eax         # EOF on input?
@@ -599,6 +593,7 @@ read_more:
         jne read_more
         mov lineptr-globals(%ebp), %esi # parse the complete line
         do handle_line
+        do flush
         mov inptr-globals(%ebp), %esi
         mov %esi, lineptr-globals(%ebp)
         jmp repl
@@ -650,6 +645,55 @@ proc flush                      # Send output buffer to actual stdout
         pop %edi                # reset output pointer
         ret
 
+proc is_bytes                   # Does %eax contain (Bytes ...)? ZF says yes.
+        jnpair %al, 2f
+        car %eax
+        jpair %al, 2f
+        cmp $1, %eax
+        je 2f
+        and $~3, %eax
+        cmpl $5, 4(%eax)
+        jne 2f
+        mov (%eax), %eax
+        cmpl $0x65747942, (%eax) # "Byte"
+        jne 2f
+        cmpb $'s, 4(%eax)
+        ret
+2:      or $1, %al
+        ret
+
+proc emit_bytes                 # Emit a list of two-hex-digit atom bytes.
+        jnpair %al, 1f
+        push %eax
+        car %eax
+        call emit_byte
+        pop %eax
+        cdr %eax
+        jmp emit_bytes
+1:      ret
+
+proc emit_byte                  # Emit the byte named by an atom like B8 or 0A.
+        push %esi
+        and $~3, %eax
+        mov (%eax), %esi
+        lodsb
+        call nybble
+        shl $4, %al
+        mov %al, %bl
+        lodsb
+        call nybble
+        or %bl, %al
+        stosb
+        pop %esi
+        ret
+
+proc nybble                     # Convert ASCII hex digit in %al to a nybble.
+        sub $'0, %al
+        cmp $9, %al
+        jbe 1f
+        sub $7, %al
+1:      ret
+
         ## Our grammar looks something like:
         ## prog ::= _ (factor (_ "\n" | _ factor _"\n"))*
         ## factor ::= constant | var | "(" (_ atom)* _ ")"
@@ -683,6 +727,14 @@ proc handle_line
         jnz 1f
         pop %eax
         do ev
+        push %eax
+        call is_bytes
+        pop %eax
+        jne 2f
+        cdr %eax
+        call emit_bytes
+        ret
+2:
         do print
         mov $'\n, %al
         stosb

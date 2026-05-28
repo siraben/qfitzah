@@ -16,29 +16,50 @@ run_case() {
   local input=$case_dir/$name.qf1
   local expected=$case_dir/$name.expected
   local unexpected=$case_dir/$name.unexpected
+  local hex=$case_dir/$name.hex
   local output
+  local actual_hex
+  local expected_hex
   local snippet
 
-  output=$(timeout 5s "$qfitzah" < "$input")
+  output=$(mktemp)
+  timeout 5s "$qfitzah" < "$input" > "$output"
 
-  while IFS= read -r snippet; do
-    [[ -z "$snippet" ]] && continue
-    if ! grep -Fq "$snippet" <<<"$output"; then
-      printf 'FAIL %s: expected to find %q in output:\n%s\n' "$name" "$snippet" "$output" >&2
-      exit 1
-    fi
-  done < "$expected"
+  if [[ -f "$expected" ]]; then
+    while IFS= read -r snippet; do
+      [[ -z "$snippet" ]] && continue
+      if ! grep -aFq "$snippet" "$output"; then
+        printf 'FAIL %s: expected to find %q in output:\n' "$name" "$snippet" >&2
+        cat "$output" >&2
+        rm -f "$output"
+        exit 1
+      fi
+    done < "$expected"
+  fi
 
   if [[ -f "$unexpected" ]]; then
     while IFS= read -r snippet; do
       [[ -z "$snippet" ]] && continue
-      if grep -Fq "$snippet" <<<"$output"; then
-        printf 'FAIL %s: did not expect to find %q in output:\n%s\n' "$name" "$snippet" "$output" >&2
+      if grep -aFq "$snippet" "$output"; then
+        printf 'FAIL %s: did not expect to find %q in output:\n' "$name" "$snippet" >&2
+        cat "$output" >&2
+        rm -f "$output"
         exit 1
       fi
     done < "$unexpected"
   fi
 
+  if [[ -f "$hex" ]]; then
+    actual_hex=$(od -An -tx1 -v "$output" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+    expected_hex=$(tr -s '[:space:]' ' ' < "$hex" | sed 's/^ //; s/ $//')
+    if [[ "$actual_hex" != "$expected_hex" ]]; then
+      printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+      rm -f "$output"
+      exit 1
+    fi
+  fi
+
+  rm -f "$output"
   printf 'ok - %s\n' "$name"
 }
 
@@ -57,6 +78,7 @@ fi
 run_case "unmatched-template-variable"
 run_case "empty-list-pattern"
 run_case "reader-ergonomics"
+run_case "byte-output"
 run_case "arithmetic-compiler"
 run_case "meta2-arithmetic"
 run_case "lisp-reverse"

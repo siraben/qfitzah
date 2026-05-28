@@ -1,0 +1,3 @@
+; Macro-like assembler output: i386 Linux exit(42) machine-code fragment.
+(AsmExit code) (Bytes B8 01 00 00 00 BB code 00 00 00 CD 80)
+(AsmExit 2A)

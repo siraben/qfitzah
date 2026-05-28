@@ -43,15 +43,15 @@ Qfitzah reads one form per line.
 Lines with one expression evaluate that expression:
 
 ```text
-↪ (Id 3)
+(Id 3)
 (Id 3)
 ```
 
 Lines with two expressions define a rewrite rule:
 
 ```text
-↪ (Id x) x
-↪ (Id 3)
+(Id x) x
+(Id 3)
 3
 ```
 
@@ -72,19 +72,38 @@ that run to the end of the line:
 Repeated variables in a pattern must match the same term:
 
 ```text
-↪ (Eq x x) (Yes x)
-↪ (Eq 3 3)
+(Eq x x) (Yes x)
+(Eq 3 3)
 (Yes 3)
-↪ (Eq 3 4)
+(Eq 3 4)
 (Eq 3 4)
 ```
 
 Template variables that were not bound by the pattern are printed unchanged:
 
 ```text
-↪ (Do Nothing) no
-↪ (Do Nothing)
+(Do Nothing) no
+(Do Nothing)
 no
+```
+
+If an evaluated expression returns `(Bytes XX YY ...)`, Qfitzah writes those
+two-hex-digit byte atoms directly to stdout with no trailing newline. This makes
+the runtime usable as a tiny macro assembler seed:
+
+```text
+(AsmExit code) (Bytes B8 01 00 00 00 BB code 00 00 00 CD 80)
+(AsmExit 2A)
+```
+
+```sh
+nix run < examples/byte-assembler.qf1 > exit42.bin
+```
+
+The example emits this i386 Linux machine-code fragment:
+
+```text
+b8 01 00 00 00 bb 2a 00 00 00 cd 80
 ```
 
 ## Tests
