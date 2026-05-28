@@ -88,6 +88,11 @@ qfc4 -> qfasm3 -> qfasm2 pipeline.
 ## Stage 5: Self-Hosting Runtime & Full Qfitzah
 Develop the full language compiler compiled by the Stage 4 compiler, moving toward full self-hosting and robust execution.
 
+The repository is not self-hosting yet. The current qfc4 compiler slice cannot
+express the whole `qfitzah.s` runtime. See
+`bootstrap/self-hosting-gap.md` for the concrete missing runtime mechanisms and
+the next subsystem-sized milestone.
+
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.
 - [ ] **Task 5.2: Compile Multiple Dispatch Tables**
