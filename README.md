@@ -199,6 +199,12 @@ exit with the computed value
 
 For input byte `41` (`A`), the generated ELF exits with status `10`.
 
+[bootstrap/stage4-emit-byte.qf1](bootstrap/stage4-emit-byte.qf1) compiles the
+next byte-output step. It reads two static ASCII hex digits, calls `Nybble` for
+each, combines the high and low nybbles into a byte, and invokes Linux
+`write(1, sp, 1)` to emit that byte. The generated ELF writes byte `41`
+(`A`) to stdout and exits with status `0`.
+
 ## Tests
 
 ```sh

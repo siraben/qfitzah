@@ -23,6 +23,12 @@
 (ParseStmt (LoadByteEbx name)) (LoadByteEbx name)
 (ParseStmt (SubEbx byte)) (SubEbx byte)
 (ParseStmt (CmpEbx byte)) (CmpEbx byte)
+(ParseStmt (MoveEcxEbx)) MoveEcxEbx
+(ParseStmt (ShlEcx byte)) (ShlEcx byte)
+(ParseStmt (OrEbxEcx)) OrEbxEcx
+(ParseStmt (StoreByte name)) (StoreByte name)
+(ParseStmt (WriteByte name)) (WriteByte name)
+(ParseStmt (WriteByteFromEbx)) WriteByteFromEbx
 (ParseStmt (IfBelowEq name then else)) (IfBelowEq name (ParseStmt then) (ParseStmt else))
 (ParseStmt (Nop)) Nop
 (ParseStmt (Return)) Return
@@ -68,6 +74,12 @@
 (CompileStmt (LoadByteEbx name)) (Do (MovEbxLabel name) (Do (LoadByteEbx) End))
 (CompileStmt (SubEbx byte)) (Do (SubEbxImm8 byte) End)
 (CompileStmt (CmpEbx byte)) (Do (CmpEbxImm8 byte) End)
+(CompileStmt MoveEcxEbx) (Do (MovEcxEbx) End)
+(CompileStmt (ShlEcx byte)) (Do (ShlEcxImm8 byte) End)
+(CompileStmt OrEbxEcx) (Do (OrEbxEcx) End)
+(CompileStmt (StoreByte name)) (Do (MovEaxLabel name) (Do (StoreByteAtEaxFromBl) End))
+(CompileStmt (WriteByte name)) (Do (MovEaxImm32 04) (Do (MovEbxImm32 01) (Do (MovEcxLabel name) (Do (MovEdxImm32 01) (Do (Int 80) End)))))
+(CompileStmt WriteByteFromEbx) (Do (PushEbx) (Do (MovEaxImm32 04) (Do (MovEbxImm32 01) (Do (MovEcxEsp) (Do (MovEdxImm32 01) (Do (Int 80) End))))))
 (CompileStmt (IfBelowEq name then else)) (Do (IfBelowEq name (CompileStmt then) (CompileStmt else)) End)
 (CompileStmt Nop) (Do (Nop) End)
 (CompileStmt Return) End

@@ -49,6 +49,66 @@
 (Inc N37) N38
 (Inc N38) N39
 (Inc N39) N40
+(Inc N40) N41
+(Inc N41) N42
+(Inc N42) N43
+(Inc N43) N44
+(Inc N44) N45
+(Inc N45) N46
+(Inc N46) N47
+(Inc N47) N48
+(Inc N48) N49
+(Inc N49) N50
+(Inc N50) N51
+(Inc N51) N52
+(Inc N52) N53
+(Inc N53) N54
+(Inc N54) N55
+(Inc N55) N56
+(Inc N56) N57
+(Inc N57) N58
+(Inc N58) N59
+(Inc N59) N60
+(Inc N60) N61
+(Inc N61) N62
+(Inc N62) N63
+(Inc N63) N64
+(Inc N64) N65
+(Inc N65) N66
+(Inc N66) N67
+(Inc N67) N68
+(Inc N68) N69
+(Inc N69) N70
+(Inc N70) N71
+(Inc N71) N72
+(Inc N72) N73
+(Inc N73) N74
+(Inc N74) N75
+(Inc N75) N76
+(Inc N76) N77
+(Inc N77) N78
+(Inc N78) N79
+(Inc N79) N80
+(Inc N80) N81
+(Inc N81) N82
+(Inc N82) N83
+(Inc N83) N84
+(Inc N84) N85
+(Inc N85) N86
+(Inc N86) N87
+(Inc N87) N88
+(Inc N88) N89
+(Inc N89) N90
+(Inc N90) N91
+(Inc N91) N92
+(Inc N92) N93
+(Inc N93) N94
+(Inc N94) N95
+(Inc N95) N96
+(Inc N96) N97
+(Inc N97) N98
+(Inc N98) N99
+(Inc N99) N100
 
 (Dec N1) N0
 (Dec N2) N1
@@ -90,6 +150,66 @@
 (Dec N38) N37
 (Dec N39) N38
 (Dec N40) N39
+(Dec N41) N40
+(Dec N42) N41
+(Dec N43) N42
+(Dec N44) N43
+(Dec N45) N44
+(Dec N46) N45
+(Dec N47) N46
+(Dec N48) N47
+(Dec N49) N48
+(Dec N50) N49
+(Dec N51) N50
+(Dec N52) N51
+(Dec N53) N52
+(Dec N54) N53
+(Dec N55) N54
+(Dec N56) N55
+(Dec N57) N56
+(Dec N58) N57
+(Dec N59) N58
+(Dec N60) N59
+(Dec N61) N60
+(Dec N62) N61
+(Dec N63) N62
+(Dec N64) N63
+(Dec N65) N64
+(Dec N66) N65
+(Dec N67) N66
+(Dec N68) N67
+(Dec N69) N68
+(Dec N70) N69
+(Dec N71) N70
+(Dec N72) N71
+(Dec N73) N72
+(Dec N74) N73
+(Dec N75) N74
+(Dec N76) N75
+(Dec N77) N76
+(Dec N78) N77
+(Dec N79) N78
+(Dec N80) N79
+(Dec N81) N80
+(Dec N82) N81
+(Dec N83) N82
+(Dec N84) N83
+(Dec N85) N84
+(Dec N86) N85
+(Dec N87) N86
+(Dec N88) N87
+(Dec N89) N88
+(Dec N90) N89
+(Dec N91) N90
+(Dec N92) N91
+(Dec N93) N92
+(Dec N94) N93
+(Dec N95) N94
+(Dec N96) N95
+(Dec N97) N96
+(Dec N98) N97
+(Dec N99) N98
+(Dec N100) N99
 
 (Add n N0) n
 (Add n N1) (Inc n)
@@ -143,6 +263,66 @@
 (Byte N38) 26
 (Byte N39) 27
 (Byte N40) 28
+(Byte N41) 29
+(Byte N42) 2A
+(Byte N43) 2B
+(Byte N44) 2C
+(Byte N45) 2D
+(Byte N46) 2E
+(Byte N47) 2F
+(Byte N48) 30
+(Byte N49) 31
+(Byte N50) 32
+(Byte N51) 33
+(Byte N52) 34
+(Byte N53) 35
+(Byte N54) 36
+(Byte N55) 37
+(Byte N56) 38
+(Byte N57) 39
+(Byte N58) 3A
+(Byte N59) 3B
+(Byte N60) 3C
+(Byte N61) 3D
+(Byte N62) 3E
+(Byte N63) 3F
+(Byte N64) 40
+(Byte N65) 41
+(Byte N66) 42
+(Byte N67) 43
+(Byte N68) 44
+(Byte N69) 45
+(Byte N70) 46
+(Byte N71) 47
+(Byte N72) 48
+(Byte N73) 49
+(Byte N74) 4A
+(Byte N75) 4B
+(Byte N76) 4C
+(Byte N77) 4D
+(Byte N78) 4E
+(Byte N79) 4F
+(Byte N80) 50
+(Byte N81) 51
+(Byte N82) 52
+(Byte N83) 53
+(Byte N84) 54
+(Byte N85) 55
+(Byte N86) 56
+(Byte N87) 57
+(Byte N88) 58
+(Byte N89) 59
+(Byte N90) 5A
+(Byte N91) 5B
+(Byte N92) 5C
+(Byte N93) 5D
+(Byte N94) 5E
+(Byte N95) 5F
+(Byte N96) 60
+(Byte N97) 61
+(Byte N98) 62
+(Byte N99) 63
+(Byte N100) 64
 
 ; Virtual addresses for labels at code offsets from the ELF entry point
 ; 0x08048054.
@@ -187,6 +367,66 @@
 (Addr N38) (Bytes 7A 80 04 08)
 (Addr N39) (Bytes 7B 80 04 08)
 (Addr N40) (Bytes 7C 80 04 08)
+(Addr N41) (Bytes 7D 80 04 08)
+(Addr N42) (Bytes 7E 80 04 08)
+(Addr N43) (Bytes 7F 80 04 08)
+(Addr N44) (Bytes 80 80 04 08)
+(Addr N45) (Bytes 81 80 04 08)
+(Addr N46) (Bytes 82 80 04 08)
+(Addr N47) (Bytes 83 80 04 08)
+(Addr N48) (Bytes 84 80 04 08)
+(Addr N49) (Bytes 85 80 04 08)
+(Addr N50) (Bytes 86 80 04 08)
+(Addr N51) (Bytes 87 80 04 08)
+(Addr N52) (Bytes 88 80 04 08)
+(Addr N53) (Bytes 89 80 04 08)
+(Addr N54) (Bytes 8A 80 04 08)
+(Addr N55) (Bytes 8B 80 04 08)
+(Addr N56) (Bytes 8C 80 04 08)
+(Addr N57) (Bytes 8D 80 04 08)
+(Addr N58) (Bytes 8E 80 04 08)
+(Addr N59) (Bytes 8F 80 04 08)
+(Addr N60) (Bytes 90 80 04 08)
+(Addr N61) (Bytes 91 80 04 08)
+(Addr N62) (Bytes 92 80 04 08)
+(Addr N63) (Bytes 93 80 04 08)
+(Addr N64) (Bytes 94 80 04 08)
+(Addr N65) (Bytes 95 80 04 08)
+(Addr N66) (Bytes 96 80 04 08)
+(Addr N67) (Bytes 97 80 04 08)
+(Addr N68) (Bytes 98 80 04 08)
+(Addr N69) (Bytes 99 80 04 08)
+(Addr N70) (Bytes 9A 80 04 08)
+(Addr N71) (Bytes 9B 80 04 08)
+(Addr N72) (Bytes 9C 80 04 08)
+(Addr N73) (Bytes 9D 80 04 08)
+(Addr N74) (Bytes 9E 80 04 08)
+(Addr N75) (Bytes 9F 80 04 08)
+(Addr N76) (Bytes A0 80 04 08)
+(Addr N77) (Bytes A1 80 04 08)
+(Addr N78) (Bytes A2 80 04 08)
+(Addr N79) (Bytes A3 80 04 08)
+(Addr N80) (Bytes A4 80 04 08)
+(Addr N81) (Bytes A5 80 04 08)
+(Addr N82) (Bytes A6 80 04 08)
+(Addr N83) (Bytes A7 80 04 08)
+(Addr N84) (Bytes A8 80 04 08)
+(Addr N85) (Bytes A9 80 04 08)
+(Addr N86) (Bytes AA 80 04 08)
+(Addr N87) (Bytes AB 80 04 08)
+(Addr N88) (Bytes AC 80 04 08)
+(Addr N89) (Bytes AD 80 04 08)
+(Addr N90) (Bytes AE 80 04 08)
+(Addr N91) (Bytes AF 80 04 08)
+(Addr N92) (Bytes B0 80 04 08)
+(Addr N93) (Bytes B1 80 04 08)
+(Addr N94) (Bytes B2 80 04 08)
+(Addr N95) (Bytes B3 80 04 08)
+(Addr N96) (Bytes B4 80 04 08)
+(Addr N97) (Bytes B5 80 04 08)
+(Addr N98) (Bytes B6 80 04 08)
+(Addr N99) (Bytes B7 80 04 08)
+(Addr N100) (Bytes B8 80 04 08)
 
 ; ELF file sizes are header size 84 plus code size.
 (FileSize N0) (Bytes 54 00 00 00)
@@ -230,6 +470,66 @@
 (FileSize N38) (Bytes 7A 00 00 00)
 (FileSize N39) (Bytes 7B 00 00 00)
 (FileSize N40) (Bytes 7C 00 00 00)
+(FileSize N41) (Bytes 7D 00 00 00)
+(FileSize N42) (Bytes 7E 00 00 00)
+(FileSize N43) (Bytes 7F 00 00 00)
+(FileSize N44) (Bytes 80 00 00 00)
+(FileSize N45) (Bytes 81 00 00 00)
+(FileSize N46) (Bytes 82 00 00 00)
+(FileSize N47) (Bytes 83 00 00 00)
+(FileSize N48) (Bytes 84 00 00 00)
+(FileSize N49) (Bytes 85 00 00 00)
+(FileSize N50) (Bytes 86 00 00 00)
+(FileSize N51) (Bytes 87 00 00 00)
+(FileSize N52) (Bytes 88 00 00 00)
+(FileSize N53) (Bytes 89 00 00 00)
+(FileSize N54) (Bytes 8A 00 00 00)
+(FileSize N55) (Bytes 8B 00 00 00)
+(FileSize N56) (Bytes 8C 00 00 00)
+(FileSize N57) (Bytes 8D 00 00 00)
+(FileSize N58) (Bytes 8E 00 00 00)
+(FileSize N59) (Bytes 8F 00 00 00)
+(FileSize N60) (Bytes 90 00 00 00)
+(FileSize N61) (Bytes 91 00 00 00)
+(FileSize N62) (Bytes 92 00 00 00)
+(FileSize N63) (Bytes 93 00 00 00)
+(FileSize N64) (Bytes 94 00 00 00)
+(FileSize N65) (Bytes 95 00 00 00)
+(FileSize N66) (Bytes 96 00 00 00)
+(FileSize N67) (Bytes 97 00 00 00)
+(FileSize N68) (Bytes 98 00 00 00)
+(FileSize N69) (Bytes 99 00 00 00)
+(FileSize N70) (Bytes 9A 00 00 00)
+(FileSize N71) (Bytes 9B 00 00 00)
+(FileSize N72) (Bytes 9C 00 00 00)
+(FileSize N73) (Bytes 9D 00 00 00)
+(FileSize N74) (Bytes 9E 00 00 00)
+(FileSize N75) (Bytes 9F 00 00 00)
+(FileSize N76) (Bytes A0 00 00 00)
+(FileSize N77) (Bytes A1 00 00 00)
+(FileSize N78) (Bytes A2 00 00 00)
+(FileSize N79) (Bytes A3 00 00 00)
+(FileSize N80) (Bytes A4 00 00 00)
+(FileSize N81) (Bytes A5 00 00 00)
+(FileSize N82) (Bytes A6 00 00 00)
+(FileSize N83) (Bytes A7 00 00 00)
+(FileSize N84) (Bytes A8 00 00 00)
+(FileSize N85) (Bytes A9 00 00 00)
+(FileSize N86) (Bytes AA 00 00 00)
+(FileSize N87) (Bytes AB 00 00 00)
+(FileSize N88) (Bytes AC 00 00 00)
+(FileSize N89) (Bytes AD 00 00 00)
+(FileSize N90) (Bytes AE 00 00 00)
+(FileSize N91) (Bytes AF 00 00 00)
+(FileSize N92) (Bytes B0 00 00 00)
+(FileSize N93) (Bytes B1 00 00 00)
+(FileSize N94) (Bytes B2 00 00 00)
+(FileSize N95) (Bytes B3 00 00 00)
+(FileSize N96) (Bytes B4 00 00 00)
+(FileSize N97) (Bytes B5 00 00 00)
+(FileSize N98) (Bytes B6 00 00 00)
+(FileSize N99) (Bytes B7 00 00 00)
+(FileSize N100) (Bytes B8 00 00 00)
 
 ; Symbol table and layout pass.
 (Lookup name (Bind other pc rest)) (Lookup name rest)
@@ -240,7 +540,9 @@
 (Size (Ret)) N1
 (Size (IncEbx)) N1
 (Size (PushEcx)) N1
+(Size (PushEbx)) N1
 (Size (PopEcx)) N1
+(Size (PopEbx)) N1
 (Size (Db byte)) N1
 (Size (Int byte)) N2
 (Size (XorEbxEbx)) N2
@@ -251,13 +553,19 @@
 (Size (LoadByteEbx)) N3
 (Size (SubEbxImm8 byte)) N3
 (Size (CmpEbxImm8 byte)) N3
+(Size (ShlEcxImm8 byte)) N3
 (Size (Call label)) N5
+(Size (MovEcxEbx)) N2
+(Size (MovEcxEsp)) N2
+(Size (OrEbxEcx)) N2
+(Size (StoreByteAtEaxFromBl)) N2
 (Size (MovEaxImm32 byte)) N5
 (Size (MovEbxImm32 byte)) N5
 (Size (MovEcxImm32 byte)) N5
 (Size (MovEdxImm32 byte)) N5
 (Size (MovEaxLabel label)) N5
 (Size (MovEbxLabel label)) N5
+(Size (MovEcxLabel label)) N5
 
 (Pass1 End pc sym) sym
 (Pass1 (Ins instr rest) pc sym) (Pass1 rest (Add pc (Size instr)) sym)
@@ -273,19 +581,27 @@
 (Pass2 (Ins (Ret) rest) pc sym) (Bytes C3 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (IncEbx) rest) pc sym) (Bytes 43 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEcx) rest) pc sym) (Bytes 51 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PushEbx) rest) pc sym) (Bytes 53 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEcx) rest) pc sym) (Bytes 59 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PopEbx) rest) pc sym) (Bytes 5B (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Db byte) rest) pc sym) (Bytes byte (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Int byte) rest) pc sym) (Bytes CD byte (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (XorEbxEbx) rest) pc sym) (Bytes 31 DB (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (LoadByteEbx) rest) pc sym) (Bytes 0F B6 1B (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (SubEbxImm8 byte) rest) pc sym) (Bytes 83 EB byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (CmpEbxImm8 byte) rest) pc sym) (Bytes 83 FB byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (ShlEcxImm8 byte) rest) pc sym) (Bytes C1 E1 byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (MovEcxEbx) rest) pc sym) (Bytes 89 D9 (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (MovEcxEsp) rest) pc sym) (Bytes 89 E1 (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (OrEbxEcx) rest) pc sym) (Bytes 09 CB (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (StoreByteAtEaxFromBl) rest) pc sym) (Bytes 88 18 (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (MovEaxImm32 byte) rest) pc sym) (Bytes B8 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEbxImm32 byte) rest) pc sym) (Bytes BB byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEcxImm32 byte) rest) pc sym) (Bytes B9 byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEdxImm32 byte) rest) pc sym) (Bytes BA byte 00 00 00 (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEaxLabel label) rest) pc sym) (Bytes B8 (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (MovEbxLabel label) rest) pc sym) (Bytes BB (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (MovEcxLabel label) rest) pc sym) (Bytes B9 (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
 (Pass2 (Ins (Jump label) rest) pc sym) (Bytes EB (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jz label) rest) pc sym) (Bytes 74 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (Jnz label) rest) pc sym) (Bytes 75 (Byte (Sub (Lookup label sym) (Add pc N2))) (Pass2 rest (Add pc N2) sym))

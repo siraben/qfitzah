@@ -163,9 +163,11 @@ run_qfasm3_exit42
 run_qfc4_binary() {
   local name=$1
   local expected_status=$2
+  local expected_runtime_hex=${3:-}
   local tmp
   local actual_hex
   local expected_hex
+  local runtime_hex
   local status
 
   tmp=$(mktemp -d)
@@ -185,7 +187,7 @@ run_qfc4_binary() {
 
   chmod +x "$tmp/$name"
   set +e
-  "$tmp/$name"
+  "$tmp/$name" > "$tmp/runtime.out"
   status=$?
   set -e
 
@@ -195,6 +197,15 @@ run_qfc4_binary() {
     exit 1
   fi
 
+  if [[ -n "$expected_runtime_hex" ]]; then
+    runtime_hex=$(od -An -tx1 -v "$tmp/runtime.out" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+    if [[ "$runtime_hex" != "$expected_runtime_hex" ]]; then
+      printf 'FAIL %s: expected runtime stdout hex %s, got %s\n' "$name" "$expected_runtime_hex" "$runtime_hex" >&2
+      rm -rf "$tmp"
+      exit 1
+    fi
+  fi
+
   rm -rf "$tmp"
   printf 'ok - %s\n' "$name"
 }
@@ -202,3 +213,4 @@ run_qfc4_binary() {
 run_qfc4_binary "stage4-exit42" 42
 run_qfc4_binary "stage4-tagged-exit43" 43
 run_qfc4_binary "stage4-nybble" 10
+run_qfc4_binary "stage4-emit-byte" 0 "41"

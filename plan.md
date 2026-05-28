@@ -98,6 +98,9 @@ Current self-hosting progress: `bootstrap/stage4-nybble.qf1` compiles the
 runnable ELF. This proves calls, static data loads, byte arithmetic, compare,
 and conditional branch lowering for one real runtime subsystem. It is not yet
 enough for `emit_byte`, recursive `emit_bytes`, or the full interpreter.
+`bootstrap/stage4-emit-byte.qf1` extends this by compiling an `emit_byte`-shaped
+routine that calls `Nybble` twice, combines the nybbles, and writes byte `41`
+to stdout from the generated ELF.
 
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.

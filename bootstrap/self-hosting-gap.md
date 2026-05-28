@@ -60,6 +60,9 @@ Progress so far:
 - The compiled program loads byte `A` from static data, calls `Nybble`,
   performs the subtract/compare/conditional-subtract sequence, and exits with
   status `10`.
+- `stage4-emit-byte.qf1` compiles the next routine shape: load two ASCII hex
+  digits, call `Nybble` twice, combine high/low nybbles, and write one byte to
+  stdout. The generated ELF writes byte `41` (`A`) and exits with status `0`.
 
 Still required for the byte-output path:
 
@@ -67,6 +70,6 @@ Still required for the byte-output path:
 - conditionals over tag bits and byte comparisons
 - loops or tail calls over `(Bytes ...)` lists
 - enough data layout notation to express Qfitzah objects
-- compiled `is_bytes`, `emit_byte`, and recursive `emit_bytes`
+- compiled `is_bytes` and recursive `emit_bytes`
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
