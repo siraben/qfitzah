@@ -3,7 +3,6 @@
 ; This file emits the ELF executable directly, not assembly source.
 ; It follows the annotated hex0 style: ELF fields are named, and .text is readable instruction-by-instruction.
 ; B1..B16 are byte-emission macros; comments carry the actual i386 assembly.
-; The test suite requires the concatenated output to match the seed binary exactly.
 
 ; Generic byte-emission macros.
 (B1 a) (Bytes a)
@@ -39,6 +38,7 @@
 (CMP-EAX-EAX) (Bytes 39 C0)
 (CMP-EAX-ECX) (Bytes 39 C8)
 (CMP-EAX-IMM a) (Bytes 83 F8 a)
+(CMP-ESI-DWORD-EBP-DISP a) (Bytes 3B 75 a)
 (DEC-ESI) (Bytes 4E)
 (INC-EAX) (Bytes 40)
 (INC-EBX) (Bytes 43)
@@ -54,6 +54,7 @@
 (LODS-AL-BYTE-ESI) (Bytes AC)
 (MOV-AL-IMM8 a) (Bytes B0 a)
 (MOV-BL-AL) (Bytes 88 C3)
+(MOV-BYTE-ESI-IMM a) (Bytes C6 06 a)
 (MOV-DWORD-EBP-DISP-EAX a) (Bytes 89 45 a)
 (MOV-DWORD-EBP-DISP-ESI a) (Bytes 89 75 a)
 (MOV-DWORD-EBX-DISP-ECX a) (Bytes 89 4B a)
@@ -70,7 +71,7 @@
 (MOV-ECX-DWORD-ECX) (Bytes 8B 09)
 (MOV-ECX-DWORD-ECX-DISP a) (Bytes 8B 49 a)
 (MOV-ECX-DWORD-EDX) (Bytes 8B 0A)
-(MOV-ECX-DWORD-IMM a) (Bytes 8B 0D 24 94 04 a)
+(MOV-ECX-DWORD-IMM a b c d) (Bytes 8B 0D a b c d)
 (MOV-ECX-EAX) (Bytes 89 C1)
 (MOV-ECX-EDX) (Bytes 89 D1)
 (MOV-ECX-ESI) (Bytes 89 F1)
@@ -119,669 +120,672 @@
 (XOR-EDX-EDX) (Bytes 31 D2)
 
 ; ELF header
-(B4 7F 45 4C 46)                ; e_ident magic: ELF
-(B1 01)                         ; e_ident class: ELF32
-(B1 01)                         ; e_ident data: little endian
-(B1 01)                         ; e_ident version
-(B1 00)                         ; e_ident OS ABI
-(B1 00)                         ; e_ident ABI version
-(B7 00 00 00 00 00 00 00)       ; e_ident padding
-(B2 02 00)                      ; e_type: executable
-(B2 03 00)                      ; e_machine: i386
-(B4 01 00 00 00)                ; e_version
-(B4 B4 80 04 08)                ; e_entry: 0x080480B4
-(B4 34 00 00 00)                ; e_phoff: program header offset
-(B4 48 04 00 00)                ; e_shoff: section header offset
-(B4 00 00 00 00)                ; e_flags
-(B2 34 00)                      ; e_ehsize
-(B2 20 00)                      ; e_phentsize
-(B2 04 00)                      ; e_phnum
-(B2 28 00)                      ; e_shentsize
-(B2 05 00)                      ; e_shnum
-(B2 04 00)                      ; e_shstrndx
-
-; Program headers
+(B4 7F 45 4C 46)                  ; e_ident magic: ELF
+(B1 01)                           ; e_ident class: ELF32
+(B1 01)                           ; e_ident data: little endian
+(B1 01)                           ; e_ident version
+(B1 00)                           ; e_ident OS ABI
+(B1 00)                           ; e_ident ABI version
+(B7 00 00 00 00 00 00 00)         ; e_ident padding
+(B2 02 00)                        ; e_type: executable
+(B2 03 00)                        ; e_machine: i386
+(B4 01 00 00 00)                  ; e_version
+(B4 B4 80 04 08)                  ; e_entry: 0x080480B4
+(B4 34 00 00 00)                  ; e_phoff: program header offset
+(B4 74 04 00 00)                  ; e_shoff: section header offset
+(B4 00 00 00 00)                  ; e_flags
+(B2 34 00)                        ; e_ehsize
+(B2 20 00)                        ; e_phentsize
+(B2 04 00)                        ; e_phnum
+(B2 28 00)                        ; e_shentsize
+(B2 05 00)                        ; e_shnum
+(B2 04 00)                        ; e_shstrndx
 
 ; Program header 0 (PT_LOAD, code segment)
-(B4 01 00 00 00)                ; p_type
-(B4 00 00 00 00)                ; p_offset
-(B4 00 80 04 08)                ; p_vaddr
-(B4 00 80 04 08)                ; p_paddr
-(B4 D9 03 00 00)                ; p_filesz
-(B4 D9 03 00 00)                ; p_memsz
-(B4 05 00 00 00)                ; p_flags (R+X)
-(B4 00 10 00 00)                ; p_align
+(B4 01 00 00 00)                  ; p_type
+(B4 00 00 00 00)                  ; p_offset
+(B4 00 80 04 08)                  ; p_vaddr
+(B4 00 80 04 08)                  ; p_paddr
+(B4 05 04 00 00)                  ; p_filesz
+(B4 05 04 00 00)                  ; p_memsz
+(B4 05 00 00 00)                  ; p_flags (R+X)
+(B4 00 10 00 00)                  ; p_align
 
 ; Program header 1 (PT_LOAD, data/bss segment)
-(B4 01 00 00 00)                ; p_type
-(B4 04 04 00 00)                ; p_offset
-(B4 04 94 04 08)                ; p_vaddr
-(B4 04 94 04 08)                ; p_paddr
-(B4 28 00 00 00)                ; p_filesz
-(B4 2C 20 03 20)                ; p_memsz
-(B4 06 00 00 00)                ; p_flags (R+W)
-(B4 00 10 00 00)                ; p_align
+(B4 01 00 00 00)                  ; p_type
+(B4 30 04 00 00)                  ; p_offset
+(B4 30 94 04 08)                  ; p_vaddr
+(B4 30 94 04 08)                  ; p_paddr
+(B4 28 00 00 00)                  ; p_filesz
+(B4 28 20 03 20)                  ; p_memsz
+(B4 06 00 00 00)                  ; p_flags (R+W)
+(B4 00 10 00 00)                  ; p_align
 
 ; Program header 2 (PT_NOTE)
-(B4 04 00 00 00)                ; p_type
-(B4 00 00 00 00)                ; p_offset
-(B4 DC 83 04 08)                ; p_vaddr
-(B4 00 00 00 00)                ; p_paddr
-(B4 00 00 00 00)                ; p_filesz
-(B4 00 00 00 00)                ; p_memsz
-(B4 04 00 00 00)                ; p_flags (R)
-(B4 04 00 00 00)                ; p_align
+(B4 04 00 00 00)                  ; p_type
+(B4 00 00 00 00)                  ; p_offset
+(B4 08 84 04 08)                  ; p_vaddr
+(B4 00 00 00 00)                  ; p_paddr
+(B4 00 00 00 00)                  ; p_filesz
+(B4 00 00 00 00)                  ; p_memsz
+(B4 04 00 00 00)                  ; p_flags (R)
+(B4 04 00 00 00)                  ; p_align
 
-; Program header 3 (PT_GNU_STACK)
-(B4 53 E5 74 64)                ; p_type
-(B4 00 00 00 00)                ; p_offset
-(B4 DC 83 04 08)                ; p_vaddr
-(B4 00 00 00 00)                ; p_paddr
-(B4 00 00 00 00)                ; p_filesz
-(B4 00 00 00 00)                ; p_memsz
-(B4 04 00 00 00)                ; p_flags (R)
-(B4 04 00 00 00)                ; p_align
+; Program header 3 (PT_GNU_STACK/PT_GNU_PROPERTY)
+(B4 53 E5 74 64)                  ; p_type
+(B4 00 00 00 00)                  ; p_offset
+(B4 08 84 04 08)                  ; p_vaddr
+(B4 00 00 00 00)                  ; p_paddr
+(B4 00 00 00 00)                  ; p_filesz
+(B4 00 00 00 00)                  ; p_memsz
+(B4 04 00 00 00)                  ; p_flags (R)
+(B4 04 00 00 00)                  ; p_align
 
 
 ;;;; .text machine code ;;;;
 
 ;;; Startup and input buffering
-; Initialize global roots and read stdin one byte at a time until a full source
-; line is available.
+; Initialize the globals base, output pointer, and byte-at-a-time input loop.
 
 ; :_start (0x080480B4)
-(MOV-EBP-IMM32 04 94 04 08)     ; mov ebp,0x8049404             ; initialize global base
-(MOV-EDI-IMM32 30 B4 05 08)     ; mov edi,0x805b430             ; initialize output pointer
-(XOR-EDX-EDX)                   ; xor edx,edx                   ; clear edx
-(INC-EDX)                       ; inc edx                       ; edx = 1
-(MOV-ECX-DWORD-IMM 08)          ; mov ecx,DWORD PTR ds:0x8049424; load input pointer
-(XOR-EBX-EBX)                   ; xor ebx,ebx                   ; ebx = 0 (stdin)
-(MOV-EAX-IMM32 03 00 00 00)     ; mov eax,0x3                   ; sys_read
-(INT-IMM 80)                    ; int 0x80                      ; trigger syscall
-(TEST-EAX-EAX)                  ; test eax,eax                  ; test EOF or error
-(JE-REL8 23)                    ; je 0x80480f7                  ; exit on EOF
-(MOV-ESI-DWORD-EBP-DISP 20)     ; mov esi,DWORD PTR [ebp+0x20]  ; load parse pointer
-(CMP-BYTE-ESI-IMM 0A)           ; cmp BYTE PTR [esi],0xa        ; check for newline
-(LEA-ESI-ESI-DISP 01)           ; lea esi,[esi+0x1]             ; advance pointer
-(MOV-DWORD-EBP-DISP-ESI 20)     ; mov DWORD PTR [ebp+0x20],esi  ; save parse pointer
-(JNE-REL8 DC)                   ; jne 0x80480be                 ; loop until newline
-(MOV-ESI-DWORD-EBP-DISP 24)     ; mov esi,DWORD PTR [ebp+0x24]  ; load old parse pointer
-(CALL-REL32 DE 01 00 00)        ; call 0x80482c8                ; evaluate buffer
-(CALL-REL32 61 01 00 00)        ; call 0x8048250                ; flush output
-(MOV-ESI-DWORD-EBP-DISP 20)     ; mov esi,DWORD PTR [ebp+0x20]  ; load current parse pointer
-(MOV-DWORD-EBP-DISP-ESI 24)     ; mov DWORD PTR [ebp+0x24],esi  ; save as old parse pointer
-(JMP-REL8 C7)                   ; jmp 0x80480be                 ; read next chunk
-(XOR-EBX-EBX)                   ; xor ebx,ebx                   ; return code 0
-(MOV-EAX-IMM32 01 00 00 00)     ; mov eax,0x1                   ; sys_exit
-(INT-IMM 80)                    ; int 0x80                      ; exit process
+(MOV-EBP-IMM32 30 94 04 08)       ; mov ebp,0x8049430             ; initialize global variable base
+(MOV-EDI-IMM32 58 B4 05 08)       ; mov edi,0x805b458             ; initialize output pointer
+
+; :read_more / repl (0x080480BE)
+; read one byte into the input buffer; complete lines are parsed immediately
+(XOR-EDX-EDX)                     ; xor edx,edx                   ; edx = 0
+(INC-EDX)                         ; inc edx                       ; edx = 1 (sys_write/stdout count)
+(MOV-ECX-DWORD-IMM 50 94 04 08)   ; mov ecx,ds:0x8049450          ; load inptr (write destination address)
+(XOR-EBX-EBX)                     ; xor ebx,ebx                   ; ebx = 0 (stdin descriptor)
+(MOV-EAX-IMM32 03 00 00 00)       ; mov eax,0x3                   ; sys_read syscall
+(INT-IMM 80)                      ; int 0x80                      ; read 1 byte from stdin
+(TEST-EAX-EAX)                    ; test eax,eax                  ; EOF on input?
+(JE-REL8 23)                      ; je 0x80480f7                  ; if so, jump to finish_input
+(MOV-ESI-DWORD-EBP-DISP 20)       ; mov esi,[ebp+0x20]            ; load current inptr into esi
+(CMP-BYTE-ESI-IMM 0A)             ; cmp BYTE PTR [esi],0xa        ; check if current character is newline
+(LEA-ESI-ESI-DISP 01)             ; lea esi,[esi+0x1]             ; advance pointer by 1 byte
+(MOV-DWORD-EBP-DISP-ESI 20)       ; mov [ebp+0x20],esi            ; save updated inptr
+(JNE-REL8 DC)                     ; jne 0x80480be                 ; if not newline, read next byte
+(MOV-ESI-DWORD-EBP-DISP 24)       ; mov esi,[ebp+0x24]            ; load lineptr (start of current line)
+(CALL-REL32 F6 01 00 00)          ; call 0x80482e0                ; parse the line (handle_line)
+(CALL-REL32 79 01 00 00)          ; call 0x8048268                ; write stdout buffer (flush)
+(MOV-ESI-DWORD-EBP-DISP 20)       ; mov esi,[ebp+0x20]            ; load current inptr
+(MOV-DWORD-EBP-DISP-ESI 24)       ; mov [ebp+0x24],esi            ; set next lineptr = inptr
+(JMP-REL8 C7)                     ; jmp 0x80480be                 ; repeat repl loop
+
+; :finish_input (0x080480F7)
+; EOF path: process a final unterminated line by appending a synthetic newline
+(MOV-ESI-DWORD-EBP-DISP 20)       ; mov esi,[ebp+0x20]            ; load current inptr
+(CMP-ESI-DWORD-EBP-DISP 24)       ; cmp esi,[ebp+0x24]            ; check if line has pending bytes
+(JE-REL8 10)                      ; je 0x804810f                  ; if empty, jump to quit
+(MOV-BYTE-ESI-IMM 0A)             ; mov BYTE PTR [esi],0xa        ; append synthetic newline '\n'
+(MOV-ESI-DWORD-EBP-DISP 24)       ; mov esi,[ebp+0x24]            ; load lineptr
+(CALL-REL32 D6 01 00 00)          ; call 0x80482e0                ; parse final line
+(CALL-REL32 59 01 00 00)          ; call 0x8048268                ; flush output buffer
+
+; :quit (0x0804810F)
+(XOR-EBX-EBX)                     ; xor ebx,ebx                   ; return status 0
+(MOV-EAX-IMM32 01 00 00 00)       ; mov eax,0x1                   ; sys_exit syscall
+(INT-IMM 80)                      ; int 0x80                      ; exit
 
 
 ;;; Structural equality
-; Tagged atoms compare directly. Cons cells compare recursively through car and
-; cdr, leaving flags set for the caller.
+; Tagged atoms compare directly. Cons cells compare recursively through car and cdr.
 
-; :equal (0x08048100)
-(CMP-EAX-ECX)                   ; cmp eax,ecx                   ; compare pointers
-(JE-REL8 24)                    ; je 0x8048128                  ; equal if identical
-(PUSH-EAX)                      ; push eax                      ; save car/term
-(PUSH-ECX)                      ; push ecx                      ; save pattern
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is eax a pair?
-(JNE-REL8 1A)                   ; jne 0x8048124                 ; fail if not
-(TEST-CL-IMM 03)                ; test cl,0x3                   ; is ecx a pair?
-(JNE-REL8 15)                   ; jne 0x8048124                 ; fail if not
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car(eax)
-(MOV-ECX-DWORD-ECX)             ; mov ecx,DWORD PTR [ecx]       ; ecx = car(ecx)
-(CALL-REL32 E8 FF FF FF)        ; call 0x8048100                ; recursively check cars
-(JNE-REL8 0A)                   ; jne 0x8048124                 ; bail if cars not equal
-(POP-ECX)                       ; pop ecx                       ; restore original pattern
-(POP-EAX)                       ; pop eax                       ; restore original term
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = cdr(eax)
-(MOV-ECX-DWORD-ECX-DISP 04)     ; mov ecx,DWORD PTR [ecx+0x4]   ; ecx = cdr(ecx)
-(JMP-REL8 DC)                   ; jmp 0x8048100                 ; tail-recurse on cdrs
-(POP-ECX)                       ; pop ecx                       ; restore stack on fail path
-(POP-EAX)                       ; pop eax                       ; restore stack on fail path
-(OR-AL-IMM 01)                  ; or al,0x1                     ; clear ZF to signal failure
-(RET)                           ; ret                           ; return
+; :equal (0x08048118)
+(CMP-EAX-ECX)                     ; cmp eax,ecx                   ; check identity of registers
+(JE-REL8 24)                      ; je 0x8048140                  ; succeed if identical pointers
+(PUSH-EAX)                        ; push eax                      ; save car/term
+(PUSH-ECX)                        ; push ecx                      ; save pattern
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is term a pair?
+(JNE-REL8 1A)                     ; jne 0x804813c                 ; fail if not pair
+(TEST-CL-IMM 03)                  ; test cl,0x3                   ; is pattern a pair?
+(JNE-REL8 15)                     ; jne 0x804813c                 ; fail if not pair
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; eax = car(term)
+(MOV-ECX-DWORD-ECX)               ; mov ecx,[ecx]                 ; ecx = car(pattern)
+(CALL-REL32 E8 FF FF FF)          ; call 0x8048118                ; recursively check cars
+(JNE-REL8 0A)                     ; jne 0x804813c                 ; fail if car mismatch
+(POP-ECX)                         ; pop ecx                       ; restore original pattern
+(POP-EAX)                         ; pop eax                       ; restore original term
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; eax = cdr(term)
+(MOV-ECX-DWORD-ECX-DISP 04)       ; mov ecx,[ecx+0x4]             ; ecx = cdr(pattern)
+(JMP-REL8 DC)                     ; jmp 0x8048118                 ; tail-recurse on cdrs
+(POP-ECX)                         ; pop ecx                       ; fail path cleanup
+(POP-EAX)                         ; pop eax                       ; fail path cleanup
+(OR-AL-IMM 01)                    ; or al,0x1                     ; clear ZF to signal failure
+(RET)                             ; ret                           ; return
 
 
 ;;; Pattern matching
-; Variables extend an association list; repeated variables are checked using
-; structural equality.
+; Variables extend an association list; repeated variables must be structurally equal.
 
-; :match (0x08048129)
-(TEST-CL-IMM 02)                ; test cl,0x2                   ; is pattern a var?
-(JE-REL8 28)                    ; je 0x8048156                  ; jump to pair/const path
-(PUSH-EDX)                      ; push edx                      ; save env
-(PUSH-EAX)                      ; push eax                      ; save term
-(PUSH-ECX)                      ; push ecx                      ; save pattern var
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; swap pat/term
-(MOV-ECX-EDX)                   ; mov ecx,edx                   ; ecx = env
-(CALL-REL32 CC 00 00 00)        ; call 0x8048205                ; look up variable in env
-(JNE-REL8 0C)                   ; jne 0x8048147                 ; if not found, bind it
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; extract bound value
-(POP-ECX)                       ; pop ecx                       ; discard saved pattern var
-(POP-ECX)                       ; pop ecx                       ; pop original term to ecx
-(CALL-REL32 BB FF FF FF)        ; call 0x8048100                ; assert structural equality
-(POP-EAX)                       ; pop eax                       ; restore env
-(RET)                           ; ret                           ; return result in eax
-(POP-ECX)                       ; pop ecx                       ; mismatch cleanup: pat
-(POP-EAX)                       ; pop eax                       ; mismatch cleanup: term
-(POP-EDX)                       ; pop edx                       ; mismatch cleanup: env
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; ecx = pat, eax = term
-(PUSH-EDX)                      ; push edx                      ; save env
-(CALL-DWORD-EBP-DISP 00)        ; call DWORD PTR [ebp+0x0]      ; cons(pat, term)
-(POP-ECX)                       ; pop ecx                       ; restore env
-(CALL-DWORD-EBP-DISP 00)        ; call DWORD PTR [ebp+0x0]      ; cons(new_bind, env)
-(XOR-ECX-ECX)                   ; xor ecx,ecx                   ; set ZF (success)
-(RET)                           ; ret                           ; return success
-(PUSH-ECX)                      ; push ecx                      ; pair/const path: save pat
-(PUSH-EAX)                      ; push eax                      ; save term
-(TEST-CL-IMM 03)                ; test cl,0x3                   ; is pattern a pair?
-(JNE-REL8 18)                   ; jne 0x8048175                 ; jump to constant test
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is term a pair?
-(JNE-REL8 18)                   ; jne 0x8048179                 ; if mismatch, fail
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car(term)
-(MOV-ECX-DWORD-ECX)             ; mov ecx,DWORD PTR [ecx]       ; ecx = car(pat)
-(CALL-DWORD-EBP-DISP 14)        ; call DWORD PTR [ebp+0x14]     ; match cars recursively
-(JNE-REL8 0F)                   ; jne 0x8048179                 ; fail if mismatch
-(XCHG-EDX-EAX)                  ; xchg edx,eax                  ; edx = updated env
-(POP-EAX)                       ; pop eax                       ; restore original term
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = cdr(term)
-(POP-ECX)                       ; pop ecx                       ; restore original pattern
-(MOV-ECX-DWORD-ECX-DISP 04)     ; mov ecx,DWORD PTR [ecx+0x4]   ; ecx = cdr(pat)
-(JMP-REL8 B4)                   ; jmp 0x8048129                 ; match cdrs
-(CMP-EAX-ECX)                   ; cmp eax,ecx                   ; exact constant compare
-(MOV-EAX-EDX)                   ; mov eax,edx                   ; inherit environment
-(POP-ECX)                       ; pop ecx                       ; stack cleanup
-(POP-ECX)                       ; pop ecx                       ; stack cleanup
-(RET)                           ; ret                           ; return
+; :match (0x08048141)
+(TEST-CL-IMM 02)                  ; test cl,0x2                   ; is pattern a var?
+(JE-REL8 28)                      ; je 0x804816e                  ; try pair/const if not
+(PUSH-EDX)                        ; push edx                      ; save env
+(PUSH-EAX)                        ; push eax                      ; save term
+(PUSH-ECX)                        ; push ecx                      ; save pattern var
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; swap pat/term
+(MOV-ECX-EDX)                     ; mov ecx,edx                   ; ecx = env
+(CALL-REL32 CC 00 00 00)          ; call 0x804821d                ; lookup variable in env (assq)
+(JNE-REL8 0C)                     ; jne 0x804815f                 ; if not bound, bind it
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; extract bound value
+(POP-ECX)                         ; pop ecx                       ; discard saved pattern var
+(POP-ECX)                         ; pop ecx                       ; pop original term to ecx
+(CALL-REL32 BB FF FF FF)          ; call 0x8048118                ; assert structural equality (equal)
+(POP-EAX)                         ; pop eax                       ; restore original env
+(RET)                             ; ret                           ; return
+(POP-ECX)                         ; pop ecx                       ; restore pattern var
+(POP-EAX)                         ; pop eax                       ; restore original term
+(POP-EDX)                         ; pop edx                       ; restore original env
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; swap pat/term
+(PUSH-EDX)                        ; push edx                      ; save env
+(CALL-DWORD-EBP-DISP 00)          ; call [ebp+0x0]                ; cons(pat, term)
+(POP-ECX)                         ; pop ecx                       ; restore env
+(CALL-DWORD-EBP-DISP 00)          ; call [ebp+0x0]                ; cons(new_bind, env)
+(XOR-ECX-ECX)                     ; xor ecx,ecx                   ; set ZF (success)
+(RET)                             ; ret                           ; return success
+(PUSH-ECX)                        ; push ecx                      ; save pattern
+(PUSH-EAX)                        ; push eax                      ; save term
+(TEST-CL-IMM 03)                  ; test cl,0x3                   ; is pattern a pair?
+(JNE-REL8 18)                     ; jne 0x804818d                 ; handle constant if not
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is term a pair?
+(JNE-REL8 18)                     ; jne 0x8048191                 ; fail if mismatch
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; car(term)
+(MOV-ECX-DWORD-ECX)               ; mov ecx,[ecx]                 ; car(pattern)
+(CALL-DWORD-EBP-DISP 14)          ; call [ebp+0x14]               ; recursively match cars
+(JNE-REL8 0F)                     ; jne 0x8048191                 ; fail if mismatch
+(XCHG-EDX-EAX)                    ; xchg edx,eax                  ; edx = updated env
+(POP-EAX)                         ; pop eax                       ; restore original term
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; cdr(term)
+(POP-ECX)                         ; pop ecx                       ; restore original pattern
+(MOV-ECX-DWORD-ECX-DISP 04)       ; mov ecx,[ecx+0x4]             ; cdr(pattern)
+(JMP-REL8 B4)                     ; jmp 0x8048141                 ; match cdrs recursively
+(CMP-EAX-ECX)                     ; cmp eax,ecx                   ; exact constant compare
+(MOV-EAX-EDX)                     ; mov eax,edx                   ; return env
+(POP-ECX)                         ; pop ecx                       ; stack cleanup
+(POP-ECX)                         ; pop ecx                       ; stack cleanup
+(RET)                             ; ret                           ; return
 
 
-;;; Substitution, evaluation, and rule application
-; These routines copy templates, evaluate argument lists, and scan the rewrite
-; table newest-first.
+;;; Evaluation and rewrite application
 
-; :subst (0x0804817C)
-; template substitution
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is term a pair?
-(JE-REL8 01)                    ; je 0x8048181                  ; substitute if so
-(RET)                           ; ret                           ; else return as-is
-(PUSH-EAX)                      ; push eax                      ; save t
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = cdr(t)
-(CALL-REL32 F2 FF FF FF)        ; call 0x804817c                ; substitute cdr(t)
-(POP-ECX)                       ; pop ecx                       ; ecx = original t
-(PUSH-EAX)                      ; push eax                      ; save subst(cdr(t))
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; swap
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car(t)
-(CALL-DWORD-EBP-DISP 10)        ; call DWORD PTR [ebp+0x10]     ; substitute car(t)
-(POP-ECX)                       ; pop ecx                       ; ecx = subst(cdr(t))
+; :evlis (0x08048194)
+; evaluate a list of child terms before rewrite dispatch
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is it a pair?
+(JE-REL8 01)                      ; je 0x8048199                  ; proceed if list
+(RET)                             ; ret                           ; return empty list/atom
+(PUSH-EAX)                        ; push eax                      ; save original t
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; cdr(t)
+(CALL-REL32 F2 FF FF FF)          ; call 0x8048194                ; recursively evaluate cdr
+(POP-ECX)                         ; pop ecx                       ; restore original t
+(PUSH-EAX)                        ; push eax                      ; save ev(cdr(t))
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; swap
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; car(t)
+(CALL-DWORD-EBP-DISP 10)          ; call [ebp+0x10]               ; evaluate car(t)
+(POP-ECX)                         ; pop ecx                       ; restore ev(cdr(t))
 
-; :cons (0x08048193)
+; :cons (0x080481AB)
 ; allocate one cons cell in the arena
-(PUSH-EDI)                      ; push edi                      ; save edi
-(MOV-EDI-DWORD-EBP-DISP 18)     ; mov edi,DWORD PTR [ebp+0x18]  ; load arena pointer
-(STOS-DWORD-EDI-EAX)            ; stosd                         ; store car (eax)
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; load cdr (ecx)
-(STOS-DWORD-EDI-EAX)            ; stosd                         ; store cdr
-(XCHG-DWORD-EBP-DISP-EDI 18)    ; xchg DWORD PTR [ebp+0x18],edi ; save updated arena pointer
-(XCHG-EDI-EAX)                  ; xchg edi,eax                  ; eax = new cons address
-(POP-EDI)                       ; pop edi                       ; restore edi
-(RET)                           ; ret                           ; return
+(PUSH-EDI)                        ; push edi                      ; save edi
+(MOV-EDI-DWORD-EBP-DISP 18)       ; mov edi,[ebp+0x18]            ; load allocation pointer
+(STOS-DWORD-EDI-EAX)              ; stos [edi],eax                ; store car
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; load cdr
+(STOS-DWORD-EDI-EAX)              ; stos [edi],eax                ; store cdr
+(XCHG-DWORD-EBP-DISP-EDI 18)      ; xchg [ebp+0x18],edi           ; save updated allocation pointer
+(XCHG-EDI-EAX)                    ; xchg edi,eax                  ; return old pointer
+(POP-EDI)                         ; pop edi                       ; restore edi
+(RET)                             ; ret                           ; return
 
-; :evlis (0x080481A0)
-; evaluate a list of arguments
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is it a pair?
-(JE-REL8 01)                    ; je 0x80481a5                  ; proceed if list
-(RET)                           ; ret                           ; otherwise return as-is
-(CALL-REL32 D2 FF FF FF)        ; call 0x804817c                ; subst
-(MOV-ECX-DWORD-EBP-DISP 1C)     ; mov ecx,DWORD PTR [ebp+0x1c]  ; load rules
-(TEST-CL-IMM 03)                ; test cl,0x3                   ; are rules a pair?
-(JE-REL8 01)                    ; je 0x80481b3                  ; match if so
-(RET)                           ; ret                           ; else return
-(MOV-EDX-DWORD-ECX)             ; mov edx,DWORD PTR [ecx]       ; edx = rule pair
-(PUSH-EAX)                      ; push eax                      ; save args
-(PUSH-ECX)                      ; push ecx                      ; save rules
-(MOV-ECX-DWORD-EDX)             ; mov ecx,DWORD PTR [edx]       ; ecx = rule pattern
-(XOR-EDX-EDX)                   ; xor edx,edx                   ; clear env
-(INC-EDX)                       ; inc edx                       ; success flag
-(CALL-DWORD-EBP-DISP 14)        ; call DWORD PTR [ebp+0x14]     ; match rule
-(JE-REL8 07)                    ; je 0x80481c8                  ; process match if success
-(POP-ECX)                       ; pop ecx                       ; restore rules
-(POP-EAX)                       ; pop eax                       ; restore args
-(MOV-ECX-DWORD-ECX-DISP 04)     ; mov ecx,DWORD PTR [ecx+0x4]   ; rules = cdr(rules)
-(JMP-REL8 E5)                   ; jmp 0x80481ad                 ; check next rule
-(MOV-ECX-EAX)                   ; mov ecx,eax                   ; ecx = match env
-(POP-EAX)                       ; pop eax                       ; restore rules pointer
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = head rule
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = template
-(POP-EDX)                       ; pop edx                       ; clean stack
-(CALL-DWORD-EBP-DISP 0C)        ; call DWORD PTR [ebp+0xc]      ; substitute & evaluate
-(JMP-REL8 CA)                   ; jmp 0x80481a0                 ; loop evaluate
+; :ev (0x080481B8)
+; atoms evaluate to themselves; pairs evaluate children then dispatch through rules
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is it a pair?
+(JE-REL8 01)                      ; je 0x80481bd                  ; proceed if so
+(RET)                             ; ret                           ; return atom as-is
+(CALL-REL32 D2 FF FF FF)          ; call 0x8048194                ; recursively evaluate arguments
+(MOV-ECX-DWORD-EBP-DISP 1C)       ; mov ecx,[ebp+0x1c]            ; load global rules
 
-; :ev (0x080481D6)
-; evaluate one expression
-(TEST-AL-IMM 02)                ; test al,0x2                   ; is variable?
-(JE-REL8 0F)                    ; je 0x80481e9                  ; handle pair/const if not
-(PUSH-EAX)                      ; push eax                      ; save var
-(CALL-REL32 25 00 00 00)        ; call 0x8048205                ; find in env
-(JNE-REL8 05)                   ; jne 0x80481e7                 ; return var if not bound
-(POP-ECX)                       ; pop ecx                       ; stack cleanup
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; return bound value
-(RET)                           ; ret                           ; return
-(POP-EAX)                       ; pop eax                       ; cleanup
-(RET)                           ; ret                           ; return
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is it a pair?
-(JE-REL8 01)                    ; je 0x80481ee                  ; evaluate parts if so
-(RET)                           ; ret                           ; else return atom
-(PUSH-EAX)                      ; push eax                      ; save expression
-(PUSH-ECX)                      ; push ecx                      ; save environment
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = cdr(t)
-(CALL-DWORD-EBP-DISP 0C)        ; call DWORD PTR [ebp+0xc]      ; evaluate cdr
-(XCHG-EDX-EAX)                  ; xchg edx,eax                  ; edx = evaluated args
-(POP-ECX)                       ; pop ecx                       ; restore env
-(POP-EAX)                       ; pop eax                       ; restore expression
-(PUSH-EDX)                      ; push edx                      ; save evaluated args
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car(t)
-(CALL-DWORD-EBP-DISP 0C)        ; call DWORD PTR [ebp+0xc]      ; evaluate function
-(POP-ECX)                       ; pop ecx                       ; ecx = evaluated args
-(JMP-REL8 91)                   ; jmp 0x8048193                 ; tail-call cons
-(MOV-ECX-DWORD-ECX-DISP 04)     ; mov ecx,DWORD PTR [ecx+0x4]   ; check next element
+; :ap (0x080481C5)
+; scan the rule list newest-first, match a pattern, substitute, then evaluate again
+(TEST-CL-IMM 03)                  ; test cl,0x3                   ; are rules a pair?
+(JE-REL8 01)                      ; je 0x80481cb                  ; proceed if rules exist
+(RET)                             ; ret                           ; return input t as-is
+(MOV-EDX-DWORD-ECX)               ; mov edx,[ecx]                 ; load first rule pair
+(PUSH-EAX)                        ; push eax                      ; save input t
+(PUSH-ECX)                        ; push ecx                      ; save rules list
+(MOV-ECX-DWORD-EDX)               ; mov ecx,[edx]                 ; load rule pattern
+(XOR-EDX-EDX)                     ; xor edx,edx                   ; environment = nil
+(INC-EDX)                         ; inc edx                       ; match success flag
+(CALL-DWORD-EBP-DISP 14)          ; call [ebp+0x14]               ; try matching pattern
+(JE-REL8 07)                      ; je 0x80481e0                  ; jump on match success
+(POP-ECX)                         ; pop ecx                       ; restore rules list
+(POP-EAX)                         ; pop eax                       ; restore input t
+(MOV-ECX-DWORD-ECX-DISP 04)       ; mov ecx,[ecx+0x4]             ; load next rules (cdr)
+(JMP-REL8 E5)                     ; jmp 0x80481c5                 ; scan rules recursively
+(MOV-ECX-EAX)                     ; mov ecx,eax                   ; ecx = match environment
+(POP-EAX)                         ; pop eax                       ; restore rule pair pointer
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; load rule car
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; load rule template (cdr)
+(POP-EDX)                         ; pop edx                       ; pop original input t
+(CALL-DWORD-EBP-DISP 0C)          ; call [ebp+0xc]                ; substitute template
+(JMP-REL8 CA)                     ; jmp 0x80481b8                 ; evaluate recursively
 
-; :assq (0x08048205)
-; lookup an atom in an association list
-(TEST-CL-IMM 03)                ; test cl,0x3                   ; is dictionary a pair?
-(JNE-REL8 08)                   ; jne 0x8048212                 ; exit if terminal
-(MOV-EDX-DWORD-ECX)             ; mov edx,DWORD PTR [ecx]       ; load pair
-(CMP-DWORD-EDX-EAX)             ; cmp DWORD PTR [edx],eax       ; is key matching?
-(JNE-REL8 F2)                   ; jne 0x8048202                 ; repeat if not
-(MOV-ECX-EDX)                   ; mov ecx,edx                   ; found: extract pair
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; result to eax
-(RET)                           ; ret                           ; return
+; :subst (0x080481EE)
+; instantiate a template from the match environment; unbound vars stay unchanged
+(TEST-AL-IMM 02)                  ; test al,0x2                   ; is variable?
+(JE-REL8 0F)                      ; je 0x8048201                  ; if not variable, check pair
+(PUSH-EAX)                        ; push eax                      ; save var
+(CALL-REL32 25 00 00 00)          ; call 0x804821d                ; lookup in environment (assq)
+(JNE-REL8 05)                     ; jne 0x80481ff                 ; if not bound, keep original var
+(POP-ECX)                         ; pop ecx                       ; pop var into temp
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; load bound value
+(RET)                             ; ret                           ; return
+(POP-EAX)                         ; pop eax                       ; restore unbound variable
+(RET)                             ; ret                           ; return
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is it a pair?
+(JE-REL8 01)                      ; je 0x8048206                  ; proceed if pair
+(RET)                             ; ret                           ; return atom as-is
+(PUSH-EAX)                        ; push eax                      ; save template
+(PUSH-ECX)                        ; push ecx                      ; save environment
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; load cdr(t)
+(CALL-DWORD-EBP-DISP 0C)          ; call [ebp+0xc]                ; substitute cdr(t)
+(XCHG-EDX-EAX)                    ; xchg edx,eax                  ; edx = substituted cdr
+(POP-ECX)                         ; pop ecx                       ; restore environment
+(POP-EAX)                         ; pop eax                       ; restore template
+(PUSH-EDX)                        ; push edx                      ; save substituted cdr
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; load car(t)
+(CALL-DWORD-EBP-DISP 0C)          ; call [ebp+0xc]                ; substitute car(t)
+(POP-ECX)                         ; pop ecx                       ; restore substituted cdr
+(JMP-REL8 91)                     ; jmp 0x80481ab                 ; tail-call cons
+(MOV-ECX-DWORD-ECX-DISP 04)       ; mov ecx,[ecx+0x4]             ; next association-list entry
+
+; :assq (0x0804821D)
+; look up an atom key in an association list
+(TEST-CL-IMM 03)                  ; test cl,0x3                   ; is dictionary a pair?
+(JNE-REL8 08)                     ; jne 0x804822a                 ; exit if terminal
+(MOV-EDX-DWORD-ECX)               ; mov edx,[ecx]                 ; load rule pair
+(CMP-DWORD-EDX-EAX)               ; cmp [edx],eax                 ; is key matching?
+(JNE-REL8 F2)                     ; jne 0x804821a                 ; loop if mismatch
+(MOV-ECX-EDX)                     ; mov ecx,edx                   ; found: load rule pair
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; return pair in eax
+(RET)                             ; ret                           ; return
 
 
 ;;; S-expression printing
-; Lists are printed recursively with spaces between elements; string-like atom
-; names are copied into the output buffer.
 
-; :print (0x08048214)
-; print atoms and lists as S-expressions
-(CMP-EAX-IMM 01)                ; cmp eax,0x1                   ; is it nil?
-(JE-REL8 04)                    ; je 0x804821d                  ; print list if so
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is it a pair?
-(JNE-REL8 24)                   ; jne 0x8048241                 ; print atom if not
-(PUSH-EAX)                      ; push eax                      ; save pair
-(MOV-AL-IMM8 28)                ; mov al,0x28                   ; '(' character
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit
-(POP-EAX)                       ; pop eax                       ; restore pair
-(TEST-AL-IMM 03)                ; test al,0x3                   ; check pair
-(JNE-REL8 17)                   ; jne 0x804823d                 ; close paren if atom
-(PUSH-EAX)                      ; push eax                      ; save pair
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car
-(CALL-REL32 E6 FF FF FF)        ; call 0x8048214                ; print car
-(POP-EAX)                       ; pop eax                       ; restore pair
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; eax = cdr
-(TEST-AL-IMM 03)                ; test al,0x3                   ; check if cdr is pair
-(JNE-REL8 07)                   ; jne 0x804823d                 ; close list if not
-(PUSH-EAX)                      ; push eax                      ; save cdr
-(MOV-AL-IMM8 20)                ; mov al,0x20                   ; space ' ' character
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit space
-(POP-EAX)                       ; pop eax                       ; restore cdr
-(JMP-REL8 E9)                   ; jmp 0x8048226                 ; repeat for list elements
-(MOV-AL-IMM8 29)                ; mov al,0x29                   ; ')' character
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit close paren
-(RET)                           ; ret                           ; return
+; :print (0x0804822C)
+; print atoms and proper lists; nil prints as ()
+(CMP-EAX-IMM 01)                  ; cmp eax,0x1                   ; check if nil
+(JE-REL8 04)                      ; je 0x8048235                  ; print list if so
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is it a pair?
+(JNE-REL8 24)                     ; jne 0x8048259                 ; print atom if not
+(PUSH-EAX)                        ; push eax                      ; save list
+(MOV-AL-IMM8 28)                  ; mov al,0x28                   ; '(' character
+(STOS-BYTE-EDI-AL)                ; stos [edi],al                 ; emit paren
+(POP-EAX)                         ; pop eax                       ; restore list
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; check pair
+(JNE-REL8 17)                     ; jne 0x8048255                 ; close paren if atom
+(PUSH-EAX)                        ; push eax                      ; save pair
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; eax = car
+(CALL-REL32 E6 FF FF FF)          ; call 0x804822c                ; print car recursively
+(POP-EAX)                         ; pop eax                       ; restore pair
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; eax = cdr
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; check if cdr is pair
+(JNE-REL8 07)                     ; jne 0x8048255                 ; close list if not
+(PUSH-EAX)                        ; push eax                      ; save cdr
+(MOV-AL-IMM8 20)                  ; mov al,0x20                   ; space ' ' character
+(STOS-BYTE-EDI-AL)                ; stos [edi],al                 ; emit space
+(POP-EAX)                         ; pop eax                       ; restore cdr
+(JMP-REL8 E9)                     ; jmp 0x804823e                 ; print next element
+(MOV-AL-IMM8 29)                  ; mov al,0x29                   ; ')' character
+(STOS-BYTE-EDI-AL)                ; stos [edi],al                 ; emit close paren
+(RET)                             ; ret                           ; return
+(AND-EAX-IMM FC)                  ; and eax,0xfffffffc            ; strip tag bits
+(MOV-ECX-DWORD-EAX-DISP 04)       ; mov ecx,[eax+0x4]             ; ecx = string length
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; eax = string pointer
 
-; :emit (0x08048241)
+; :emit (0x08048261)
 ; copy an atom name to the output buffer
-(AND-EAX-IMM FC)                ; and eax,0xfffffffc            ; clear tag bits
-(MOV-ECX-DWORD-EAX-DISP 04)     ; mov ecx,DWORD PTR [eax+0x4]   ; ecx = string length
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = string pointer
-(PUSH-ESI)                      ; push esi                      ; save esi
-(MOV-ESI-EAX)                   ; mov esi,eax                   ; load string source
-(REP-MOVS-BYTE-EDI-BYTE-ESI)    ; rep movs es:[edi],ds:[esi]    ; copy to outbuf
-(POP-ESI)                       ; pop esi                       ; restore esi
-(RET)                           ; ret                           ; return
+(PUSH-ESI)                        ; push esi                      ; save esi
+(MOV-ESI-EAX)                     ; mov esi,eax                   ; load source
+(REP-MOVS-BYTE-EDI-BYTE-ESI)      ; rep movs                      ; copy string to outbuf
+(POP-ESI)                         ; pop esi                       ; restore esi
+(RET)                             ; ret                           ; return
 
 
 ;;; Output flush and raw byte emission
-; `(Bytes XX YY ...)` bypasses the printer and writes literal bytes named by
-; two-hex-digit atoms. This is the primitive that makes this file executable as
-; a binary seed.
 
-; :flush (0x08048250)
-; write the output buffer to stdout
-(MOV-ECX-IMM32 30 B4 05 08)     ; mov ecx,0x805b430             ; base of outbuf
-(PUSH-ECX)                      ; push ecx                      ; save base
-(MOV-EDX-EDI)                   ; mov edx,edi                   ; end of buffer
-(SUB-EDX-ECX)                   ; sub edx,ecx                   ; length of output
-(XOR-EBX-EBX)                   ; xor ebx,ebx                   ; clear ebx
-(INC-EBX)                       ; inc ebx                       ; ebx = 1 (stdout)
-(MOV-EAX-IMM32 04 00 00 00)     ; mov eax,0x4                   ; sys_write
-(INT-IMM 80)                    ; int 0x80                      ; write syscall
-(POP-EDI)                       ; pop edi                       ; reset outbuf pointer
-(RET)                           ; ret                           ; return
+; :flush (0x08048268)
+; write the output buffer to stdout and reset the buffer pointer
+(MOV-ECX-IMM32 58 B4 05 08)       ; mov ecx,0x805b458             ; base of outbuf
+(PUSH-ECX)                        ; push ecx                      ; save base
+(MOV-EDX-EDI)                     ; mov edx,edi                   ; end of buffer
+(SUB-EDX-ECX)                     ; sub edx,ecx                   ; length of output
+(XOR-EBX-EBX)                     ; xor ebx,ebx                   ; clear ebx
+(INC-EBX)                         ; inc ebx                       ; ebx = 1 (stdout)
+(MOV-EAX-IMM32 04 00 00 00)       ; mov eax,0x4                   ; sys_write
+(INT-IMM 80)                      ; int 0x80                      ; write syscall
+(POP-EDI)                         ; pop edi                       ; reset outbuf pointer
+(RET)                             ; ret                           ; return
 
-; :is_bytes (0x08048266)
-; recognize a result of the form (Bytes ...)
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is pair?
-(JNE-REL8 23)                   ; jne 0x804828d                 ; return failure if not
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car
-(TEST-AL-IMM 03)                ; test al,0x3                   ; is car a pair?
-(JE-REL8 1D)                    ; je 0x804828d                  ; fail if so
-(CMP-EAX-IMM 01)                ; cmp eax,0x1                   ; is nil?
-(JE-REL8 18)                    ; je 0x804828d                  ; fail if so
-(AND-EAX-IMM FC)                ; and eax,0xfffffffc            ; strip tags
-(CMP-DWORD-EAX-DISP-IMM 05)     ; cmp DWORD PTR [eax+0x4],0x5   ; length == 5?
-(JNE-REL8 0F)                   ; jne 0x804828d                 ; fail if not
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; load string chars
-(CMP-DWORD-EAX-IMM 65)          ; cmp DWORD PTR [eax],0x65747942; 'Byte'
-(JNE-REL8 05)                   ; jne 0x804828d                 ; fail if not
-(CMP-BYTE-EAX-DISP-IMM 73)      ; cmp BYTE PTR [eax+0x4],0x73   ; 's'
-(RET)                           ; ret                           ; returns ZF set (success)
-(OR-AL-IMM 01)                  ; or al,0x1                     ; fail path (clear ZF)
-(RET)                           ; ret                           ; return
+; :is_bytes (0x0804827E)
+; recognize an evaluated result shaped like (Bytes ...)
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; is pair?
+(JNE-REL8 23)                     ; jne 0x80482a5                 ; fail if not
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; eax = car
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; check pair
+(JE-REL8 1D)                      ; je 0x80482a5                  ; fail if car is pair
+(CMP-EAX-IMM 01)                  ; cmp eax,0x1                   ; is nil?
+(JE-REL8 18)                      ; je 0x80482a5                  ; fail if nil
+(AND-EAX-IMM FC)                  ; and eax,0xfffffffc            ; strip tags
+(CMP-DWORD-EAX-DISP-IMM 05)       ; cmp [eax+0x4],0x5             ; length == 5?
+(JNE-REL8 0F)                     ; jne 0x80482a5                 ; fail if not
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; load string chars
+(CMP-DWORD-EAX-IMM 65)            ; cmp [eax],0x65747942          ; 'Byte'
+(JNE-REL8 05)                     ; jne 0x80482a5                 ; fail if not
+(CMP-BYTE-EAX-DISP-IMM 73)         ; cmp BYTE PTR [eax+0x4],0x73   ; 's'
+(RET)                             ; ret                           ; return
+(OR-AL-IMM 01)                    ; or al,0x1                     ; fail path
+(RET)                             ; ret                           ; return
 
-; :emit_bytes (0x08048290)
-; emit each byte named by a hex atom
-(TEST-AL-IMM 03)                ; test al,0x3                   ; check if pair
-(JNE-REL8 0E)                   ; jne 0x80482a2                 ; end loop if atom
-(PUSH-EAX)                      ; push eax                      ; save list
-(MOV-EAX-DWORD-EAX)             ; mov eax,DWORD PTR [eax]       ; eax = car
-(CALL-REL32 07 00 00 00)        ; call 0x80482a3                ; emit hex byte
-(POP-EAX)                       ; pop eax                       ; restore list
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; list = cdr
-(JMP-REL8 EE)                   ; jmp 0x8048290                 ; repeat
-(RET)                           ; ret                           ; return
+; :emit_bytes (0x080482A8)
+; emit each two-hex-digit atom in a Bytes list
+(TEST-AL-IMM 03)                  ; test al,0x3                   ; check if pair
+(JNE-REL8 0E)                     ; jne 0x80482ba                 ; exit if atom
+(PUSH-EAX)                        ; push eax                      ; save list
+(MOV-EAX-DWORD-EAX)               ; mov eax,[eax]                 ; eax = car
+(CALL-REL32 07 00 00 00)          ; call 0x80482bb                ; emit hex byte
+(POP-EAX)                         ; pop eax                       ; restore list
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; list = cdr
+(JMP-REL8 EE)                     ; jmp 0x80482a8                 ; repeat
+(RET)                             ; ret                           ; return
 
-; :emit_byte (0x080482A3)
-; emit one byte named by two hex digits
-(PUSH-ESI)                      ; push esi                      ; save esi
-(AND-EAX-IMM FC)                ; and eax,0xfffffffc            ; strip tags
-(MOV-ESI-DWORD-EAX)             ; mov esi,DWORD PTR [eax]       ; load char pointer
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load high nibble
-(CALL-REL32 10 00 00 00)        ; call 0x80482bf                ; decode high
-(SHL-AL-IMM 04)                 ; shl al,0x4                    ; shift up
-(MOV-BL-AL)                     ; mov bl,al                     ; store high bits
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load low nibble
-(CALL-REL32 05 00 00 00)        ; call 0x80482bf                ; decode low
-(OR-AL-BL)                      ; or al,bl                      ; combine nibbles
-(STOS-BYTE-EDI-AL)              ; stosb                         ; emit byte to outbuf
-(POP-ESI)                       ; pop esi                       ; restore esi
-(RET)                           ; ret                           ; return
+; :emit_byte (0x080482BB)
+; convert one atom such as B8 or 0A into a single output byte
+(PUSH-ESI)                        ; push esi                      ; save esi
+(AND-EAX-IMM FC)                  ; and eax,0xfffffffc            ; strip tags
+(MOV-ESI-DWORD-EAX)               ; mov esi,[eax]                 ; load char pointer
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load high nibble
+(CALL-REL32 10 00 00 00)          ; call 0x80482d7                ; decode high
+(SHL-AL-IMM 04)                   ; shl al,0x4                    ; shift up
+(MOV-BL-AL)                       ; mov bl,al                     ; store high bits
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load low nibble
+(CALL-REL32 05 00 00 00)          ; call 0x80482d7                ; decode low
+(OR-AL-BL)                        ; or al,bl                      ; combine nibbles
+(STOS-BYTE-EDI-AL)                ; stos BYTE PTR es:[edi],al     ; emit byte
+(POP-ESI)                         ; pop esi                       ; restore esi
+(RET)                             ; ret                           ; return
 
-; :nybble (0x080482BF)
+; :nybble (0x080482D7)
 ; convert an ASCII hex digit to a nybble
-(SUB-AL-IMM 30)                 ; sub al,0x30                   ; '0'-'9' range
-(CMP-AL-IMM 09)                 ; cmp al,0x9                    ; is digit?
-(JBE-REL8 02)                   ; jbe 0x80482c7                 ; exit if digit
-(SUB-AL-IMM 07)                 ; sub al,0x7                    ; offset 'A'-'F'
-(RET)                           ; ret                           ; return
+(SUB-AL-IMM 30)                   ; sub al,0x30                   ; '0'-'9' range
+(CMP-AL-IMM 09)                   ; cmp al,0x9                    ; is digit?
+(JBE-REL8 02)                     ; jbe 0x80482df                 ; exit if digit
+(SUB-AL-IMM 07)                   ; sub al,0x7                    ; offset 'A'-'F'
+(RET)                             ; ret                           ; return
 
 
-;;; Line handling
-; One term evaluates and prints. Two terms install a rewrite rule. Parse errors
-; print an exclamation mark and newline.
+;;; Reader and line parser
+; A line has either one form to evaluate or two forms defining a rule.
+; Extra forms and malformed nonblank input emit !.
 
-; :handle_line (0x080482C8)
-; evaluate a line or add a rewrite rule
-(CLD)                           ; cld                           ; clear direction flag
-(CALL-DWORD-EBP-DISP 08)        ; call DWORD PTR [ebp+0x8]      ; read_factor
-(JE-REL8 01)                    ; je 0x80482cf                  ; ignore if blank
-(RET)                           ; ret                           ; return
-(PUSH-EAX)                      ; push eax                      ; save first expression
-(CALL-DWORD-EBP-DISP 04)        ; call DWORD PTR [ebp+0x4]      ; skip whitespace
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load next char
-(DEC-ESI)                       ; dec esi                       ; peek
-(CMP-AL-IMM 0A)                 ; cmp al,0xa                    ; is newline?
-(JNE-REL8 1F)                   ; jne 0x80482f8                 ; add rule if not
-(POP-EAX)                       ; pop eax                       ; restore expression
-(CALL-DWORD-EBP-DISP 10)        ; call DWORD PTR [ebp+0x10]     ; evaluate expression
-(PUSH-EAX)                      ; push eax                      ; save result
-(CALL-REL32 83 FF FF FF)        ; call 0x8048266                ; is it literal bytes?
-(POP-EAX)                       ; pop eax                       ; restore result
-(JNE-REL8 09)                   ; jne 0x80482ef                 ; print S-expr if not
-(MOV-EAX-DWORD-EAX-DISP 04)     ; mov eax,DWORD PTR [eax+0x4]   ; strip 'Bytes' tag
-(CALL-REL32 A2 FF FF FF)        ; call 0x8048290                ; emit literal bytes
-(RET)                           ; ret                           ; return
-(CALL-REL32 20 FF FF FF)        ; call 0x8048214                ; print result S-expr
-(MOV-AL-IMM8 0A)                ; mov al,0xa                    ; load newline
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit newline
-(RET)                           ; ret                           ; return
+; :handle_line (0x080482E0)
+(CLD)                             ; cld                           ; clear direction flag
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip whitespace
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load peek char
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(CMP-AL-IMM 0A)                   ; cmp al,0xa                    ; newline?
+(JE-REL8 54)                      ; je 0x804833e                  ; exit if so
+(CALL-DWORD-EBP-DISP 08)          ; call [ebp+0x8]                ; read_factor
+(JNE-REL8 48)                     ; jne 0x8048337                 ; fail if mismatch
+(PUSH-EAX)                        ; push eax                      ; save first expression
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip spacing
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load peek char
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(CMP-AL-IMM 0A)                   ; cmp al,0xa                    ; newline?
+(JNE-REL8 1F)                     ; jne 0x8048318                 ; define rule if not
+(POP-EAX)                         ; pop eax                       ; restore expression
+(CALL-DWORD-EBP-DISP 10)          ; call [ebp+0x10]               ; evaluate expression (ev)
+(PUSH-EAX)                        ; push eax                      ; save result
+(CALL-REL32 7B FF FF FF)          ; call 0x804827e                ; check literal bytes
+(POP-EAX)                         ; pop eax                       ; restore result
+(JNE-REL8 09)                     ; jne 0x804830f                 ; print if not
+(MOV-EAX-DWORD-EAX-DISP 04)       ; mov eax,[eax+0x4]             ; strip tag
+(CALL-REL32 9A FF FF FF)          ; call 0x80482a8                ; emit raw bytes
+(RET)                             ; ret                           ; return
+(CALL-REL32 18 FF FF FF)          ; call 0x804822c                ; print S-expr
+(MOV-AL-IMM8 0A)                  ; mov al,0xa                    ; load newline
+(STOS-BYTE-EDI-AL)                ; stos BYTE PTR es:[edi],al     ; emit newline
+(RET)                             ; ret                           ; return
+(CALL-DWORD-EBP-DISP 08)          ; call [ebp+0x8]                ; read second factor
+(POP-ECX)                         ; pop ecx                       ; restore pattern
+(JNE-REL8 19)                     ; jne 0x8048337                 ; fail on parse error
+(PUSH-EAX)                        ; push eax                      ; save template
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip trailing spacing
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load peek char
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(CMP-AL-IMM 0A)                   ; cmp al,0xa                    ; ensure newline
+(POP-EAX)                         ; pop eax                       ; restore template
+(JNE-REL8 0E)                     ; jne 0x8048337                 ; fail if not newline
+(XCHG-ECX-EAX)                    ; xchg ecx,eax                  ; swap pattern/template
+(CALL-DWORD-EBP-DISP 00)          ; call [ebp+0x0]                ; cons(pattern, template)
 
-; :add_rule (0x080482F8)
-; insert a new rule at the front of the rule list
-(CALL-DWORD-EBP-DISP 08)        ; call DWORD PTR [ebp+0x8]      ; read template
-(POP-ECX)                       ; pop ecx                       ; restore pattern
-(JNE-REL8 0E)                   ; jne 0x804830c                 ; fail on syntax error
-(XCHG-ECX-EAX)                  ; xchg ecx,eax                  ; ecx = template, eax = pattern
-(CALL-DWORD-EBP-DISP 00)        ; call DWORD PTR [ebp+0x0]      ; cons(pattern, template)
-(MOV-ECX-DWORD-EBP-DISP 1C)     ; mov ecx,DWORD PTR [ebp+0x1c]  ; load rules
-(CALL-DWORD-EBP-DISP 00)        ; call DWORD PTR [ebp+0x0]      ; cons(rule, rules)
-(MOV-DWORD-EBP-DISP-EAX 1C)     ; mov DWORD PTR [ebp+0x1c],eax  ; update global rules
-(RET)                           ; ret                           ; return
+; :add_rule (0x0804832D)
+; cons the newly parsed rule onto the front of the rule list
+(MOV-ECX-DWORD-EBP-DISP 1C)       ; mov ecx,[ebp+0x1c]            ; load current rules
+(CALL-DWORD-EBP-DISP 00)          ; call [ebp+0x0]                ; cons(rule, rules)
+(MOV-DWORD-EBP-DISP-EAX 1C)       ; mov [ebp+0x1c],eax            ; save updated rules
+(RET)                             ; ret                           ; return
 
-; :parse_error (0x0804830C)
-; print the parse-error marker
-(MOV-AL-IMM8 21)                ; mov al,0x21                   ; '!' character
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit '!'
-(MOV-AL-IMM8 0A)                ; mov al,0xa                    ; load newline
-(STOS-BYTE-EDI-AL)              ; stos BYTE PTR es:[edi],al     ; emit newline
-(RET)                           ; ret                           ; return
+; :parse_error (0x08048337)
+; report malformed input with ! and a newline
+(MOV-AL-IMM8 21)                  ; mov al,0x21                   ; '!' character
+(STOS-BYTE-EDI-AL)                ; stos BYTE PTR es:[edi],al     ; emit '!'
+(MOV-AL-IMM8 0A)                  ; mov al,0xa                    ; newline
+(STOS-BYTE-EDI-AL)                ; stos BYTE PTR es:[edi],al     ; emit newline
+(RET)                             ; ret                           ; return
 
+; :handle_line_done (0x0804833E)
+; blank or comment-only line
+(RET)                             ; ret                           ; return
 
-;;; Recursive descent reader
-; Parenthesized terms build cons cells. Constant atoms and variables are tagged
-; differently so the matcher can distinguish them cheaply.
+; :read_factor (0x0804833F)
+; read one list, constant atom, or variable atom
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip whitespace
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load peek char
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(CMP-AL-IMM 28)                   ; cmp al,0x28                   ; open paren '('?
+(JNE-REL8 0F)                     ; jne 0x8048357                 ; parse atom if not
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; consume '('
+(CALL-REL32 44 00 00 00)          ; call 0x8048392                ; recursively read terms
+(PUSH-EAX)                        ; push eax                      ; save inner term
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip spacing
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load peek char
+(CMP-AL-IMM 29)                   ; cmp al,0x29                   ; close paren ')'?
+(POP-EAX)                         ; pop eax                       ; restore term
+(RET)                             ; ret                           ; return
+(CMP-AL-IMM 21)                   ; cmp al,0x21                   ; check character bounds
+(JB-REL8 04)                      ; jb 0x804835f                  ; out of bounds
+(CMP-AL-IMM 27)                   ; cmp al,0x27                   ; check single quote
+(JBE-REL8 4C)                     ; jbe 0x80483ab                 ; read constant
+(CMP-AL-IMM 2A)                   ; cmp al,0x2a                   ; check symbols
+(JB-REL8 14)                      ; jb 0x8048377                  ; try var
+(CMP-AL-IMM 5E)                   ; cmp al,0x5e                   ; upper constant limit
+(JA-REL8 02)                      ; ja 0x8048369                  ; try lower var
+(JMP-REL8 42)                     ; jmp 0x80483ab                 ; read constant
+(CMP-AL-IMM 5F)                   ; cmp al,0x5f                   ; underscore?
+(JE-REL8 08)                      ; je 0x8048375                  ; read var
+(CMP-AL-IMM 61)                   ; cmp al,0x61                   ; start of lowercase
+(JB-REL8 06)                      ; jb 0x8048377                  ; check invalid
+(CMP-AL-IMM 7E)                   ; cmp al,0x7e                   ; end of lowercase
+(JA-REL8 02)                      ; ja 0x8048377                  ; invalid
+(JMP-REL8 3E)                     ; jmp 0x80483b5                 ; read var
+(CMP-AL-IMM 5F)                   ; cmp al,0x5f                   ; clear ZF
+(RET)                             ; ret                           ; return
 
-; :read_factor (0x08048313)
-; read one parenthesized or atomic term
-(CALL-DWORD-EBP-DISP 04)        ; call DWORD PTR [ebp+0x4]      ; skip whitespace
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load char
-(DEC-ESI)                       ; dec esi                       ; backtrack/peek
-(CMP-AL-IMM 28)                 ; cmp al,0x28                   ; open paren '('?
-(JNE-REL8 0F)                   ; jne 0x804832b                 ; parse atom if not
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; consume '('
-(CALL-REL32 44 00 00 00)        ; call 0x8048366                ; recursively read elements
-(PUSH-EAX)                      ; push eax                      ; save inner expression
-(CALL-DWORD-EBP-DISP 04)        ; call DWORD PTR [ebp+0x4]      ; skip whitespace
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load end char
-(CMP-AL-IMM 29)                 ; cmp al,0x29                   ; close paren ')'?
-(POP-EAX)                       ; pop eax                       ; restore expression
-(RET)                           ; ret                           ; return
-(CMP-AL-IMM 21)                 ; cmp al,0x21                   ; check character bounds
-(JB-REL8 04)                    ; jb 0x8048333                  ; constant parsing limits
-(CMP-AL-IMM 27)                 ; cmp al,0x27                   ; check single quote
-(JBE-REL8 4C)                   ; jbe 0x804837f                 ; parse constant
-(CMP-AL-IMM 2A)                 ; cmp al,0x2a                   ; check symbols
-(JB-REL8 14)                    ; jb 0x804834b                  ; try var identifiers
-(CMP-AL-IMM 5E)                 ; cmp al,0x5e                   ; check upper bound
-(JA-REL8 02)                    ; ja 0x804833d                  ; check uppercase
-(JMP-REL8 42)                   ; jmp 0x804837f                 ; parse constant
-(CMP-AL-IMM 5F)                 ; cmp al,0x5f                   ; underscore?
-(JE-REL8 08)                    ; je 0x8048349                  ; parse as var
-(CMP-AL-IMM 61)                 ; cmp al,0x61                   ; 'a' start
-(JB-REL8 06)                    ; jb 0x804834b                  ; invalid identifier check
-(CMP-AL-IMM 7E)                 ; cmp al,0x7e                   ; '~' end
-(JA-REL8 02)                    ; ja 0x804834b                  ; invalid identifier check
-(JMP-REL8 3E)                   ; jmp 0x8048389                 ; parse variable
-(CMP-AL-IMM 5F)                 ; cmp al,0x5f                   ; fail path (clear ZF)
-(RET)                           ; ret                           ; return
+; :skip_whitespace (0x0804837A)
+; skip spaces, tabs, carriage returns, and semicolon comments
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load char
+(CMP-AL-IMM 09)                   ; cmp al,0x9                    ; tab?
+(JE-REL8 FB)                      ; je 0x804837a                  ; loop
+(CMP-AL-IMM 0D)                   ; cmp al,0xd                    ; CR?
+(JE-REL8 F7)                      ; je 0x804837a                  ; loop
+(CMP-AL-IMM 20)                   ; cmp al,0x20                   ; space?
+(JE-REL8 F3)                      ; je 0x804837a                  ; loop
+(CMP-AL-IMM 3B)                   ; cmp al,0x3b                   ; semicolon ';'?
+(JNE-REL8 05)                     ; jne 0x8048390                 ; stop if not
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; skip comment
+(CMP-AL-IMM 0A)                   ; cmp al,0xa                    ; newline?
+(JNE-REL8 FB)                     ; jne 0x804838b                 ; skip until newline
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(RET)                             ; ret                           ; return
 
-; :skip_whitespace (0x0804834E)
-; skip whitespace and semicolon comments
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load char
-(CMP-AL-IMM 09)                 ; cmp al,0x9                    ; is tab?
-(JE-REL8 FB)                    ; je 0x804834e                  ; loop
-(CMP-AL-IMM 0D)                 ; cmp al,0xd                    ; is CR?
-(JE-REL8 F7)                    ; je 0x804834e                  ; loop
-(CMP-AL-IMM 20)                 ; cmp al,0x20                   ; is space?
-(JE-REL8 F3)                    ; je 0x804834e                  ; loop
-(CMP-AL-IMM 3B)                 ; cmp al,0x3b                   ; is semicolon ';'?
-(JNE-REL8 05)                   ; jne 0x8048364                 ; exit if not comment
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; skip comment body
-(CMP-AL-IMM 0A)                 ; cmp al,0xa                    ; is newline?
-(JNE-REL8 FB)                   ; jne 0x804835f                 ; skip until newline
-(DEC-ESI)                       ; dec esi                       ; backtrack
-(RET)                           ; ret                           ; return
+; :read_term (0x08048392)
+; read the tail of a parenthesized list
+(CALL-DWORD-EBP-DISP 08)          ; call [ebp+0x8]                ; read factor
+(JNE-REL8 10)                     ; jne 0x80483a7                 ; return nil if fails
+(PUSH-EAX)                        ; push eax                      ; save element
+(CALL-REL32 F5 FF FF FF)          ; call 0x8048392                ; recursively read tail
+(PUSH-EAX)                        ; push eax                      ; save tail
+(CALL-DWORD-EBP-DISP 04)          ; call [ebp+0x4]                ; skip spacing
+(POP-ECX)                         ; pop ecx                       ; restore tail
+(POP-EAX)                         ; pop eax                       ; restore element
+(CALL-DWORD-EBP-DISP 00)          ; call [ebp+0x0]                ; cons(element, tail)
+(RET)                             ; ret                           ; return
+(XOR-EAX-EAX)                     ; xor eax,eax                   ; clear eax
+(INC-EAX)                         ; inc eax                       ; eax = 1 (nil)
+(RET)                             ; ret                           ; return
 
-; :read_term (0x08048366)
-; read a list tail
-(CALL-DWORD-EBP-DISP 08)        ; call DWORD PTR [ebp+0x8]      ; read term element
-(JNE-REL8 10)                   ; jne 0x804837b                 ; return nil if no element
-(PUSH-EAX)                      ; push eax                      ; save element
-(CALL-REL32 F5 FF FF FF)        ; call 0x8048366                ; recursively read tail
-(PUSH-EAX)                      ; push eax                      ; save tail
-(CALL-DWORD-EBP-DISP 04)        ; call DWORD PTR [ebp+0x4]      ; skip spacing
-(POP-ECX)                       ; pop ecx                       ; restore tail
-(POP-EAX)                       ; pop eax                       ; restore element
-(CALL-DWORD-EBP-DISP 00)        ; call DWORD PTR [ebp+0x0]      ; cons(element, tail)
-(RET)                           ; ret                           ; return
-(XOR-EAX-EAX)                   ; xor eax,eax                   ; clear eax
-(INC-EAX)                       ; inc eax                       ; eax = 1 (nil)
-(RET)                           ; ret                           ; return
-
-; :read_constant (0x0804837F)
-; read a constant atom
-(CALL-REL32 0F 00 00 00)        ; call 0x8048393                ; parse atom
-(OR-AL-IMM 01)                  ; or al,0x1                     ; tag as constant
+; :read_constant (0x080483AB)
+; intern an atom and tag it as a constant
+(CALL-REL32 0F 00 00 00)          ; call 0x80483bf                ; parse atom name
+(OR-AL-IMM 01)                    ; or al,0x1                     ; tag constant
 (CMP-EAX-EAX)                   ; cmp eax,eax                   ; set ZF
-(RET)                           ; ret                           ; return
+(RET)                             ; ret                           ; return
 
-; :read_var (0x08048389)
-; read a pattern variable atom
-(CALL-REL32 05 00 00 00)        ; call 0x8048393                ; parse atom
-(OR-AL-IMM 02)                  ; or al,0x2                     ; tag as variable
-(CMP-EAX-EAX)                   ; cmp eax,eax                   ; set ZF
-(RET)                           ; ret                           ; return
+; :read_var (0x080483B5)
+; intern an atom and tag it as a pattern/template variable
+(CALL-REL32 05 00 00 00)          ; call 0x80483bf                ; parse atom name
+(OR-AL-IMM 02)                    ; or al,0x2                     ; tag variable
+(CMP-EAX-EAX)                     ; cmp eax,eax                   ; set ZF
+(RET)                             ; ret                           ; return
 
+; :read_atom (0x080483BF)
+; scan an atom name until whitespace, paren, comment, or non-printable byte
+(MOV-EDX-ESI)                     ; mov edx,esi                   ; save start address
+(LODS-AL-BYTE-ESI)                ; lods al,BYTE PTR ds:[esi]     ; load char
+(CMP-AL-IMM 21)                   ; cmp al,0x21                   ; bounds check
+(JB-REL8 10)                      ; jb 0x80483d6                  ; end of atom
+(CMP-AL-IMM 3B)                   ; cmp al,0x3b                   ; comment ';'?
+(JE-REL8 0C)                      ; je 0x80483d6                  ; end of atom
+(CMP-AL-IMM 28)                   ; cmp al,0x28                   ; open paren '('?
+(JE-REL8 08)                      ; je 0x80483d6                  ; end of atom
+(CMP-AL-IMM 29)                   ; cmp al,0x29                   ; close paren ')'?
+(JE-REL8 04)                      ; je 0x80483d6                  ; end of atom
+(CMP-AL-IMM 7E)                   ; cmp al,0x7e                   ; bounds check
+(JBE-REL8 EB)                     ; jbe 0x80483c1                 ; loop inside range
+(DEC-ESI)                         ; dec esi                       ; backtrack
+(MOV-ECX-ESI)                     ; mov ecx,esi                   ; end address
+(SUB-ECX-EDX)                     ; sub ecx,edx                   ; compute length
+(XCHG-EDX-EAX)                    ; xchg edx,eax                  ; swap start address
 
-;;; Atom interning
-; Each distinct atom spelling is stored once. These interned atom entries are
-; also where byte emission reads the two hex digits in atoms like `B8`.
+; :intern (0x080483DC)
+; find or append a string pointer/length entry in the atom table
+(PUSH-ESI)                        ; push esi                      ; save esi
+(PUSH-EDI)                        ; push edi                      ; save edi
+(MOV-EBX-IMM32 50 94 05 08)        ; mov ebx,0x8059450             ; load atom table pointer
+(ADD-EBX-IMM 08)                   ; add ebx,0x8                   ; next entry
+(MOV-EDI-DWORD-EBX)                ; mov edi,DWORD PTR [ebx]       ; load string pointer
+(TEST-EDI-EDI)                     ; test edi,edi                  ; empty slot?
+(JE-REL8 12)                       ; je 0x80483fe                  ; insert if empty
+(CMP-DWORD-EBX-DISP-ECX 04)        ; cmp DWORD PTR [ebx+0x4],ecx   ; compare lengths
+(JNE-REL8 F2)                      ; jne 0x80483e3                 ; loop if mismatch
+(PUSH-ECX)                         ; push ecx                      ; save length
+(MOV-ESI-EAX)                      ; mov esi,eax                   ; ESI = current spelling
+(REPZ-CMPS-BYTE-ESI-BYTE-EDI)      ; repz cmpsb                    ; compare strings
+(POP-ECX)                          ; pop ecx                       ; restore length
+(JNE-REL8 EA)                      ; jne 0x80483e3                 ; loop if mismatch
+(MOV-EAX-EBX)                      ; mov eax,ebx                   ; found: return table pointer
+(POP-EDI)                          ; pop edi                       ; restore edi
+(POP-ESI)                          ; pop esi                       ; restore esi
+(RET)                              ; ret                           ; return
+(MOV-DWORD-EBX-EAX)                ; mov [ebx],eax                 ; store string address
+(MOV-DWORD-EBX-DISP-ECX 04)        ; mov [ebx+0x4],ecx             ; store length
+(JMP-REL8 F4)                      ; jmp 0x80483f9                 ; return entry
 
-; :read_atom (0x08048393)
-; scan one atom spelling
-(MOV-EDX-ESI)                   ; mov edx,esi                   ; edx = atom start
-(LODS-AL-BYTE-ESI)              ; lodsb                         ; load character
-(CMP-AL-IMM 21)                 ; cmp al,0x21                   ; check limits
-(JB-REL8 10)                    ; jb 0x80483aa                  ; stop if below range
-(CMP-AL-IMM 3B)                 ; cmp al,0x3b                   ; check comment ';'
-(JE-REL8 0C)                    ; je 0x80483aa                  ; stop
-(CMP-AL-IMM 28)                 ; cmp al,0x28                   ; check open '('
-(JE-REL8 08)                    ; je 0x80483aa                  ; stop
-(CMP-AL-IMM 29)                 ; cmp al,0x29                   ; check close ')'
-(JE-REL8 04)                    ; je 0x80483aa                  ; stop
-(CMP-AL-IMM 7E)                 ; cmp al,0x7e                   ; check ascii end
-(JBE-REL8 EB)                   ; jbe 0x8048395                 ; loop inside range
-(DEC-ESI)                       ; dec esi                       ; backtrack last char
-(MOV-ECX-ESI)                   ; mov ecx,esi                   ; ecx = atom end
-(SUB-ECX-EDX)                   ; sub ecx,edx                   ; ecx = length
-(XCHG-EDX-EAX)                  ; xchg edx,eax                  ; eax = start address
-(PUSH-ESI)                      ; push esi                      ; save ESI
-(PUSH-EDI)                      ; push edi                      ; save EDI
-
-; :intern (0x080483B2)
-; find or insert the atom in the intern table
-(MOV-EBX-IMM32 28 94 05 08)     ; mov ebx,0x8059428             ; load atom table start - 8
-(ADD-EBX-IMM 08)                ; add ebx,0x8                   ; next entry
-(MOV-EDI-DWORD-EBX)             ; mov edi,DWORD PTR [ebx]       ; load string pointer
-(TEST-EDI-EDI)                  ; test edi,edi                  ; check empty slot
-(JE-REL8 12)                    ; je 0x80483d2                  ; insert if empty
-(CMP-DWORD-EBX-DISP-ECX 04)     ; cmp DWORD PTR [ebx+0x4],ecx   ; compare lengths
-(JNE-REL8 F2)                   ; jne 0x80483b7                 ; next entry if mismatch
-(PUSH-ECX)                      ; push ecx                      ; save length
-(MOV-ESI-EAX)                   ; mov esi,eax                   ; ESI = current atom spelling
-(REPZ-CMPS-BYTE-ESI-BYTE-EDI)   ; repz cmpsb                    ; compare strings
-(POP-ECX)                       ; pop ecx                       ; restore length
-(JNE-REL8 EA)                   ; jne 0x80483b7                 ; next entry if mismatch
-(MOV-EAX-EBX)                   ; mov eax,ebx                   ; return found entry
-(POP-EDI)                       ; pop edi                       ; restore EDI
-(POP-ESI)                       ; pop esi                       ; restore ESI
-(RET)                           ; ret                           ; return
-(MOV-DWORD-EBX-EAX)             ; mov DWORD PTR [ebx],eax       ; store address
-(MOV-DWORD-EBX-DISP-ECX 04)     ; mov DWORD PTR [ebx+0x4],ecx   ; store length
-(JMP-REL8 F4)                   ; jmp 0x80483cd                 ; loop to return entry
-
-
-;;;; Padding and Data Sections ;;;;
-
-; offset 0x000003D9: padding before .data
-(B16 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)
-(B16 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)
-(B11 00 00 00 00 00 00 00 00 00 00 00)
-
-; offset 0x00000404: section .data
-; Global function table and mutable runtime roots.
-(B16 93 81 04 08 4E 83 04 08 13 83 04 08 D6 81 04 08) ; cons, skip_whitespace, read_factor, ev pointers
-(B16 A0 81 04 08 29 81 04 08 30 B4 07 08 FF FF FF FF) ; evlis, match, arena_alloc, rules pointers
-(B8 30 94 04 08 30 94 04 08)                         ; input_buffer base and current pointers
-
-; offset 0x0000042C: section .shstrtab
-(B16 00 2E 73 68 73 74 72 74 61 62 00 2E 74 65 78 74) ; "\0.shstrtab\0.text"
-(B12 00 2E 64 61 74 61 00 2E 62 73 73 00)             ; "\0.data\0.bss\0"
+; padding before .data
+(B16 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00) ; 0x00000405
+(B16 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00) ; 0x00000415
+(B11 00 00 00 00 00 00 00 00 00 00 00) ; 0x00000425
 
 
-;;;; Section Headers ;;;;
-; Not needed to run, but present in the trusted seed executable and therefore
-; emitted byte-for-byte.
+; .data function table and globals
+; 0x08049430: cons, skip_whitespace, read_factor, subst, ev, match
+; 0x08049448: allocation_pointer, rules, inptr, lineptr
+(B16 AB 81 04 08 7A 83 04 08 3F 83 04 08 EE 81 04 08) ; 0x00000430
+(B16 B8 81 04 08 41 81 04 08 58 B4 07 08 FF FF FF FF) ; 0x00000440
+(B8 58 94 04 08 58 94 04 08)      ; 0x00000450
 
-; Section header 0 (NULL)
-(B4 00 00 00 00) ; sh_name
-(B4 00 00 00 00) ; sh_type
-(B4 00 00 00 00) ; sh_flags
-(B4 00 00 00 00) ; sh_addr
-(B4 00 00 00 00) ; sh_offset
-(B4 00 00 00 00) ; sh_size
-(B4 00 00 00 00) ; sh_link
-(B4 00 00 00 00) ; sh_info
-(B4 00 00 00 00) ; sh_addralign
-(B4 00 00 00 00) ; sh_entsize
+; .shstrtab section names
+(B16 00 2E 73 68 73 74 72 74 61 62 00 2E 74 65 78 74) ; 0x00000458
+(B12 00 2E 64 61 74 61 00 2E 62 73 73 00) ; 0x00000468
 
+; null section header
+(B4 00 00 00 00)                  ; sh_name
+(B4 00 00 00 00)                  ; sh_type
+(B4 00 00 00 00)                  ; sh_flags
+(B4 00 00 00 00)                  ; sh_addr
+(B4 00 00 00 00)                  ; sh_offset
+(B4 00 00 00 00)                  ; sh_size
+(B4 00 00 00 00)                  ; sh_link
+(B4 00 00 00 00)                  ; sh_info
+(B4 00 00 00 00)                  ; sh_addralign
+(B4 00 00 00 00)                  ; sh_entsize
 
-; Section header 1 (.text)
-(B4 0B 00 00 00) ; sh_name (.text)
-(B4 01 00 00 00) ; sh_type (SHT_PROGBITS)
-(B4 06 00 00 00) ; sh_flags (SHF_ALLOC + SHF_EXECINSTR)
-(B4 B4 80 04 08) ; sh_addr (0x080480B4)
-(B4 B4 00 00 00) ; sh_offset (0xB4)
-(B4 25 03 00 00) ; sh_size (0x325)
-(B4 00 00 00 00) ; sh_link
-(B4 00 00 00 00) ; sh_info
-(B4 01 00 00 00) ; sh_addralign
-(B4 00 00 00 00) ; sh_entsize
+; .text section header
+(B4 0B 00 00 00)                  ; sh_name
+(B4 01 00 00 00)                  ; sh_type
+(B4 06 00 00 00)                  ; sh_flags
+(B4 B4 80 04 08)                  ; sh_addr
+(B4 B4 00 00 00)                  ; sh_offset
+(B4 51 03 00 00)                  ; sh_size
+(B4 00 00 00 00)                  ; sh_link
+(B4 00 00 00 00)                  ; sh_info
+(B4 01 00 00 00)                  ; sh_addralign
+(B4 00 00 00 00)                  ; sh_entsize
 
-; Section header 2 (.data)
-(B4 11 00 00 00) ; sh_name (.data)
-(B4 01 00 00 00) ; sh_type (SHT_PROGBITS)
-(B4 03 00 00 00) ; sh_flags (SHF_WRITE + SHF_ALLOC)
-(B4 04 94 04 08) ; sh_addr (0x08049404)
-(B4 04 04 00 00) ; sh_offset (0x404)
-(B4 28 00 00 00) ; sh_size (0x28)
-(B4 00 00 00 00) ; sh_link
-(B4 00 00 00 00) ; sh_info
-(B4 01 00 00 00) ; sh_addralign
-(B4 00 00 00 00) ; sh_entsize
+; .data section header
+(B4 11 00 00 00)                  ; sh_name
+(B4 01 00 00 00)                  ; sh_type
+(B4 03 00 00 00)                  ; sh_flags
+(B4 30 94 04 08)                  ; sh_addr
+(B4 30 04 00 00)                  ; sh_offset
+(B4 28 00 00 00)                  ; sh_size
+(B4 00 00 00 00)                  ; sh_link
+(B4 00 00 00 00)                  ; sh_info
+(B4 01 00 00 00)                  ; sh_addralign
+(B4 00 00 00 00)                  ; sh_entsize
 
-; Section header 3 (.bss)
-(B4 17 00 00 00) ; sh_name (.bss)
-(B4 08 00 00 00) ; sh_type (SHT_NOBITS)
-(B4 03 00 00 00) ; sh_flags (SHF_WRITE + SHF_ALLOC)
-(B4 30 94 04 08) ; sh_addr (0x08049430)
-(B4 2C 04 00 00) ; sh_offset (0x42C)
-(B4 00 20 03 20) ; sh_size (0x20032000)
-(B4 00 00 00 00) ; sh_link
-(B4 00 00 00 00) ; sh_info
-(B4 08 00 00 00) ; sh_addralign
-(B4 00 00 00 00) ; sh_entsize
+; .bss section header
+(B4 17 00 00 00)                  ; sh_name
+(B4 08 00 00 00)                  ; sh_type
+(B4 03 00 00 00)                  ; sh_flags
+(B4 58 94 04 08)                  ; sh_addr
+(B4 58 04 00 00)                  ; sh_offset
+(B4 00 20 03 20)                  ; sh_size
+(B4 00 00 00 00)                  ; sh_link
+(B4 00 00 00 00)                  ; sh_info
+(B4 08 00 00 00)                  ; sh_addralign
+(B4 00 00 00 00)                  ; sh_entsize
 
-; Section header 4 (.shstrtab)
-(B4 01 00 00 00) ; sh_name (.shstrtab)
-(B4 03 00 00 00) ; sh_type (SHT_STRTAB)
-(B4 00 00 00 00) ; sh_flags
-(B4 00 00 00 00) ; sh_addr
-(B4 2C 04 00 00) ; sh_offset (0x42C)
-(B4 1C 00 00 00) ; sh_size (0x1C)
-(B4 00 00 00 00) ; sh_link
-(B4 00 00 00 00) ; sh_info
-(B4 01 00 00 00) ; sh_addralign
-(B4 00 00 00 00) ; sh_entsize
+; .shstrtab section header
+(B4 01 00 00 00)                  ; sh_name
+(B4 03 00 00 00)                  ; sh_type
+(B4 00 00 00 00)                  ; sh_flags
+(B4 00 00 00 00)                  ; sh_addr
+(B4 58 04 00 00)                  ; sh_offset
+(B4 1C 00 00 00)                  ; sh_size
+(B4 00 00 00 00)                  ; sh_link
+(B4 00 00 00 00)                  ; sh_info
+(B4 01 00 00 00)                  ; sh_addralign
+(B4 00 00 00 00)                  ; sh_entsize

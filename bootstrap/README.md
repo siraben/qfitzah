@@ -17,10 +17,11 @@ test suite compares the bytes directly, marks the generated file executable, and
 reruns the normal language tests with it.
 
 The file follows the stage0/hex0 style: ELF fields are listed by name, and the
-`.text` section is emitted one i386 instruction per line with the disassembled
-assembly in a comment. `B1` through `B16` emit raw byte fields, while the code
-section uses instruction macros such as `MOV-EAX-IMM32`, `CALL-REL32`, and
-`JE-REL8`.
+`.text` section is emitted one i386 instruction per line. `B1` through `B16`
+emit raw byte fields; code instructions use named byte-emission macros such as
+`MOV-EAX-IMM32` and `CALL-REL32`, with the corresponding i386 assembly in a
+comment, so the source stays readable while remaining byte-for-byte synchronized
+with the binary.
 
 This is intentionally a direct binary emission stage, not yet a symbolic
 assembler or compiler. It establishes the bootstrap shape:

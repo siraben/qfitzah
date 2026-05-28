@@ -585,7 +585,7 @@ repl:
 read_more:
         sys3 $__NR_read, $0, inptr, $1
         test %eax, %eax         # EOF on input?
-        jz quit
+        jz finish_input
         mov inptr-globals(%ebp), %esi
         cmpb $'\n, (%esi)
         lea 1(%esi), %esi
@@ -597,6 +597,14 @@ read_more:
         mov inptr-globals(%ebp), %esi
         mov %esi, lineptr-globals(%ebp)
         jmp repl
+finish_input:
+        mov inptr-globals(%ebp), %esi
+        cmp lineptr-globals(%ebp), %esi
+        je quit
+        movb $'\n, (%esi)
+        mov lineptr-globals(%ebp), %esi
+        do handle_line
+        do flush
 quit:   sys1 $__NR_exit, $0
 
         ## XXX this needs a lot of attention for reducing code space
@@ -712,13 +720,17 @@ proc nybble                     # Convert ASCII hex digit in %al to a nybble.
         ## to the front of the rules list (thus taking precedence over
         ## older rules).
 
-        ## Here’s a crude parser.  Input pointer in %esi points
-        ## into NUL-terminated input string.
+        ## Here’s a crude parser.  Input pointer in %esi points into a
+        ## newline-terminated input line.
 proc handle_line
         cld        # XXX not really necessary since DF is always clear
+        do skip_whitespace
+        lodsb
+        dec %esi
+        cmp $'\n, %al
+        je handle_line_done     # blank or comment-only line
         do read_factor
-        jz 1f                   # if blank line, ignore
-        ret
+        jnz parse_error
 1:      push %eax
         do skip_whitespace
         lodsb    # lodsb;dec: 2 bytes, cmp $'\n, %al: 2; cmp $':, (%esi): 3
@@ -742,7 +754,13 @@ proc handle_line
 1:      do read_factor # read replacement template for rule being defined
         pop %ecx                # pop pattern
         jnz parse_error
-        ## XXX ignoring the possibility of more than two things on the line
+        push %eax
+        do skip_whitespace
+        lodsb
+        dec %esi
+        cmp $'\n, %al
+        pop %eax
+        jne parse_error
         xchg %ecx, %eax
         do cons
         ## FALL THROUGH into tail call to add_rule
@@ -763,6 +781,8 @@ proc parse_error
         stosb
         mov $'\n, %al
         stosb
+        ret
+handle_line_done:
         ret
 
 proc read_factor

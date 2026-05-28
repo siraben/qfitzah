@@ -1,4 +1,4 @@
 ; Macro-like assembler output: i386 Linux exit(42) machine-code fragment.
-; Run with: nix run < examples/byte-assembler.qfitzah > exit42.bin
+; Run with: nix run < examples/byte-assembler.qf1 > exit42.bin
 (AsmExit code) (Bytes B8 01 00 00 00 BB code 00 00 00 CD 80)
 (AsmExit 2A)

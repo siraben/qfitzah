@@ -15,6 +15,13 @@ run_case() {
   local name=$1
   local runner=$2
   local input=$case_dir/$name.qf1
+  run_input_case "$name" "$runner" "$input"
+}
+
+run_input_case() {
+  local name=$1
+  local runner=$2
+  local input=$3
   local expected=$case_dir/$name.expected
   local unexpected=$case_dir/$name.unexpected
   local hex=$case_dir/$name.hex
@@ -83,20 +90,26 @@ run_standard_cases() {
   run_case "unmatched-template-variable" "$runner"
   run_case "empty-list-pattern" "$runner"
   run_case "reader-ergonomics" "$runner"
+  run_case "final-line-no-newline" "$runner"
+  run_case "malformed-first-form" "$runner"
+  run_case "trailing-extra-form" "$runner"
   run_case "byte-output" "$runner"
   run_case "arithmetic-compiler" "$runner"
   run_case "meta2-arithmetic" "$runner"
   run_case "lisp-reverse" "$runner"
   run_case "full-lisp" "$runner"
   run_case "self-hosting-compiler" "$runner"
+  run_input_case "upstream-example" "$runner" "$repo_root/example.qf1"
 }
 
 run_stage1_bootstrap() {
   local tmp
   local stage1
+  local stage2
 
   tmp=$(mktemp -d)
   stage1=$tmp/qfitzah
+  stage2=$tmp/qfitzah-stage2
 
   timeout 20s "$qfitzah" < "$repo_root/bootstrap/qfitzah-stage1.qf1" > "$stage1"
 
@@ -108,6 +121,15 @@ run_stage1_bootstrap() {
   fi
 
   chmod +x "$stage1"
+  timeout 20s "$stage1" < "$repo_root/bootstrap/qfitzah-stage1.qf1" > "$stage2"
+
+  if ! cmp -s "$stage1" "$stage2"; then
+    printf 'FAIL stage1-bootstrap: regenerated stage2 binary differs from stage1\n' >&2
+    cmp -l "$stage1" "$stage2" | head -20 >&2 || true
+    rm -rf "$tmp"
+    exit 1
+  fi
+
   run_standard_cases "$stage1"
 
   rm -rf "$tmp"

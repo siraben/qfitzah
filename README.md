@@ -32,9 +32,16 @@ nix run
 The flake builds `qfitzah.s` with GNU `as`, links a static i386 executable with
 `ld`, and strips nonessential metadata with `objcopy`.
 
-The current build is a 32-bit static Linux executable of about 1.2 KiB. It keeps
+The current build is a 32-bit static Linux executable of about 1.3 KiB. It keeps
 the runtime small by using direct syscalls, a bump allocator, pointer tagging,
 and ordered tree rewrite rules instead of a larger parser or object system.
+
+## Upstream Source
+
+The original seed files are preserved from Kragen Sitaker's Qfitzah sources:
+
+- `qfitzah.s` from `http://canonical.org/~kragen/sw/dev3/qfitzah.s`
+- `example.qf1` from `http://canonical.org/~kragen/sw/dev3/example.qf1`
 
 ## Language
 
@@ -111,7 +118,8 @@ b8 01 00 00 00 bb 2a 00 00 00 cd 80
 [bootstrap/qfitzah-stage1.qf1](bootstrap/qfitzah-stage1.qf1) is a
 hand-maintained Qfitzah source file that emits the built `qfitzah` executable
 byte for byte. It is annotated in a hex0-like style: ELF fields are named, and
-`.text` is listed one i386 instruction macro per line with assembly comments.
+`.text` is listed one i386 instruction per line with raw bytes and assembly
+comments.
 This gives the repository a concrete first bootstrap step: trust the original
 assembly once, run Qfitzah source through that seed, compare the generated ELF
 binary to the seed
