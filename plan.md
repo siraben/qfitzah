@@ -153,6 +153,9 @@ explicit until the checked allocator can be lifted back up.
 policy: the overflow path resets `HeapNext` to the heap base, retries the
 allocation, stores one pair, and exits `19`. This is a no-live-objects GC proof,
 not a tracing collector yet.
+`bootstrap/stage5-copy-root-gc.qf1` then preserves one live root across that
+recovery: it copies the root pair into the reset heap, updates the root slot,
+allocates another pair after it, and exits with the copied root car (`19`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

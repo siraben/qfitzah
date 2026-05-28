@@ -320,6 +320,10 @@ committing the bump or storing fields.
 adds the first recovery policy proof: on overflow it resets `HeapNext` to the
 heap base, retries the allocation, stores a pair, and exits `19`. This models a
 minimal no-live-objects collection pass at the qfasm2 level.
+[bootstrap/stage5-copy-root-gc.qf1](bootstrap/stage5-copy-root-gc.qf1) extends
+that recovery path to one live root: it copies the root pair into the reset
+heap, updates the root slot, allocates another pair after it, and exits with
+the copied root car (`19`).
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

@@ -70,6 +70,10 @@ These checked fixtures fit:
   - uses the same qfasm2 heap-check extension
   - resets `HeapNext` to `Heap` on overflow and retries allocation
   - proves a no-live-objects recovery policy with runtime status `19`
+- `stage5-copy-root-gc.qf1`
+  - copies one live root pair into the reset heap
+  - updates the root slot, retries allocation after the copied root, and exits
+    with the copied root car (`19`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
