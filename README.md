@@ -106,6 +106,19 @@ The example emits this i386 Linux machine-code fragment:
 b8 01 00 00 00 bb 2a 00 00 00 cd 80
 ```
 
+## Bootstrap
+
+[bootstrap/qfitzah-stage1.qf1](bootstrap/qfitzah-stage1.qf1) is a
+hand-maintained Qfitzah source file that emits the built `qfitzah` executable
+byte for byte. It is annotated in a hex0-like style: ELF fields are named, and
+`.text` is listed one i386 instruction macro per line with assembly comments.
+This gives the repository a concrete first bootstrap step: trust the original
+assembly once, run Qfitzah source through that seed, compare the generated ELF
+binary to the seed
+executable, then use the regenerated interpreter for the normal tests.
+
+See [bootstrap/README.md](bootstrap/README.md) for the exact loop.
+
 ## Tests
 
 ```sh
@@ -114,7 +127,8 @@ nix flake check
 
 The test suite covers basic rewriting, fast multi-line piped input, repeated
 pattern variables, structural equality for repeated list-valued variables,
-unmatched template variables, reader ergonomics, and empty-list matching. Test
+unmatched template variables, reader ergonomics, empty-list matching, byte
+output, larger language examples, and the stage-1 self-regeneration path. Test
 programs live in `tests/cases/*.qf1`, with expected snippets in matching
 `.expected` files and forbidden snippets in optional `.unexpected` files.
 
