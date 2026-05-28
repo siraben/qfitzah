@@ -353,6 +353,11 @@ replaces that fixed-shape copy with a loop over a nil-terminated pair list. It
 uses a `LinkSlot` cell to thread the root slot and copied cdr fields, copies a
 three-pair list until nil, overwrites the old tail, allocates after the copied
 list, and exits with the copied tail car (`19`).
+[bootstrap/qfc4-list-copy-ext.qf1](bootstrap/qfc4-list-copy-ext.qf1) and
+[bootstrap/stage5-copy-list-gc-qfc4.qf1](bootstrap/stage5-copy-list-gc-qfc4.qf1)
+lift that traversal through qfc4. The test runs it as a two-step Qfitzah
+pipeline, qfc4 to qfasm3 source and then qfasm3/qfasm2 to ELF, to avoid loading
+all optional Stage 5 rules into the seed runtime at once.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

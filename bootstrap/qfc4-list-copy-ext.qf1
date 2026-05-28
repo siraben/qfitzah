@@ -1,0 +1,174 @@
+; Optional qfc4 list-copy traversal surface.
+;
+; These statements keep the Stage 5 list traversal source readable while
+; lowering each loop operation through qfc4 into qfasm3 local-label code.
+
+(Rule
+  (ParseStmt (Local name))
+  (Local name))
+
+(Rule
+  (ParseStmt (JumpLocal name))
+  (JumpLocal name))
+
+(Rule
+  (ParseStmt (InitListCopy))
+  InitListCopy)
+
+(Rule
+  (ParseStmt (AllocNewCell))
+  AllocNewCell)
+
+(Rule
+  (ParseStmt (StoreNewCellToLink))
+  StoreNewCellToLink)
+
+(Rule
+  (ParseStmt (CopyCurrentPairToNewCell))
+  CopyCurrentPairToNewCell)
+
+(Rule
+  (ParseStmt (AdvanceListCopy))
+  AdvanceListCopy)
+
+(Rule
+  (ParseStmt (AllocAtNext car cdr))
+  (AllocAtNext car cdr))
+
+(Rule
+  (CompileStmt (Local name))
+  (Do (Local name) End))
+
+(Rule
+  (CompileStmt (JumpLocal name))
+  (Do (JumpLocal name) End))
+
+(Rule
+  (CompileStmt InitListCopy)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (MovEbxLabel Heap)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel Root)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (PushEax)
+              (Do
+                (MovEaxLabel CurrentOld)
+                (Do
+                  (PopEbx)
+                  (Do
+                    (StoreDwordAtEaxFromEbx)
+                    (Do
+                      (MovEaxLabel LinkSlot)
+                      (Do
+                        (MovEbxLabel Root)
+                        (Do (StoreDwordAtEaxFromEbx) End)))))))))))))
+
+(Rule
+  (CompileStmt AllocNewCell)
+  (Do
+    (PushEax)
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (PushEax)
+          (Do
+            (MovEbxEax)
+            (Do
+              (AddEbxImm8 08)
+              (Do
+                (MovEaxLabel HeapNext)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEaxLabel NewCell)
+                    (Do
+                      (PopEbx)
+                      (Do (StoreDwordAtEaxFromEbx) End))))))))))))
+
+(Rule
+  (CompileStmt StoreNewCellToLink)
+  (Do
+    (MovEaxLabel NewCell)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEaxLabel LinkSlot)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (PopEbx)
+              (Do (StoreDwordAtEaxFromEbx) End))))))))
+
+(Rule
+  (CompileStmt CopyCurrentPairToNewCell)
+  (Do
+    (PopEax)
+    (Do
+      (LoadEbxCarFromEax)
+      (Do
+        (LoadEcxCdrFromEax)
+        (Do
+          (PushEcx)
+          (Do
+            (MovEaxLabel NewCell)
+            (Do
+              (LoadEaxCar)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do (StoreDwordAtEaxPlus4FromEcx) End)))))))))
+
+(Rule
+  (CompileStmt AdvanceListCopy)
+  (Do
+    (MovEaxLabel CurrentOld)
+    (Do
+      (PopEbx)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel NewCell)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (MovEbxEax)
+              (Do
+                (AddEbxImm8 04)
+                (Do
+                  (MovEaxLabel LinkSlot)
+                  (Do (StoreDwordAtEaxFromEbx) End))))))))))
+
+(Rule
+  (CompileStmt (AllocAtNext car cdr))
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEbxEax)
+          (Do
+            (AddEbxImm8 08)
+            (Do
+              (MovEaxLabel HeapNext)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (PopEax)
+                  (Do
+                    (MovEbxImm32 car)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (MovEcxImm32 cdr)
+                        (Do (StoreDwordAtEaxPlus4FromEcx) End)))))))))))))

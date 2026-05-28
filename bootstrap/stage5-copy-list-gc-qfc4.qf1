@@ -1,0 +1,124 @@
+; Stage 5 list-traversing copy recovery lifted through qfc4.
+;
+; Compile with qfc4-list-copy-ext.qf1. Root points at a three-pair
+; nil-terminated list. InitListCopy prepares HeapNext, and the staged loop
+; walks the old list, copies each pair into the heap, threads LinkSlot through
+; the root slot and copied cdr fields, and leaves HeapNext after the copied
+; list. The staged program overwrites the old tail with 63, allocates after
+; the copied list with car 42, and exits with the copied tail car, 19. A stale
+; old-tail pointer exits 63; allocating too early exits 42.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext Heap
+    (PtrCell Root OldA
+    (Data CurrentOld 00
+    (Data CurrentOld1 00
+    (Data CurrentOld2 00
+    (Data CurrentOld3 00
+    (Data LinkSlot 00
+    (Data LinkSlot1 00
+    (Data LinkSlot2 00
+    (Data LinkSlot3 00
+    (Data NewCell 00
+    (Data NewCell1 00
+    (Data NewCell2 00
+    (Data NewCell3 00
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data Heap8 00
+    (Data Heap9 00
+    (Data Heap10 00
+    (Data Heap11 00
+    (Data Heap12 00
+    (Data Heap13 00
+    (Data Heap14 00
+    (Data Heap15 00
+    (Data Heap16 00
+    (Data Heap17 00
+    (Data Heap18 00
+    (Data Heap19 00
+    (Data Heap20 00
+    (Data Heap21 00
+    (Data Heap22 00
+    (Data Heap23 00
+    (Data Heap24 00
+    (Data Heap25 00
+    (Data Heap26 00
+    (Data Heap27 00
+    (Data Heap28 00
+    (Data Heap29 00
+    (Data Heap30 00
+    (Data Heap31 00
+    (Data OldA 07
+    (Data OldA1 00
+    (Data OldA2 00
+    (Data OldA3 00
+    (PtrCell OldACdr OldB
+    (Data OldB 0B
+    (Data OldB1 00
+    (Data OldB2 00
+    (Data OldB3 00
+    (PtrCell OldBCdr OldC
+    (Data OldC 13
+    (Data OldC1 00
+    (Data OldC2 00
+    (Data OldC3 00
+    (Data OldC4 01
+    (Data OldC5 00
+    (Data OldC6 00
+    (Data OldC7 00
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitListCopy)
+        (Seq
+          (Local CopyLoop)
+          (Seq
+            (LoadAddrEax CurrentOld)
+            (Seq
+              (CarEax)
+              (Seq
+                (CmpEax 01)
+                (Seq
+                  (IfZero
+                    CopyDone
+                    (Nop)
+                    (Seq
+                      (AllocNewCell)
+                      (Seq
+                        (StoreNewCellToLink)
+                        (Seq
+                          (CopyCurrentPairToNewCell)
+                          (Seq
+                            (AdvanceListCopy)
+                            (JumpLocal CopyLoop))))))
+                  (Seq
+                    (LoadAddrEax OldC)
+                    (Seq
+                      (SetEbx 3F)
+                      (Seq
+                        (StoreCarEbx)
+                        (Seq
+                          (AllocAtNext 2A 01)
+                          (Seq
+                            (LoadAddrEax Root)
+                            (Seq
+                              (CarEax)
+                              (Seq
+                                (CdrEax)
+                                (Seq
+                                  (CdrEax)
+                                  (Seq
+                                    (LoadCarEbx)
+                                    (ExitReg Ebx))))))))))))))))
+      End))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+)))

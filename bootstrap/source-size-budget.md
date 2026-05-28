@@ -105,6 +105,14 @@ These checked fixtures fit:
   - traverses a nil-terminated pair list with a `LinkSlot` update cell
   - copies three pairs, overwrites the old tail, allocates after the copied
     list, and exits with the copied tail car (`19`)
+- `stage5-copy-list-gc-qfc4.qf1`
+  - uses `qfc4-list-copy-ext.qf1` for qfc4-level loop statements and
+    `qfasm-stage5-list-ext.qf1` for the final assembly range
+  - runs as a staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+    under Qfitzah; loading all of those optional rules at once still exceeds
+    the seed runtime's stable budget
+  - copies the same three-pair list, overwrites the old tail, allocates after
+    the copied list, and exits with the copied tail car (`19`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

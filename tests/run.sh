@@ -548,6 +548,62 @@ run_qfc4_heap_copy_binary() {
 
 run_qfc4_heap_copy_binary "stage5-copy-graph-gc-qfc4" 19
 
+run_qfc4_heap_list_staged_binary() {
+  local name=$1
+  local expected_status=$2
+  local tmp
+  local actual_hex
+  local expected_hex
+  local flags_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfc4.qf1" \
+      "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
+      "$repo_root/bootstrap/qfc4-list-copy-ext.qf1" \
+      "$repo_root/bootstrap/$name.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/$name.m3"
+
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
+      "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
+      "$tmp/$name.m3" \
+    | timeout 5s "$qfitzah" > "$tmp/$name"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  flags_hex=$(od -An -j76 -N1 -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  if [[ "$flags_hex" != "07" ]]; then
+    printf 'FAIL %s: expected writable executable segment flag 07, got %s\n' "$name" "$flags_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/$name"
+  set +e
+  "$tmp/$name"
+  status=$?
+  set -e
+
+  if [[ $status -ne $expected_status ]]; then
+    printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - %s\n' "$name"
+}
+
+run_qfc4_heap_list_staged_binary "stage5-copy-list-gc-qfc4" 19
+
 run_qfc4_heap_check_binary() {
   local name=$1
   local expected_status=$2

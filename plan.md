@@ -179,6 +179,11 @@ while still lowering the copy operations through Qfitzah rules.
 loop over a nil-terminated list. It threads a `LinkSlot` through the root slot
 and copied cdr fields, copies three pairs until nil, then proves old internal
 pointers are gone by overwriting the old tail before reading the copied tail.
+`bootstrap/stage5-copy-list-gc-qfc4.qf1` and
+`bootstrap/qfc4-list-copy-ext.qf1` lift that loop shape through qfc4. The test
+uses a two-invocation Qfitzah pipeline, first lowering qfc4 to qfasm3 source
+and then assembling that source to a runnable ELF, because the all-in-one
+optional rule load still exceeds the seed runtime's stable budget.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

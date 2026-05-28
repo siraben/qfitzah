@@ -149,11 +149,15 @@ Progress so far:
   loop over a nil-terminated pair list. It threads a `LinkSlot` through the root
   slot and copied cdr fields, copies three pairs, overwrites the old tail, then
   exits through the copied tail (`19`).
+- `stage5-copy-list-gc-qfc4.qf1` lifts that list traversal through qfc4 using
+  the optional `qfc4-list-copy-ext.qf1` statement layer. Its test runs qfc4 and
+  qfasm as two Qfitzah invocations to keep the seed rule set small, then runs
+  the generated ELF and exits through the copied tail (`19`).
 
 Still required for the byte-output path:
 
-- lifting list traversal through qfc4, then replacing the list-only traversal
-  proof with traversal of arbitrary live objects
+- replacing the list-only traversal proof with traversal of arbitrary live
+  objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
