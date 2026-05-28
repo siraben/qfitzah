@@ -149,6 +149,10 @@ checked program.
 proof: compare `HeapNext + 8` with `HeapLimit` before storing, exercise both
 the success path (`19`) and overflow path (`7`), and keep the qfc4 limitation
 explicit until the checked allocator can be lifted back up.
+`bootstrap/stage5-alloc-reset-gc.qf1` adds the first lower-level recovery
+policy: the overflow path resets `HeapNext` to the heap base, retries the
+allocation, stores one pair, and exits `19`. This is a no-live-objects GC proof,
+not a tracing collector yet.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

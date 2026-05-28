@@ -118,11 +118,14 @@ Progress so far:
   allocator bounds check at the qfasm2 layer. They compare `HeapNext + 8` with
   `HeapLimit` before storing and cover both successful allocation (`19`) and
   overflow (`7`). This is not lifted through qfc4 yet.
+- `stage5-alloc-reset-gc.qf1` proves a minimal no-live-objects recovery policy
+  at the qfasm2 layer: overflow resets `HeapNext` to `Heap`, retries, stores a
+  pair, and exits with status `19`.
 
 Still required for the byte-output path:
 
-- lifting allocator bounds checks through qfc4 and adding a GC policy for
-  reclaiming or moving objects
+- lifting allocator bounds checks and recovery through qfc4, then replacing the
+  no-live-objects reset with a GC policy for reclaiming or moving live objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

@@ -66,6 +66,10 @@ These checked fixtures fit:
   - prove the first allocator bounds check at the qfasm2 layer
   - cover success (`19`) and overflow (`7`) before the checked allocator is
     lifted back through qfc4
+- `stage5-alloc-reset-gc.qf1`
+  - uses the same qfasm2 heap-check extension
+  - resets `HeapNext` to `Heap` on overflow and retries allocation
+  - proves a no-live-objects recovery policy with runtime status `19`
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
