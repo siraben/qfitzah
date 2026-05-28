@@ -587,7 +587,7 @@ repl:
 read_more:
         sys3 $__NR_read, $0, inptr, $1
         test %eax, %eax         # EOF on input?
-        jz quit
+        jz eof
         mov inptr-globals(%ebp), %esi
         mov (%esi), %al
         lea 1(%esi), %esi
@@ -621,6 +621,15 @@ read_more:
         mov inptr-globals(%ebp), %esi
         mov %esi, lineptr-globals(%ebp)
         jmp repl
+eof:    mov inptr-globals(%ebp), %esi
+        cmp lineptr-globals(%ebp), %esi
+        je quit
+        cmpl $0, paren_depth-globals(%ebp)
+        jne quit
+        movb $0, (%esi)         # final logical record terminator
+        mov lineptr-globals(%ebp), %esi
+        do handle_line
+        do flush
 quit:   sys1 $__NR_exit, $0
 
         ## XXX this needs a lot of attention for reducing code space

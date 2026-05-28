@@ -66,6 +66,17 @@ run_case() {
 run_case "basic-rewrite"
 run_case "multi-line-pipe"
 run_case "multiline-forms"
+multiline_eof_output=$(mktemp)
+printf '%s' "$(cat "$case_dir/multiline-eof.qf1")" \
+  | timeout 5s "$qfitzah" > "$multiline_eof_output"
+if ! grep -aFq "$(cat "$case_dir/multiline-eof.expected")" "$multiline_eof_output"; then
+  printf 'FAIL multiline-eof: expected final logical record at EOF:\n' >&2
+  cat "$multiline_eof_output" >&2
+  rm -f "$multiline_eof_output"
+  exit 1
+fi
+rm -f "$multiline_eof_output"
+printf 'ok - multiline-eof\n'
 run_case "repeated-atom-variable"
 run_case "repeated-list-variable"
 

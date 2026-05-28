@@ -280,11 +280,12 @@ The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 nix flake check
 ```
 
-The test suite covers basic rewriting, fast multi-line piped input, repeated
-pattern variables, structural equality for repeated list-valued variables,
-unmatched template variables, reader ergonomics, empty-list matching, nested
-byte-stream flattening, the example compilers, the Qfitzah-hosted assembler
-stages, and runnable Stage 4 byte-output runtime slices. Test programs live in
+The test suite covers basic rewriting, fast multi-line piped input, final
+multi-line records at EOF, repeated pattern variables, structural equality for
+repeated list-valued variables, unmatched template variables, reader ergonomics,
+empty-list matching, nested byte-stream flattening, the example compilers, the
+Qfitzah-hosted assembler stages, and runnable Stage 4 byte-output runtime slices.
+Test programs live in
 `tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
 forbidden snippets in optional `.unexpected` files.
 

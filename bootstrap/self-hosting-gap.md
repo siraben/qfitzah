@@ -106,8 +106,8 @@ Only after those pieces exist should the roadmap mark Stage 5 as implemented.
 
 The seed reader now supports parenthesized forms spanning physical lines. The
 input loop accumulates bytes until parenthesis depth returns to zero, ignores
-parentheses inside semicolon comments, terminates the logical record with NUL,
-and lets the parser treat embedded newlines as whitespace.
+parentheses inside semicolon comments, terminates the logical record with NUL on
+newline or EOF, and lets the parser treat embedded newlines as whitespace.
 
 This improves the bootstrap substrate for readable staged sources, but it is
 not yet a fully general stream reader. A traditional two-form rewrite rule is

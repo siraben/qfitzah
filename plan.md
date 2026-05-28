@@ -126,7 +126,8 @@ boundary that prevents merging content-based `is_bytes` into the full compiled
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged
-rules and programs more readable. Rules can be written either as the traditional
+rules and programs more readable. Balanced final records are handled at EOF as
+well as at newline boundaries. Rules can be written either as the traditional
 two-form logical record or as an explicit multi-line `(Rule pattern replacement)`
 directive. The Stage 3 macro assembler, the Stage 4 compiler source, and their
 sample inputs now use that readable multi-line style.

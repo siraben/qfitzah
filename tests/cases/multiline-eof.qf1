@@ -1,0 +1,8 @@
+; This file is fed without its final newline by tests/run.sh.
+(Rule
+  (Last
+    x)
+  (Done
+    x))
+(Last
+  OK)
