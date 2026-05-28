@@ -125,6 +125,10 @@
   (Ins (ShlEcxImm8 byte) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (ShlEbxImm8 byte) rest) scope)
+  (Ins (ShlEbxImm8 byte) (Expand rest scope)))
+
+(Rule
   (Expand (Do (MovEcxEbx) rest) scope)
   (Ins (MovEcxEbx) (Expand rest scope)))
 
@@ -137,6 +141,10 @@
   (Ins (PushEbx) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (PushEax) rest) scope)
+  (Ins (PushEax) (Expand rest scope)))
+
+(Rule
   (Expand (Do (PushEcx) rest) scope)
   (Ins (PushEcx) (Expand rest scope)))
 
@@ -147,6 +155,10 @@
 (Rule
   (Expand (Do (PopEbx) rest) scope)
   (Ins (PopEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (PopEax) rest) scope)
+  (Ins (PopEax) (Expand rest scope)))
 
 (Rule
   (Expand (Do (PopEcx) rest) scope)
@@ -167,6 +179,26 @@
 (Rule
   (Expand (Do (Db byte) rest) scope)
   (Ins (Db byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Align4) rest) scope)
+  (Ins (Align4) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Dword byte) rest) scope)
+  (Ins (Dword byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (DwordLabel name) rest) scope)
+  (Ins (DwordLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (DwordConst name) rest) scope)
+  (Ins (DwordConst name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (DwordNil) rest) scope)
+  (Ins (DwordNil) (Expand rest scope)))
 
 (Rule
   (Expand (Do (Label name) rest) scope)
@@ -191,6 +223,42 @@
 (Rule
   (Expand (Do (MovEaxLabel name) rest) scope)
   (Ins (MovEaxLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEaxCar) rest) scope)
+  (Ins (LoadEaxCar) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEaxCdr) rest) scope)
+  (Ins (LoadEaxCdr) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEcxCarFromEax) rest) scope)
+  (Ins (LoadEcxCarFromEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEbxCarFromEax) rest) scope)
+  (Ins (LoadEbxCarFromEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (LoadEaxCdrFromEbx) rest) scope)
+  (Ins (LoadEaxCdrFromEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (AndEaxNotTag) rest) scope)
+  (Ins (AndEaxNotTag) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEaxImm8 byte) rest) scope)
+  (Ins (CmpEaxImm8 byte) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEaxLabel name) rest) scope)
+  (Ins (CmpEaxLabel name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (TestAlPair) rest) scope)
+  (Ins (TestAlPair) (Expand rest scope)))
 
 (Rule
   (Expand (Do (MovEbxLabel name) rest) scope)

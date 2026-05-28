@@ -31,6 +31,34 @@
   (AstData name byte (ParseDefs rest)))
 
 (Rule
+  (ParseDefs (Atom name chars len rest))
+  (AstAtom name chars len (ParseDefs rest)))
+
+(Rule
+  (ParseDefs (String2 name b1 b2 rest))
+  (AstString2 name b1 b2 (ParseDefs rest)))
+
+(Rule
+  (ParseDefs (String5 name b1 b2 b3 b4 b5 rest))
+  (AstString5 name b1 b2 b3 b4 b5 (ParseDefs rest)))
+
+(Rule
+  (ParseDefs (Pair name car cdr rest))
+  (AstPair name (ParseWord car) (ParseWord cdr) (ParseDefs rest)))
+
+(Rule
+  (ParseWord (Const name))
+  (Const name))
+
+(Rule
+  (ParseWord (Ptr name))
+  (Ptr name))
+
+(Rule
+  (ParseWord Nil)
+  Nil)
+
+(Rule
   (ParseFrame NoFrame)
   NoFrame)
 
@@ -59,12 +87,56 @@
   (LoadByteEbx name))
 
 (Rule
+  (ParseStmt (LoadAddrEax name))
+  (LoadAddrEax name))
+
+(Rule
   (ParseStmt (LoadAddrEcx name))
   (LoadAddrEcx name))
 
 (Rule
   (ParseStmt (LoadByteEbxFromEcx))
   LoadByteEbxFromEcx)
+
+(Rule
+  (ParseStmt (CarEax))
+  CarEax)
+
+(Rule
+  (ParseStmt (CdrEax))
+  CdrEax)
+
+(Rule
+  (ParseStmt (LoadAtomCharsEcx))
+  LoadAtomCharsEcx)
+
+(Rule
+  (ParseStmt (PushEax))
+  PushEax)
+
+(Rule
+  (ParseStmt (PopEax))
+  PopEax)
+
+(Rule
+  (ParseStmt (PushEbx))
+  PushEbx)
+
+(Rule
+  (ParseStmt (PopEcx))
+  PopEcx)
+
+(Rule
+  (ParseStmt (TestPairEax))
+  TestPairEax)
+
+(Rule
+  (ParseStmt (CmpEax byte))
+  (CmpEax byte))
+
+(Rule
+  (ParseStmt (CmpEaxLabel name))
+  (CmpEaxLabel name))
 
 (Rule
   (ParseStmt (SubEbx byte))
@@ -97,6 +169,10 @@
 (Rule
   (ParseStmt (ShlEcx byte))
   (ShlEcx byte))
+
+(Rule
+  (ParseStmt (ShlEbx byte))
+  (ShlEbx byte))
 
 (Rule
   (ParseStmt (OrEbxEcx))
@@ -204,12 +280,68 @@
   (DAppend (CompileData name byte) (CompileDefs rest)))
 
 (Rule
+  (CompileDefs (AstAtom name chars len rest))
+  (DAppend (CompileAtom name chars len) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstString2 name b1 b2 rest))
+  (DAppend (CompileString2 name b1 b2) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstString5 name b1 b2 b3 b4 b5 rest))
+  (DAppend (CompileString5 name b1 b2 b3 b4 b5) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstPair name car cdr rest))
+  (DAppend (CompilePair name car cdr) (CompileDefs rest)))
+
+(Rule
   (CompileDef name frame body)
   (Do (Proc name (CompileFrame frame) (CompileStmt body)) End))
 
 (Rule
   (CompileData name byte)
   (Do (Label name) (Do (Db byte) End)))
+
+(Rule
+  (CompileAtom name chars len)
+  (Do
+    (Align4)
+    (Do
+      (Label name)
+      (Do (DwordLabel chars) (Do (Dword len) End)))))
+
+(Rule
+  (CompileString2 name b1 b2)
+  (Do (Label name) (Do (Db b1) (Do (Db b2) End))))
+
+(Rule
+  (CompileString5 name b1 b2 b3 b4 b5)
+  (Do
+    (Label name)
+    (Do
+      (Db b1)
+      (Do (Db b2) (Do (Db b3) (Do (Db b4) (Do (Db b5) End)))))))
+
+(Rule
+  (CompilePair name car cdr)
+  (Do
+    (Align4)
+    (Do
+      (Label name)
+      (DAppend (CompileWord car) (CompileWord cdr)))))
+
+(Rule
+  (CompileWord (Const name))
+  (Do (DwordConst name) End))
+
+(Rule
+  (CompileWord (Ptr name))
+  (Do (DwordLabel name) End))
+
+(Rule
+  (CompileWord Nil)
+  (Do (DwordNil) End))
 
 ; Statement generation.
 (Rule
@@ -231,12 +363,56 @@
   (Do (MovEbxLabel name) (Do (LoadByteEbx) End)))
 
 (Rule
+  (CompileStmt (LoadAddrEax name))
+  (Do (MovEaxLabel name) End))
+
+(Rule
   (CompileStmt (LoadAddrEcx name))
   (Do (MovEcxLabel name) End))
 
 (Rule
   (CompileStmt LoadByteEbxFromEcx)
   (Do (LoadByteEbxFromEcx) End))
+
+(Rule
+  (CompileStmt CarEax)
+  (Do (LoadEaxCar) End))
+
+(Rule
+  (CompileStmt CdrEax)
+  (Do (LoadEaxCdr) End))
+
+(Rule
+  (CompileStmt LoadAtomCharsEcx)
+  (Do (AndEaxNotTag) (Do (LoadEcxCarFromEax) End)))
+
+(Rule
+  (CompileStmt PushEax)
+  (Do (PushEax) End))
+
+(Rule
+  (CompileStmt PopEax)
+  (Do (PopEax) End))
+
+(Rule
+  (CompileStmt PushEbx)
+  (Do (PushEbx) End))
+
+(Rule
+  (CompileStmt PopEcx)
+  (Do (PopEcx) End))
+
+(Rule
+  (CompileStmt TestPairEax)
+  (Do (TestAlPair) End))
+
+(Rule
+  (CompileStmt (CmpEax byte))
+  (Do (CmpEaxImm8 byte) End))
+
+(Rule
+  (CompileStmt (CmpEaxLabel name))
+  (Do (AndEaxNotTag) (Do (CmpEaxLabel name) End)))
 
 (Rule
   (CompileStmt (SubEbx byte))
@@ -269,6 +445,10 @@
 (Rule
   (CompileStmt (ShlEcx byte))
   (Do (ShlEcxImm8 byte) End))
+
+(Rule
+  (CompileStmt (ShlEbx byte))
+  (Do (ShlEbxImm8 byte) End))
 
 (Rule
   (CompileStmt OrEbxEcx)

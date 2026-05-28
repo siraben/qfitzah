@@ -216,3 +216,4 @@ run_qfc4_binary "stage4-tagged-exit43" 43
 run_qfc4_binary "stage4-nybble" 10
 run_qfc4_binary "stage4-emit-byte" 0 "41"
 run_qfc4_binary "stage4-emit-bytes" 0 "41 42 43 44 45"
+run_qfc4_binary "stage4-emit-bytes-object" 0 "41"

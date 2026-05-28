@@ -68,14 +68,19 @@ Progress so far:
   walker. It loads bytes through `ECX`, preserves `ECX` and `EDX` around
   `write(2)`, decrements a count in `EDX`, and performs a backward recursive
   call until the count reaches zero. The generated ELF writes `ABCDE`.
+- `stage4-emit-bytes-object.qf1` compiles a static tagged `(Bytes 41)` object
+  and emits it through a closer byte-output path: check the `Bytes` head atom,
+  take the cdr, recursively walk the cons-list tail, load the atom character
+  pointer, decode the hex atom, and write byte `41`.
 
 Still required for the byte-output path:
 
-- memory loads from pair and atom objects, not just static bytes
-- conditionals over tag bits and byte comparisons
-- tail calls over real `(Bytes ...)` cons lists
-- enough data layout notation to express Qfitzah objects
-- compiled `is_bytes` and recursive `emit_bytes` over tagged Qfitzah objects
+- allocation or loading of non-static pair and atom objects
+- nested `(Bytes ...)` flattening
+- full `is_bytes` behavior over arbitrary interned atoms, not just the static
+  `Bytes` atom used by the compiled object fixture
+- enough data layout notation to express larger Qfitzah object graphs
+- integration with evaluated expression output and the normal printer
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
 

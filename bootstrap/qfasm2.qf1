@@ -109,6 +109,126 @@
 (Inc N97) N98
 (Inc N98) N99
 (Inc N99) N100
+(Inc N100) N101
+(Inc N101) N102
+(Inc N102) N103
+(Inc N103) N104
+(Inc N104) N105
+(Inc N105) N106
+(Inc N106) N107
+(Inc N107) N108
+(Inc N108) N109
+(Inc N109) N110
+(Inc N110) N111
+(Inc N111) N112
+(Inc N112) N113
+(Inc N113) N114
+(Inc N114) N115
+(Inc N115) N116
+(Inc N116) N117
+(Inc N117) N118
+(Inc N118) N119
+(Inc N119) N120
+(Inc N120) N121
+(Inc N121) N122
+(Inc N122) N123
+(Inc N123) N124
+(Inc N124) N125
+(Inc N125) N126
+(Inc N126) N127
+(Inc N127) N128
+(Inc N128) N129
+(Inc N129) N130
+(Inc N130) N131
+(Inc N131) N132
+(Inc N132) N133
+(Inc N133) N134
+(Inc N134) N135
+(Inc N135) N136
+(Inc N136) N137
+(Inc N137) N138
+(Inc N138) N139
+(Inc N139) N140
+(Inc N140) N141
+(Inc N141) N142
+(Inc N142) N143
+(Inc N143) N144
+(Inc N144) N145
+(Inc N145) N146
+(Inc N146) N147
+(Inc N147) N148
+(Inc N148) N149
+(Inc N149) N150
+(Inc N150) N151
+(Inc N151) N152
+(Inc N152) N153
+(Inc N153) N154
+(Inc N154) N155
+(Inc N155) N156
+(Inc N156) N157
+(Inc N157) N158
+(Inc N158) N159
+(Inc N159) N160
+(Inc N160) N161
+(Inc N161) N162
+(Inc N162) N163
+(Inc N163) N164
+(Inc N164) N165
+(Inc N165) N166
+(Inc N166) N167
+(Inc N167) N168
+(Inc N168) N169
+(Inc N169) N170
+(Inc N170) N171
+(Inc N171) N172
+(Inc N172) N173
+(Inc N173) N174
+(Inc N174) N175
+(Inc N175) N176
+(Inc N176) N177
+(Inc N177) N178
+(Inc N178) N179
+(Inc N179) N180
+(Inc N180) N181
+(Inc N181) N182
+(Inc N182) N183
+(Inc N183) N184
+(Inc N184) N185
+(Inc N185) N186
+(Inc N186) N187
+(Inc N187) N188
+(Inc N188) N189
+(Inc N189) N190
+(Inc N190) N191
+(Inc N191) N192
+(Inc N192) N193
+(Inc N193) N194
+(Inc N194) N195
+(Inc N195) N196
+(Inc N196) N197
+(Inc N197) N198
+(Inc N198) N199
+(Inc N199) N200
+(Inc N200) N201
+(Inc N201) N202
+(Inc N202) N203
+(Inc N203) N204
+(Inc N204) N205
+(Inc N205) N206
+(Inc N206) N207
+(Inc N207) N208
+(Inc N208) N209
+(Inc N209) N210
+(Inc N210) N211
+(Inc N211) N212
+(Inc N212) N213
+(Inc N213) N214
+(Inc N214) N215
+(Inc N215) N216
+(Inc N216) N217
+(Inc N217) N218
+(Inc N218) N219
+(Inc N219) N220
 
 (Dec N1) N0
 (Dec N2) N1
@@ -210,6 +330,126 @@
 (Dec N98) N97
 (Dec N99) N98
 (Dec N100) N99
+(Dec N101) N100
+(Dec N102) N101
+(Dec N103) N102
+(Dec N104) N103
+(Dec N105) N104
+(Dec N106) N105
+(Dec N107) N106
+(Dec N108) N107
+(Dec N109) N108
+(Dec N110) N109
+(Dec N111) N110
+(Dec N112) N111
+(Dec N113) N112
+(Dec N114) N113
+(Dec N115) N114
+(Dec N116) N115
+(Dec N117) N116
+(Dec N118) N117
+(Dec N119) N118
+(Dec N120) N119
+(Dec N121) N120
+(Dec N122) N121
+(Dec N123) N122
+(Dec N124) N123
+(Dec N125) N124
+(Dec N126) N125
+(Dec N127) N126
+(Dec N128) N127
+(Dec N129) N128
+(Dec N130) N129
+(Dec N131) N130
+(Dec N132) N131
+(Dec N133) N132
+(Dec N134) N133
+(Dec N135) N134
+(Dec N136) N135
+(Dec N137) N136
+(Dec N138) N137
+(Dec N139) N138
+(Dec N140) N139
+(Dec N141) N140
+(Dec N142) N141
+(Dec N143) N142
+(Dec N144) N143
+(Dec N145) N144
+(Dec N146) N145
+(Dec N147) N146
+(Dec N148) N147
+(Dec N149) N148
+(Dec N150) N149
+(Dec N151) N150
+(Dec N152) N151
+(Dec N153) N152
+(Dec N154) N153
+(Dec N155) N154
+(Dec N156) N155
+(Dec N157) N156
+(Dec N158) N157
+(Dec N159) N158
+(Dec N160) N159
+(Dec N161) N160
+(Dec N162) N161
+(Dec N163) N162
+(Dec N164) N163
+(Dec N165) N164
+(Dec N166) N165
+(Dec N167) N166
+(Dec N168) N167
+(Dec N169) N168
+(Dec N170) N169
+(Dec N171) N170
+(Dec N172) N171
+(Dec N173) N172
+(Dec N174) N173
+(Dec N175) N174
+(Dec N176) N175
+(Dec N177) N176
+(Dec N178) N177
+(Dec N179) N178
+(Dec N180) N179
+(Dec N181) N180
+(Dec N182) N181
+(Dec N183) N182
+(Dec N184) N183
+(Dec N185) N184
+(Dec N186) N185
+(Dec N187) N186
+(Dec N188) N187
+(Dec N189) N188
+(Dec N190) N189
+(Dec N191) N190
+(Dec N192) N191
+(Dec N193) N192
+(Dec N194) N193
+(Dec N195) N194
+(Dec N196) N195
+(Dec N197) N196
+(Dec N198) N197
+(Dec N199) N198
+(Dec N200) N199
+(Dec N201) N200
+(Dec N202) N201
+(Dec N203) N202
+(Dec N204) N203
+(Dec N205) N204
+(Dec N206) N205
+(Dec N207) N206
+(Dec N208) N207
+(Dec N209) N208
+(Dec N210) N209
+(Dec N211) N210
+(Dec N212) N211
+(Dec N213) N212
+(Dec N214) N213
+(Dec N215) N214
+(Dec N216) N215
+(Dec N217) N216
+(Dec N218) N217
+(Dec N219) N218
+(Dec N220) N219
 
 (Add n N0) n
 (Add n N1) (Inc n)
@@ -532,6 +772,349 @@
 (Addr N98) (Bytes B6 80 04 08)
 (Addr N99) (Bytes B7 80 04 08)
 (Addr N100) (Bytes B8 80 04 08)
+(Addr N101) (Bytes B9 80 04 08)
+(Addr N102) (Bytes BA 80 04 08)
+(Addr N103) (Bytes BB 80 04 08)
+(Addr N104) (Bytes BC 80 04 08)
+(Addr N105) (Bytes BD 80 04 08)
+(Addr N106) (Bytes BE 80 04 08)
+(Addr N107) (Bytes BF 80 04 08)
+(Addr N108) (Bytes C0 80 04 08)
+(Addr N109) (Bytes C1 80 04 08)
+(Addr N110) (Bytes C2 80 04 08)
+(Addr N111) (Bytes C3 80 04 08)
+(Addr N112) (Bytes C4 80 04 08)
+(Addr N113) (Bytes C5 80 04 08)
+(Addr N114) (Bytes C6 80 04 08)
+(Addr N115) (Bytes C7 80 04 08)
+(Addr N116) (Bytes C8 80 04 08)
+(Addr N117) (Bytes C9 80 04 08)
+(Addr N118) (Bytes CA 80 04 08)
+(Addr N119) (Bytes CB 80 04 08)
+(Addr N120) (Bytes CC 80 04 08)
+(Addr N121) (Bytes CD 80 04 08)
+(Addr N122) (Bytes CE 80 04 08)
+(Addr N123) (Bytes CF 80 04 08)
+(Addr N124) (Bytes D0 80 04 08)
+(Addr N125) (Bytes D1 80 04 08)
+(Addr N126) (Bytes D2 80 04 08)
+(Addr N127) (Bytes D3 80 04 08)
+(Addr N128) (Bytes D4 80 04 08)
+(Addr N129) (Bytes D5 80 04 08)
+(Addr N130) (Bytes D6 80 04 08)
+(Addr N131) (Bytes D7 80 04 08)
+(Addr N132) (Bytes D8 80 04 08)
+(Addr N133) (Bytes D9 80 04 08)
+(Addr N134) (Bytes DA 80 04 08)
+(Addr N135) (Bytes DB 80 04 08)
+(Addr N136) (Bytes DC 80 04 08)
+(Addr N137) (Bytes DD 80 04 08)
+(Addr N138) (Bytes DE 80 04 08)
+(Addr N139) (Bytes DF 80 04 08)
+(Addr N140) (Bytes E0 80 04 08)
+(Addr N141) (Bytes E1 80 04 08)
+(Addr N142) (Bytes E2 80 04 08)
+(Addr N143) (Bytes E3 80 04 08)
+(Addr N144) (Bytes E4 80 04 08)
+(Addr N145) (Bytes E5 80 04 08)
+(Addr N146) (Bytes E6 80 04 08)
+(Addr N147) (Bytes E7 80 04 08)
+(Addr N148) (Bytes E8 80 04 08)
+(Addr N149) (Bytes E9 80 04 08)
+(Addr N150) (Bytes EA 80 04 08)
+(Addr N151) (Bytes EB 80 04 08)
+(Addr N152) (Bytes EC 80 04 08)
+(Addr N153) (Bytes ED 80 04 08)
+(Addr N154) (Bytes EE 80 04 08)
+(Addr N155) (Bytes EF 80 04 08)
+(Addr N156) (Bytes F0 80 04 08)
+(Addr N157) (Bytes F1 80 04 08)
+(Addr N158) (Bytes F2 80 04 08)
+(Addr N159) (Bytes F3 80 04 08)
+(Addr N160) (Bytes F4 80 04 08)
+(Addr N161) (Bytes F5 80 04 08)
+(Addr N162) (Bytes F6 80 04 08)
+(Addr N163) (Bytes F7 80 04 08)
+(Addr N164) (Bytes F8 80 04 08)
+(Addr N165) (Bytes F9 80 04 08)
+(Addr N166) (Bytes FA 80 04 08)
+(Addr N167) (Bytes FB 80 04 08)
+(Addr N168) (Bytes FC 80 04 08)
+(Addr N169) (Bytes FD 80 04 08)
+(Addr N170) (Bytes FE 80 04 08)
+(Addr N171) (Bytes FF 80 04 08)
+(Addr N172) (Bytes 00 81 04 08)
+(Addr N173) (Bytes 01 81 04 08)
+(Addr N174) (Bytes 02 81 04 08)
+(Addr N175) (Bytes 03 81 04 08)
+(Addr N176) (Bytes 04 81 04 08)
+(Addr N177) (Bytes 05 81 04 08)
+(Addr N178) (Bytes 06 81 04 08)
+(Addr N179) (Bytes 07 81 04 08)
+(Addr N180) (Bytes 08 81 04 08)
+(Addr N181) (Bytes 09 81 04 08)
+(Addr N182) (Bytes 0A 81 04 08)
+(Addr N183) (Bytes 0B 81 04 08)
+(Addr N184) (Bytes 0C 81 04 08)
+(Addr N185) (Bytes 0D 81 04 08)
+(Addr N186) (Bytes 0E 81 04 08)
+(Addr N187) (Bytes 0F 81 04 08)
+(Addr N188) (Bytes 10 81 04 08)
+(Addr N189) (Bytes 11 81 04 08)
+(Addr N190) (Bytes 12 81 04 08)
+(Addr N191) (Bytes 13 81 04 08)
+(Addr N192) (Bytes 14 81 04 08)
+(Addr N193) (Bytes 15 81 04 08)
+(Addr N194) (Bytes 16 81 04 08)
+(Addr N195) (Bytes 17 81 04 08)
+(Addr N196) (Bytes 18 81 04 08)
+(Addr N197) (Bytes 19 81 04 08)
+(Addr N198) (Bytes 1A 81 04 08)
+(Addr N199) (Bytes 1B 81 04 08)
+(Addr N200) (Bytes 1C 81 04 08)
+(Addr N201) (Bytes 1D 81 04 08)
+(Addr N202) (Bytes 1E 81 04 08)
+(Addr N203) (Bytes 1F 81 04 08)
+(Addr N204) (Bytes 20 81 04 08)
+(Addr N205) (Bytes 21 81 04 08)
+(Addr N206) (Bytes 22 81 04 08)
+(Addr N207) (Bytes 23 81 04 08)
+(Addr N208) (Bytes 24 81 04 08)
+(Addr N209) (Bytes 25 81 04 08)
+(Addr N210) (Bytes 26 81 04 08)
+(Addr N211) (Bytes 27 81 04 08)
+(Addr N212) (Bytes 28 81 04 08)
+(Addr N213) (Bytes 29 81 04 08)
+(Addr N214) (Bytes 2A 81 04 08)
+(Addr N215) (Bytes 2B 81 04 08)
+(Addr N216) (Bytes 2C 81 04 08)
+(Addr N217) (Bytes 2D 81 04 08)
+(Addr N218) (Bytes 2E 81 04 08)
+(Addr N219) (Bytes 2F 81 04 08)
+(Addr N220) (Bytes 30 81 04 08)
+
+; Tagged constant addresses are label addresses with low bit set.
+(ConstAddr N0) (Bytes 55 80 04 08)
+(ConstAddr N1) (Bytes 56 80 04 08)
+(ConstAddr N2) (Bytes 57 80 04 08)
+(ConstAddr N3) (Bytes 58 80 04 08)
+(ConstAddr N4) (Bytes 59 80 04 08)
+(ConstAddr N5) (Bytes 5A 80 04 08)
+(ConstAddr N6) (Bytes 5B 80 04 08)
+(ConstAddr N7) (Bytes 5C 80 04 08)
+(ConstAddr N8) (Bytes 5D 80 04 08)
+(ConstAddr N9) (Bytes 5E 80 04 08)
+(ConstAddr N10) (Bytes 5F 80 04 08)
+(ConstAddr N11) (Bytes 60 80 04 08)
+(ConstAddr N12) (Bytes 61 80 04 08)
+(ConstAddr N13) (Bytes 62 80 04 08)
+(ConstAddr N14) (Bytes 63 80 04 08)
+(ConstAddr N15) (Bytes 64 80 04 08)
+(ConstAddr N16) (Bytes 65 80 04 08)
+(ConstAddr N17) (Bytes 66 80 04 08)
+(ConstAddr N18) (Bytes 67 80 04 08)
+(ConstAddr N19) (Bytes 68 80 04 08)
+(ConstAddr N20) (Bytes 69 80 04 08)
+(ConstAddr N21) (Bytes 6A 80 04 08)
+(ConstAddr N22) (Bytes 6B 80 04 08)
+(ConstAddr N23) (Bytes 6C 80 04 08)
+(ConstAddr N24) (Bytes 6D 80 04 08)
+(ConstAddr N25) (Bytes 6E 80 04 08)
+(ConstAddr N26) (Bytes 6F 80 04 08)
+(ConstAddr N27) (Bytes 70 80 04 08)
+(ConstAddr N28) (Bytes 71 80 04 08)
+(ConstAddr N29) (Bytes 72 80 04 08)
+(ConstAddr N30) (Bytes 73 80 04 08)
+(ConstAddr N31) (Bytes 74 80 04 08)
+(ConstAddr N32) (Bytes 75 80 04 08)
+(ConstAddr N33) (Bytes 76 80 04 08)
+(ConstAddr N34) (Bytes 77 80 04 08)
+(ConstAddr N35) (Bytes 78 80 04 08)
+(ConstAddr N36) (Bytes 79 80 04 08)
+(ConstAddr N37) (Bytes 7A 80 04 08)
+(ConstAddr N38) (Bytes 7B 80 04 08)
+(ConstAddr N39) (Bytes 7C 80 04 08)
+(ConstAddr N40) (Bytes 7D 80 04 08)
+(ConstAddr N41) (Bytes 7E 80 04 08)
+(ConstAddr N42) (Bytes 7F 80 04 08)
+(ConstAddr N43) (Bytes 80 80 04 08)
+(ConstAddr N44) (Bytes 81 80 04 08)
+(ConstAddr N45) (Bytes 82 80 04 08)
+(ConstAddr N46) (Bytes 83 80 04 08)
+(ConstAddr N47) (Bytes 84 80 04 08)
+(ConstAddr N48) (Bytes 85 80 04 08)
+(ConstAddr N49) (Bytes 86 80 04 08)
+(ConstAddr N50) (Bytes 87 80 04 08)
+(ConstAddr N51) (Bytes 88 80 04 08)
+(ConstAddr N52) (Bytes 89 80 04 08)
+(ConstAddr N53) (Bytes 8A 80 04 08)
+(ConstAddr N54) (Bytes 8B 80 04 08)
+(ConstAddr N55) (Bytes 8C 80 04 08)
+(ConstAddr N56) (Bytes 8D 80 04 08)
+(ConstAddr N57) (Bytes 8E 80 04 08)
+(ConstAddr N58) (Bytes 8F 80 04 08)
+(ConstAddr N59) (Bytes 90 80 04 08)
+(ConstAddr N60) (Bytes 91 80 04 08)
+(ConstAddr N61) (Bytes 92 80 04 08)
+(ConstAddr N62) (Bytes 93 80 04 08)
+(ConstAddr N63) (Bytes 94 80 04 08)
+(ConstAddr N64) (Bytes 95 80 04 08)
+(ConstAddr N65) (Bytes 96 80 04 08)
+(ConstAddr N66) (Bytes 97 80 04 08)
+(ConstAddr N67) (Bytes 98 80 04 08)
+(ConstAddr N68) (Bytes 99 80 04 08)
+(ConstAddr N69) (Bytes 9A 80 04 08)
+(ConstAddr N70) (Bytes 9B 80 04 08)
+(ConstAddr N71) (Bytes 9C 80 04 08)
+(ConstAddr N72) (Bytes 9D 80 04 08)
+(ConstAddr N73) (Bytes 9E 80 04 08)
+(ConstAddr N74) (Bytes 9F 80 04 08)
+(ConstAddr N75) (Bytes A0 80 04 08)
+(ConstAddr N76) (Bytes A1 80 04 08)
+(ConstAddr N77) (Bytes A2 80 04 08)
+(ConstAddr N78) (Bytes A3 80 04 08)
+(ConstAddr N79) (Bytes A4 80 04 08)
+(ConstAddr N80) (Bytes A5 80 04 08)
+(ConstAddr N81) (Bytes A6 80 04 08)
+(ConstAddr N82) (Bytes A7 80 04 08)
+(ConstAddr N83) (Bytes A8 80 04 08)
+(ConstAddr N84) (Bytes A9 80 04 08)
+(ConstAddr N85) (Bytes AA 80 04 08)
+(ConstAddr N86) (Bytes AB 80 04 08)
+(ConstAddr N87) (Bytes AC 80 04 08)
+(ConstAddr N88) (Bytes AD 80 04 08)
+(ConstAddr N89) (Bytes AE 80 04 08)
+(ConstAddr N90) (Bytes AF 80 04 08)
+(ConstAddr N91) (Bytes B0 80 04 08)
+(ConstAddr N92) (Bytes B1 80 04 08)
+(ConstAddr N93) (Bytes B2 80 04 08)
+(ConstAddr N94) (Bytes B3 80 04 08)
+(ConstAddr N95) (Bytes B4 80 04 08)
+(ConstAddr N96) (Bytes B5 80 04 08)
+(ConstAddr N97) (Bytes B6 80 04 08)
+(ConstAddr N98) (Bytes B7 80 04 08)
+(ConstAddr N99) (Bytes B8 80 04 08)
+(ConstAddr N100) (Bytes B9 80 04 08)
+(ConstAddr N101) (Bytes BA 80 04 08)
+(ConstAddr N102) (Bytes BB 80 04 08)
+(ConstAddr N103) (Bytes BC 80 04 08)
+(ConstAddr N104) (Bytes BD 80 04 08)
+(ConstAddr N105) (Bytes BE 80 04 08)
+(ConstAddr N106) (Bytes BF 80 04 08)
+(ConstAddr N107) (Bytes C0 80 04 08)
+(ConstAddr N108) (Bytes C1 80 04 08)
+(ConstAddr N109) (Bytes C2 80 04 08)
+(ConstAddr N110) (Bytes C3 80 04 08)
+(ConstAddr N111) (Bytes C4 80 04 08)
+(ConstAddr N112) (Bytes C5 80 04 08)
+(ConstAddr N113) (Bytes C6 80 04 08)
+(ConstAddr N114) (Bytes C7 80 04 08)
+(ConstAddr N115) (Bytes C8 80 04 08)
+(ConstAddr N116) (Bytes C9 80 04 08)
+(ConstAddr N117) (Bytes CA 80 04 08)
+(ConstAddr N118) (Bytes CB 80 04 08)
+(ConstAddr N119) (Bytes CC 80 04 08)
+(ConstAddr N120) (Bytes CD 80 04 08)
+(ConstAddr N121) (Bytes CE 80 04 08)
+(ConstAddr N122) (Bytes CF 80 04 08)
+(ConstAddr N123) (Bytes D0 80 04 08)
+(ConstAddr N124) (Bytes D1 80 04 08)
+(ConstAddr N125) (Bytes D2 80 04 08)
+(ConstAddr N126) (Bytes D3 80 04 08)
+(ConstAddr N127) (Bytes D4 80 04 08)
+(ConstAddr N128) (Bytes D5 80 04 08)
+(ConstAddr N129) (Bytes D6 80 04 08)
+(ConstAddr N130) (Bytes D7 80 04 08)
+(ConstAddr N131) (Bytes D8 80 04 08)
+(ConstAddr N132) (Bytes D9 80 04 08)
+(ConstAddr N133) (Bytes DA 80 04 08)
+(ConstAddr N134) (Bytes DB 80 04 08)
+(ConstAddr N135) (Bytes DC 80 04 08)
+(ConstAddr N136) (Bytes DD 80 04 08)
+(ConstAddr N137) (Bytes DE 80 04 08)
+(ConstAddr N138) (Bytes DF 80 04 08)
+(ConstAddr N139) (Bytes E0 80 04 08)
+(ConstAddr N140) (Bytes E1 80 04 08)
+(ConstAddr N141) (Bytes E2 80 04 08)
+(ConstAddr N142) (Bytes E3 80 04 08)
+(ConstAddr N143) (Bytes E4 80 04 08)
+(ConstAddr N144) (Bytes E5 80 04 08)
+(ConstAddr N145) (Bytes E6 80 04 08)
+(ConstAddr N146) (Bytes E7 80 04 08)
+(ConstAddr N147) (Bytes E8 80 04 08)
+(ConstAddr N148) (Bytes E9 80 04 08)
+(ConstAddr N149) (Bytes EA 80 04 08)
+(ConstAddr N150) (Bytes EB 80 04 08)
+(ConstAddr N151) (Bytes EC 80 04 08)
+(ConstAddr N152) (Bytes ED 80 04 08)
+(ConstAddr N153) (Bytes EE 80 04 08)
+(ConstAddr N154) (Bytes EF 80 04 08)
+(ConstAddr N155) (Bytes F0 80 04 08)
+(ConstAddr N156) (Bytes F1 80 04 08)
+(ConstAddr N157) (Bytes F2 80 04 08)
+(ConstAddr N158) (Bytes F3 80 04 08)
+(ConstAddr N159) (Bytes F4 80 04 08)
+(ConstAddr N160) (Bytes F5 80 04 08)
+(ConstAddr N161) (Bytes F6 80 04 08)
+(ConstAddr N162) (Bytes F7 80 04 08)
+(ConstAddr N163) (Bytes F8 80 04 08)
+(ConstAddr N164) (Bytes F9 80 04 08)
+(ConstAddr N165) (Bytes FA 80 04 08)
+(ConstAddr N166) (Bytes FB 80 04 08)
+(ConstAddr N167) (Bytes FC 80 04 08)
+(ConstAddr N168) (Bytes FD 80 04 08)
+(ConstAddr N169) (Bytes FE 80 04 08)
+(ConstAddr N170) (Bytes FF 80 04 08)
+(ConstAddr N171) (Bytes 00 81 04 08)
+(ConstAddr N172) (Bytes 01 81 04 08)
+(ConstAddr N173) (Bytes 02 81 04 08)
+(ConstAddr N174) (Bytes 03 81 04 08)
+(ConstAddr N175) (Bytes 04 81 04 08)
+(ConstAddr N176) (Bytes 05 81 04 08)
+(ConstAddr N177) (Bytes 06 81 04 08)
+(ConstAddr N178) (Bytes 07 81 04 08)
+(ConstAddr N179) (Bytes 08 81 04 08)
+(ConstAddr N180) (Bytes 09 81 04 08)
+(ConstAddr N181) (Bytes 0A 81 04 08)
+(ConstAddr N182) (Bytes 0B 81 04 08)
+(ConstAddr N183) (Bytes 0C 81 04 08)
+(ConstAddr N184) (Bytes 0D 81 04 08)
+(ConstAddr N185) (Bytes 0E 81 04 08)
+(ConstAddr N186) (Bytes 0F 81 04 08)
+(ConstAddr N187) (Bytes 10 81 04 08)
+(ConstAddr N188) (Bytes 11 81 04 08)
+(ConstAddr N189) (Bytes 12 81 04 08)
+(ConstAddr N190) (Bytes 13 81 04 08)
+(ConstAddr N191) (Bytes 14 81 04 08)
+(ConstAddr N192) (Bytes 15 81 04 08)
+(ConstAddr N193) (Bytes 16 81 04 08)
+(ConstAddr N194) (Bytes 17 81 04 08)
+(ConstAddr N195) (Bytes 18 81 04 08)
+(ConstAddr N196) (Bytes 19 81 04 08)
+(ConstAddr N197) (Bytes 1A 81 04 08)
+(ConstAddr N198) (Bytes 1B 81 04 08)
+(ConstAddr N199) (Bytes 1C 81 04 08)
+(ConstAddr N200) (Bytes 1D 81 04 08)
+(ConstAddr N201) (Bytes 1E 81 04 08)
+(ConstAddr N202) (Bytes 1F 81 04 08)
+(ConstAddr N203) (Bytes 20 81 04 08)
+(ConstAddr N204) (Bytes 21 81 04 08)
+(ConstAddr N205) (Bytes 22 81 04 08)
+(ConstAddr N206) (Bytes 23 81 04 08)
+(ConstAddr N207) (Bytes 24 81 04 08)
+(ConstAddr N208) (Bytes 25 81 04 08)
+(ConstAddr N209) (Bytes 26 81 04 08)
+(ConstAddr N210) (Bytes 27 81 04 08)
+(ConstAddr N211) (Bytes 28 81 04 08)
+(ConstAddr N212) (Bytes 29 81 04 08)
+(ConstAddr N213) (Bytes 2A 81 04 08)
+(ConstAddr N214) (Bytes 2B 81 04 08)
+(ConstAddr N215) (Bytes 2C 81 04 08)
+(ConstAddr N216) (Bytes 2D 81 04 08)
+(ConstAddr N217) (Bytes 2E 81 04 08)
+(ConstAddr N218) (Bytes 2F 81 04 08)
+(ConstAddr N219) (Bytes 30 81 04 08)
+(ConstAddr N220) (Bytes 31 81 04 08)
 
 ; ELF file sizes are header size 84 plus code size.
 (FileSize N0) (Bytes 54 00 00 00)
@@ -635,6 +1218,354 @@
 (FileSize N98) (Bytes B6 00 00 00)
 (FileSize N99) (Bytes B7 00 00 00)
 (FileSize N100) (Bytes B8 00 00 00)
+(FileSize N101) (Bytes B9 00 00 00)
+(FileSize N102) (Bytes BA 00 00 00)
+(FileSize N103) (Bytes BB 00 00 00)
+(FileSize N104) (Bytes BC 00 00 00)
+(FileSize N105) (Bytes BD 00 00 00)
+(FileSize N106) (Bytes BE 00 00 00)
+(FileSize N107) (Bytes BF 00 00 00)
+(FileSize N108) (Bytes C0 00 00 00)
+(FileSize N109) (Bytes C1 00 00 00)
+(FileSize N110) (Bytes C2 00 00 00)
+(FileSize N111) (Bytes C3 00 00 00)
+(FileSize N112) (Bytes C4 00 00 00)
+(FileSize N113) (Bytes C5 00 00 00)
+(FileSize N114) (Bytes C6 00 00 00)
+(FileSize N115) (Bytes C7 00 00 00)
+(FileSize N116) (Bytes C8 00 00 00)
+(FileSize N117) (Bytes C9 00 00 00)
+(FileSize N118) (Bytes CA 00 00 00)
+(FileSize N119) (Bytes CB 00 00 00)
+(FileSize N120) (Bytes CC 00 00 00)
+(FileSize N121) (Bytes CD 00 00 00)
+(FileSize N122) (Bytes CE 00 00 00)
+(FileSize N123) (Bytes CF 00 00 00)
+(FileSize N124) (Bytes D0 00 00 00)
+(FileSize N125) (Bytes D1 00 00 00)
+(FileSize N126) (Bytes D2 00 00 00)
+(FileSize N127) (Bytes D3 00 00 00)
+(FileSize N128) (Bytes D4 00 00 00)
+(FileSize N129) (Bytes D5 00 00 00)
+(FileSize N130) (Bytes D6 00 00 00)
+(FileSize N131) (Bytes D7 00 00 00)
+(FileSize N132) (Bytes D8 00 00 00)
+(FileSize N133) (Bytes D9 00 00 00)
+(FileSize N134) (Bytes DA 00 00 00)
+(FileSize N135) (Bytes DB 00 00 00)
+(FileSize N136) (Bytes DC 00 00 00)
+(FileSize N137) (Bytes DD 00 00 00)
+(FileSize N138) (Bytes DE 00 00 00)
+(FileSize N139) (Bytes DF 00 00 00)
+(FileSize N140) (Bytes E0 00 00 00)
+(FileSize N141) (Bytes E1 00 00 00)
+(FileSize N142) (Bytes E2 00 00 00)
+(FileSize N143) (Bytes E3 00 00 00)
+(FileSize N144) (Bytes E4 00 00 00)
+(FileSize N145) (Bytes E5 00 00 00)
+(FileSize N146) (Bytes E6 00 00 00)
+(FileSize N147) (Bytes E7 00 00 00)
+(FileSize N148) (Bytes E8 00 00 00)
+(FileSize N149) (Bytes E9 00 00 00)
+(FileSize N150) (Bytes EA 00 00 00)
+(FileSize N151) (Bytes EB 00 00 00)
+(FileSize N152) (Bytes EC 00 00 00)
+(FileSize N153) (Bytes ED 00 00 00)
+(FileSize N154) (Bytes EE 00 00 00)
+(FileSize N155) (Bytes EF 00 00 00)
+(FileSize N156) (Bytes F0 00 00 00)
+(FileSize N157) (Bytes F1 00 00 00)
+(FileSize N158) (Bytes F2 00 00 00)
+(FileSize N159) (Bytes F3 00 00 00)
+(FileSize N160) (Bytes F4 00 00 00)
+(FileSize N161) (Bytes F5 00 00 00)
+(FileSize N162) (Bytes F6 00 00 00)
+(FileSize N163) (Bytes F7 00 00 00)
+(FileSize N164) (Bytes F8 00 00 00)
+(FileSize N165) (Bytes F9 00 00 00)
+(FileSize N166) (Bytes FA 00 00 00)
+(FileSize N167) (Bytes FB 00 00 00)
+(FileSize N168) (Bytes FC 00 00 00)
+(FileSize N169) (Bytes FD 00 00 00)
+(FileSize N170) (Bytes FE 00 00 00)
+(FileSize N171) (Bytes FF 00 00 00)
+(FileSize N172) (Bytes 00 01 00 00)
+(FileSize N173) (Bytes 01 01 00 00)
+(FileSize N174) (Bytes 02 01 00 00)
+(FileSize N175) (Bytes 03 01 00 00)
+(FileSize N176) (Bytes 04 01 00 00)
+(FileSize N177) (Bytes 05 01 00 00)
+(FileSize N178) (Bytes 06 01 00 00)
+(FileSize N179) (Bytes 07 01 00 00)
+(FileSize N180) (Bytes 08 01 00 00)
+(FileSize N181) (Bytes 09 01 00 00)
+(FileSize N182) (Bytes 0A 01 00 00)
+(FileSize N183) (Bytes 0B 01 00 00)
+(FileSize N184) (Bytes 0C 01 00 00)
+(FileSize N185) (Bytes 0D 01 00 00)
+(FileSize N186) (Bytes 0E 01 00 00)
+(FileSize N187) (Bytes 0F 01 00 00)
+(FileSize N188) (Bytes 10 01 00 00)
+(FileSize N189) (Bytes 11 01 00 00)
+(FileSize N190) (Bytes 12 01 00 00)
+(FileSize N191) (Bytes 13 01 00 00)
+(FileSize N192) (Bytes 14 01 00 00)
+(FileSize N193) (Bytes 15 01 00 00)
+(FileSize N194) (Bytes 16 01 00 00)
+(FileSize N195) (Bytes 17 01 00 00)
+(FileSize N196) (Bytes 18 01 00 00)
+(FileSize N197) (Bytes 19 01 00 00)
+(FileSize N198) (Bytes 1A 01 00 00)
+(FileSize N199) (Bytes 1B 01 00 00)
+(FileSize N200) (Bytes 1C 01 00 00)
+(FileSize N201) (Bytes 1D 01 00 00)
+(FileSize N202) (Bytes 1E 01 00 00)
+(FileSize N203) (Bytes 1F 01 00 00)
+(FileSize N204) (Bytes 20 01 00 00)
+(FileSize N205) (Bytes 21 01 00 00)
+(FileSize N206) (Bytes 22 01 00 00)
+(FileSize N207) (Bytes 23 01 00 00)
+(FileSize N208) (Bytes 24 01 00 00)
+(FileSize N209) (Bytes 25 01 00 00)
+(FileSize N210) (Bytes 26 01 00 00)
+(FileSize N211) (Bytes 27 01 00 00)
+(FileSize N212) (Bytes 28 01 00 00)
+(FileSize N213) (Bytes 29 01 00 00)
+(FileSize N214) (Bytes 2A 01 00 00)
+(FileSize N215) (Bytes 2B 01 00 00)
+(FileSize N216) (Bytes 2C 01 00 00)
+(FileSize N217) (Bytes 2D 01 00 00)
+(FileSize N218) (Bytes 2E 01 00 00)
+(FileSize N219) (Bytes 2F 01 00 00)
+(FileSize N220) (Bytes 30 01 00 00)
+
+; Alignment padding to the next 4-byte boundary.
+(AlignPad N0) N0
+(AlignPad N1) N3
+(AlignPad N2) N2
+(AlignPad N3) N1
+(AlignPad N4) N0
+(AlignPad N5) N3
+(AlignPad N6) N2
+(AlignPad N7) N1
+(AlignPad N8) N0
+(AlignPad N9) N3
+(AlignPad N10) N2
+(AlignPad N11) N1
+(AlignPad N12) N0
+(AlignPad N13) N3
+(AlignPad N14) N2
+(AlignPad N15) N1
+(AlignPad N16) N0
+(AlignPad N17) N3
+(AlignPad N18) N2
+(AlignPad N19) N1
+(AlignPad N20) N0
+(AlignPad N21) N3
+(AlignPad N22) N2
+(AlignPad N23) N1
+(AlignPad N24) N0
+(AlignPad N25) N3
+(AlignPad N26) N2
+(AlignPad N27) N1
+(AlignPad N28) N0
+(AlignPad N29) N3
+(AlignPad N30) N2
+(AlignPad N31) N1
+(AlignPad N32) N0
+(AlignPad N33) N3
+(AlignPad N34) N2
+(AlignPad N35) N1
+(AlignPad N36) N0
+(AlignPad N37) N3
+(AlignPad N38) N2
+(AlignPad N39) N1
+(AlignPad N40) N0
+(AlignPad N41) N3
+(AlignPad N42) N2
+(AlignPad N43) N1
+(AlignPad N44) N0
+(AlignPad N45) N3
+(AlignPad N46) N2
+(AlignPad N47) N1
+(AlignPad N48) N0
+(AlignPad N49) N3
+(AlignPad N50) N2
+(AlignPad N51) N1
+(AlignPad N52) N0
+(AlignPad N53) N3
+(AlignPad N54) N2
+(AlignPad N55) N1
+(AlignPad N56) N0
+(AlignPad N57) N3
+(AlignPad N58) N2
+(AlignPad N59) N1
+(AlignPad N60) N0
+(AlignPad N61) N3
+(AlignPad N62) N2
+(AlignPad N63) N1
+(AlignPad N64) N0
+(AlignPad N65) N3
+(AlignPad N66) N2
+(AlignPad N67) N1
+(AlignPad N68) N0
+(AlignPad N69) N3
+(AlignPad N70) N2
+(AlignPad N71) N1
+(AlignPad N72) N0
+(AlignPad N73) N3
+(AlignPad N74) N2
+(AlignPad N75) N1
+(AlignPad N76) N0
+(AlignPad N77) N3
+(AlignPad N78) N2
+(AlignPad N79) N1
+(AlignPad N80) N0
+(AlignPad N81) N3
+(AlignPad N82) N2
+(AlignPad N83) N1
+(AlignPad N84) N0
+(AlignPad N85) N3
+(AlignPad N86) N2
+(AlignPad N87) N1
+(AlignPad N88) N0
+(AlignPad N89) N3
+(AlignPad N90) N2
+(AlignPad N91) N1
+(AlignPad N92) N0
+(AlignPad N93) N3
+(AlignPad N94) N2
+(AlignPad N95) N1
+(AlignPad N96) N0
+(AlignPad N97) N3
+(AlignPad N98) N2
+(AlignPad N99) N1
+(AlignPad N100) N0
+(AlignPad N101) N3
+(AlignPad N102) N2
+(AlignPad N103) N1
+(AlignPad N104) N0
+(AlignPad N105) N3
+(AlignPad N106) N2
+(AlignPad N107) N1
+(AlignPad N108) N0
+(AlignPad N109) N3
+(AlignPad N110) N2
+(AlignPad N111) N1
+(AlignPad N112) N0
+(AlignPad N113) N3
+(AlignPad N114) N2
+(AlignPad N115) N1
+(AlignPad N116) N0
+(AlignPad N117) N3
+(AlignPad N118) N2
+(AlignPad N119) N1
+(AlignPad N120) N0
+(AlignPad N121) N3
+(AlignPad N122) N2
+(AlignPad N123) N1
+(AlignPad N124) N0
+(AlignPad N125) N3
+(AlignPad N126) N2
+(AlignPad N127) N1
+(AlignPad N128) N0
+(AlignPad N129) N3
+(AlignPad N130) N2
+(AlignPad N131) N1
+(AlignPad N132) N0
+(AlignPad N133) N3
+(AlignPad N134) N2
+(AlignPad N135) N1
+(AlignPad N136) N0
+(AlignPad N137) N3
+(AlignPad N138) N2
+(AlignPad N139) N1
+(AlignPad N140) N0
+(AlignPad N141) N3
+(AlignPad N142) N2
+(AlignPad N143) N1
+(AlignPad N144) N0
+(AlignPad N145) N3
+(AlignPad N146) N2
+(AlignPad N147) N1
+(AlignPad N148) N0
+(AlignPad N149) N3
+(AlignPad N150) N2
+(AlignPad N151) N1
+(AlignPad N152) N0
+(AlignPad N153) N3
+(AlignPad N154) N2
+(AlignPad N155) N1
+(AlignPad N156) N0
+(AlignPad N157) N3
+(AlignPad N158) N2
+(AlignPad N159) N1
+(AlignPad N160) N0
+(AlignPad N161) N3
+(AlignPad N162) N2
+(AlignPad N163) N1
+(AlignPad N164) N0
+(AlignPad N165) N3
+(AlignPad N166) N2
+(AlignPad N167) N1
+(AlignPad N168) N0
+(AlignPad N169) N3
+(AlignPad N170) N2
+(AlignPad N171) N1
+(AlignPad N172) N0
+(AlignPad N173) N3
+(AlignPad N174) N2
+(AlignPad N175) N1
+(AlignPad N176) N0
+(AlignPad N177) N3
+(AlignPad N178) N2
+(AlignPad N179) N1
+(AlignPad N180) N0
+(AlignPad N181) N3
+(AlignPad N182) N2
+(AlignPad N183) N1
+(AlignPad N184) N0
+(AlignPad N185) N3
+(AlignPad N186) N2
+(AlignPad N187) N1
+(AlignPad N188) N0
+(AlignPad N189) N3
+(AlignPad N190) N2
+(AlignPad N191) N1
+(AlignPad N192) N0
+(AlignPad N193) N3
+(AlignPad N194) N2
+(AlignPad N195) N1
+(AlignPad N196) N0
+(AlignPad N197) N3
+(AlignPad N198) N2
+(AlignPad N199) N1
+(AlignPad N200) N0
+(AlignPad N201) N3
+(AlignPad N202) N2
+(AlignPad N203) N1
+(AlignPad N204) N0
+(AlignPad N205) N3
+(AlignPad N206) N2
+(AlignPad N207) N1
+(AlignPad N208) N0
+(AlignPad N209) N3
+(AlignPad N210) N2
+(AlignPad N211) N1
+(AlignPad N212) N0
+(AlignPad N213) N3
+(AlignPad N214) N2
+(AlignPad N215) N1
+(AlignPad N216) N0
+(AlignPad N217) N3
+(AlignPad N218) N2
+(AlignPad N219) N1
+(AlignPad N220) N0
+
+(PadBytes N0) (Bytes)
+(PadBytes N1) (Bytes 00)
+(PadBytes N2) (Bytes 00 00)
+(PadBytes N3) (Bytes 00 00 00)
 
 ; Symbol table and layout pass.
 (Lookup name (Bind other pc rest)) (Lookup name rest)
@@ -647,10 +1578,17 @@
 (Size (PushEcx)) N1
 (Size (PushEbx)) N1
 (Size (PushEdx)) N1
+(Size (PushEax)) N1
 (Size (PopEcx)) N1
 (Size (PopEbx)) N1
 (Size (PopEdx)) N1
+(Size (PopEax)) N1
 (Size (Db byte)) N1
+(Size (Align4)) pad
+(Size (Dword byte)) N4
+(Size (DwordLabel label)) N4
+(Size (DwordConst label)) N4
+(Size (DwordNil)) N4
 (Size (Int byte)) N2
 (Size (IncEcx)) N1
 (Size (DecEdx)) N1
@@ -661,10 +1599,20 @@
 (Size (Jbe label)) N2
 (Size (LoadByteEbx)) N3
 (Size (LoadByteEbxFromEcx)) N3
+(Size (LoadEaxCar)) N2
+(Size (LoadEaxCdr)) N3
+(Size (LoadEcxCarFromEax)) N2
+(Size (LoadEbxCarFromEax)) N2
+(Size (LoadEaxCdrFromEbx)) N3
+(Size (AndEaxNotTag)) N3
+(Size (CmpEaxImm8 byte)) N3
+(Size (CmpEaxLabel label)) N5
+(Size (TestAlPair)) N2
 (Size (SubEbxImm8 byte)) N3
 (Size (CmpEbxImm8 byte)) N3
 (Size (CmpEdxImm8 byte)) N3
 (Size (ShlEcxImm8 byte)) N3
+(Size (ShlEbxImm8 byte)) N3
 (Size (Call label)) N5
 (Size (MovEcxEbx)) N2
 (Size (MovEcxEsp)) N2
@@ -681,9 +1629,11 @@
 (Pass1 End pc sym) sym
 (Pass1 (Ins instr rest) pc sym) (Pass1 rest (Add pc (Size instr)) sym)
 (Pass1 (Ins (Label name) rest) pc sym) (Pass1 rest pc (Bind name pc sym))
+(Pass1 (Ins (Align4) rest) pc sym) (Pass1 rest (Add pc (AlignPad pc)) sym)
 
 (CodeSize End pc) pc
 (CodeSize (Ins instr rest) pc) (CodeSize rest (Add pc (Size instr)))
+(CodeSize (Ins (Align4) rest) pc) (CodeSize rest (Add pc (AlignPad pc)))
 
 ; Instruction emission pass.
 (Pass2 End pc sym) (Bytes)
@@ -694,20 +1644,37 @@
 (Pass2 (Ins (PushEcx) rest) pc sym) (Bytes 51 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEbx) rest) pc sym) (Bytes 53 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PushEdx) rest) pc sym) (Bytes 52 (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PushEax) rest) pc sym) (Bytes 50 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEcx) rest) pc sym) (Bytes 59 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEbx) rest) pc sym) (Bytes 5B (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (PopEdx) rest) pc sym) (Bytes 5A (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (PopEax) rest) pc sym) (Bytes 58 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (Db byte) rest) pc sym) (Bytes byte (Pass2 rest (Add pc N1) sym))
+(Pass2 (Ins (Align4) rest) pc sym) (Bytes (PadBytes (AlignPad pc)) (Pass2 rest (Add pc (AlignPad pc)) sym))
+(Pass2 (Ins (Dword byte) rest) pc sym) (Bytes byte 00 00 00 (Pass2 rest (Add pc N4) sym))
+(Pass2 (Ins (DwordLabel label) rest) pc sym) (Bytes (Addr (Lookup label sym)) (Pass2 rest (Add pc N4) sym))
+(Pass2 (Ins (DwordConst label) rest) pc sym) (Bytes (ConstAddr (Lookup label sym)) (Pass2 rest (Add pc N4) sym))
+(Pass2 (Ins (DwordNil) rest) pc sym) (Bytes 01 00 00 00 (Pass2 rest (Add pc N4) sym))
 (Pass2 (Ins (Int byte) rest) pc sym) (Bytes CD byte (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (IncEcx) rest) pc sym) (Bytes 41 (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (DecEdx) rest) pc sym) (Bytes 4A (Pass2 rest (Add pc N1) sym))
 (Pass2 (Ins (XorEbxEbx) rest) pc sym) (Bytes 31 DB (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (LoadByteEbx) rest) pc sym) (Bytes 0F B6 1B (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (LoadByteEbxFromEcx) rest) pc sym) (Bytes 0F B6 19 (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (LoadEaxCar) rest) pc sym) (Bytes 8B 00 (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (LoadEaxCdr) rest) pc sym) (Bytes 8B 40 04 (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (LoadEcxCarFromEax) rest) pc sym) (Bytes 8B 08 (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (LoadEbxCarFromEax) rest) pc sym) (Bytes 8B 18 (Pass2 rest (Add pc N2) sym))
+(Pass2 (Ins (LoadEaxCdrFromEbx) rest) pc sym) (Bytes 8B 43 04 (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (AndEaxNotTag) rest) pc sym) (Bytes 83 E0 FC (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (CmpEaxImm8 byte) rest) pc sym) (Bytes 83 F8 byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (CmpEaxLabel label) rest) pc sym) (Bytes 3D (Addr (Lookup label sym)) (Pass2 rest (Add pc N5) sym))
+(Pass2 (Ins (TestAlPair) rest) pc sym) (Bytes A8 03 (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (SubEbxImm8 byte) rest) pc sym) (Bytes 83 EB byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (CmpEbxImm8 byte) rest) pc sym) (Bytes 83 FB byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (CmpEdxImm8 byte) rest) pc sym) (Bytes 83 FA byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (ShlEcxImm8 byte) rest) pc sym) (Bytes C1 E1 byte (Pass2 rest (Add pc N3) sym))
+(Pass2 (Ins (ShlEbxImm8 byte) rest) pc sym) (Bytes C1 E3 byte (Pass2 rest (Add pc N3) sym))
 (Pass2 (Ins (MovEcxEbx) rest) pc sym) (Bytes 89 D9 (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (MovEcxEsp) rest) pc sym) (Bytes 89 E1 (Pass2 rest (Add pc N2) sym))
 (Pass2 (Ins (OrEbxEcx) rest) pc sym) (Bytes 09 CB (Pass2 rest (Add pc N2) sym))

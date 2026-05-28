@@ -38,7 +38,8 @@ binary, and is tested with runnable output. The current arithmetic tables cover
 the small bootstrap range. Branch lowering currently covers short jumps and
 signed direct calls in that range, including backward recursive calls; widening
 to fully automatic short-vs-near jump selection remains part of making this
-stage general.
+stage general. The current data-layout tables also cover the static tagged
+object examples used by the Stage 4 runtime slices.
 
 ---
 
@@ -104,7 +105,10 @@ enough for `is_bytes`, Qfitzah object traversal, or the full interpreter.
 routine that calls `Nybble` twice, combines the nybbles, and writes byte `41`
 to stdout from the generated ELF. `bootstrap/stage4-emit-bytes.qf1` adds a
 recursive `EmitBytes`-shaped byte-span walker that writes `ABCDE` and requires a
-signed backward call displacement.
+signed backward call displacement. `bootstrap/stage4-emit-bytes-object.qf1`
+then moves the same path onto a static tagged `(Bytes 41)` object with aligned
+pair cells, tagged atom pointers, nil, field loads, a `Bytes` head check, and
+recursive cons-tail traversal.
 
 Reader progress: the seed runtime now accumulates parenthesized forms across
 physical lines and treats embedded newlines as whitespace, which makes staged

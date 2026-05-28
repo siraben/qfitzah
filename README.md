@@ -146,9 +146,10 @@ It adds a symbolic assembly layer over direct `(Bytes ...)` emission:
 - `(Call label)` computes a signed direct call displacement for the bootstrap range
 - ELF `p_filesz`/`p_memsz` are selected from the assembled code size
 
-The current implementation intentionally uses finite arithmetic tables for the
-small bootstrap range; later stages should replace those tables with generated
-arithmetic and richer macros.
+The current implementation intentionally uses finite arithmetic and layout
+tables for the small bootstrap range; later stages should replace those tables
+with generated arithmetic and richer macros. The layout range is large enough
+for the current static object examples.
 
 Build the sample program:
 
@@ -240,8 +241,15 @@ recursive `EmitBytes`-shaped routine. It keeps a byte pointer in `ECX`, a count
 in `EDX`, writes the current byte, advances the pointer, decrements the count,
 and recursively calls itself until the count reaches zero. The generated ELF
 writes bytes `41 42 43 44 45` (`ABCDE`). This example requires qfasm2 to encode
-a signed backward call displacement. The Stage 4 sample programs are also
-formatted as multi-line Qfitzah forms.
+a signed backward call displacement.
+
+[bootstrap/stage4-emit-bytes-object.qf1](bootstrap/stage4-emit-bytes-object.qf1)
+compiles the next byte-output slice over static Qfitzah-shaped objects. It
+builds an aligned tagged object for `(Bytes 41)`, checks the `Bytes` head atom,
+takes the cdr, recursively walks the cons-list tail, decodes the `41` atom, and
+writes byte `41`. This proves static pair cells, tagged atom pointers, nil,
+field loads, and aligned data emission in the staged compiler pipeline. The
+Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
 
