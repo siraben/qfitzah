@@ -1,0 +1,66 @@
+; Qfitzah-hosted compiler, Stage 4.
+;
+; qfc4 compiles a small high-level Qfitzah-like source form into qfasm3 macro
+; assembly, then lets qfasm3/qfasm2 emit the final ELF binary.  The surface
+; source is already read by Qfitzah as S-expressions; the Parse* rules below
+; normalize it into an explicit AST before code generation.
+
+(DAppend End ys) ys
+(DAppend (Do instr rest) ys) (Do instr (DAppend rest ys))
+
+; Stage 4.1: parse high-level source forms into an explicit AST.
+(ParseProgram (Source entry defs)) (AstProgram entry (ParseDefs defs))
+(ParseDefs End) End
+(ParseDefs (Def name frame body rest)) (AstDef name (ParseFrame frame) (ParseStmt body) (ParseDefs rest))
+
+(ParseFrame NoFrame) NoFrame
+(ParseFrame (Preserve Ecx)) (Frame (Save Ecx))
+
+(ParseStmt (Exit value)) (Exit (ParseExpr value))
+(ParseStmt (Seq first rest)) (Seq (ParseStmt first) (ParseStmt rest))
+
+(ParseExpr (Literal byte)) (Literal byte)
+(ParseExpr (Zero)) Zero
+(ParseExpr (Add1 value)) (Add1 (ParseExpr value))
+(ParseExpr (ConstAtom payload)) (ConstAtom (TagConst payload))
+(ParseExpr (Match name test (Case Zero then) (Case Else otherwise))) (Match name (ParseExpr test) (Case Zero (ParseExpr then)) (Case Else (ParseExpr otherwise)))
+
+; Stage 4.3: minimal generated tagging for aligned constant payloads.
+; These tables model the compiler decision to preserve aligned payload bits and
+; set the constant tag bits in the low byte.
+(TagConst 00) 03
+(TagConst 04) 07
+(TagConst 08) 0B
+(TagConst 0C) 0F
+(TagConst 10) 13
+(TagConst 14) 17
+(TagConst 18) 1B
+(TagConst 1C) 1F
+(TagConst 20) 23
+(TagConst 24) 27
+(TagConst 28) 2B
+
+; Stage 4.4: frame requests become qfasm3 clobber preservation.
+(CompileFrame NoFrame) Empty
+(CompileFrame (Frame (Save Ecx))) (Clob Ecx Empty)
+
+; Module and procedure generation.
+(CompileProgram (AstProgram entry defs)) (M3Program entry (CompileDefs defs))
+(CompileDefs End) End
+(CompileDefs (AstDef name frame body rest)) (DAppend (CompileDef name frame body) (CompileDefs rest))
+(CompileDef name frame body) (Do (Proc name (CompileFrame frame) (CompileStmt body)) End)
+
+; Statement generation.
+(CompileStmt (Exit value)) (DAppend (CompileEbx value) (Do (MovEaxImm32 01) (Do (Int 80) End)))
+(CompileStmt (Seq first rest)) (DAppend (CompileStmt first) (CompileStmt rest))
+
+; Expression generation: all expression compilers leave the result in EBX.
+(CompileEbx (Literal byte)) (Do (MovEbxImm32 byte) End)
+(CompileEbx Zero) (Do (XorEbxEbx) End)
+(CompileEbx (Add1 value)) (DAppend (CompileEbx value) (Do (IncEbx) End))
+(CompileEbx (ConstAtom tagged)) (Do (MovEbxImm32 tagged) End)
+
+; Stage 4.2: declarative match lowering to a native conditional tree.
+(CompileEbx (Match name test (Case Zero then) (Case Else otherwise))) (DAppend (CompileEbx test) (Do (IfZero name (CompileEbx then) (CompileEbx otherwise)) End))
+
+(QfcAssemble source) (M3Assemble (CompileProgram (ParseProgram source)))

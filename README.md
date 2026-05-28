@@ -155,6 +155,35 @@ chmod +x stage3-exit42
 echo $?
 ```
 
+[bootstrap/qfc4.qf1](bootstrap/qfc4.qf1) is the current Stage 4 compiler
+slice. It is also hosted in Qfitzah. It accepts a small high-level source form,
+parses it into an explicit AST, compiles that AST to qfasm3 macro assembly, then
+hands the result to qfasm3/qfasm2.
+
+The implemented source subset includes:
+
+- function definitions with `NoFrame` or `(Preserve Ecx)` frame requests
+- `(Exit expr)` statements
+- `(Literal byte)`, `(Zero)`, `(Add1 expr)`, and `(ConstAtom payload)`
+- declarative zero-match expressions:
+  `(Match name test (Case Zero then) (Case Else otherwise))`
+
+Build the Stage 4 match example:
+
+```sh
+cat bootstrap/qfasm2.qf1 bootstrap/qfasm3.qf1 bootstrap/qfc4.qf1 \
+    bootstrap/stage4-exit42.qf1 \
+  | result/bin/qfitzah > stage4-exit42
+chmod +x stage4-exit42
+./stage4-exit42
+echo $?
+```
+
+The tagged-constant example in
+[bootstrap/stage4-tagged-exit43.qf1](bootstrap/stage4-tagged-exit43.qf1)
+compiles an aligned constant payload with low tag bits set and exits with
+status `43`.
+
 ## Tests
 
 ```sh

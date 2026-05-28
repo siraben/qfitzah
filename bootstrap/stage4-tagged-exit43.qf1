@@ -1,0 +1,3 @@
+; qfc4 tagging input. ConstAtom 0x28 is aligned and receives constant tag bits,
+; producing 0x2b, so the generated program exits with status 43.
+(QfcAssemble (Source Start (Def Start NoFrame (Exit (ConstAtom 28)) End)))

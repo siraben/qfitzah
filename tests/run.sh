@@ -159,3 +159,45 @@ run_qfasm3_exit42() {
 }
 
 run_qfasm3_exit42
+
+run_qfc4_binary() {
+  local name=$1
+  local expected_status=$2
+  local tmp
+  local actual_hex
+  local expected_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/qfc4.qf1" \
+      "$repo_root/bootstrap/$name.qf1" \
+    | timeout 5s "$qfitzah" > "$tmp/$name"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/$name"
+  set +e
+  "$tmp/$name"
+  status=$?
+  set -e
+
+  if [[ $status -ne $expected_status ]]; then
+    printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - %s\n' "$name"
+}
+
+run_qfc4_binary "stage4-exit42" 42
+run_qfc4_binary "stage4-tagged-exit43" 43
