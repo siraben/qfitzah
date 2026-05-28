@@ -1,0 +1,65 @@
+(NB x) x
+(NB (Simple Test File For Qfitzah))
+
+(Do (Cover x) it) (Some x Covered it)
+(Do (Cover Leather) Sofas)
+
+(NB (Higher Order Programming))
+(Map f Nil) Nil
+(Map f (Cons car cdr)) (Cons (Do f car) (Map f cdr))
+
+(Map (Cover Chocolate) (Cons Police (Cons Raisins (Cons Oreos Nil))))
+
+(NB (Boolean Definitions))
+(Not Yes) No
+(Not No) Yes
+(If Yes a b) (Do a)
+(If No a b) (Do b)
+(Do Yes) Yes
+(Do No) No
+(And a b) (If a b a)
+(Or a b) (If a a b)
+
+(NB (This Should Be A Built-in))
+(Eq Yes Yes) Yes
+(Eq No No) Yes
+(Eq Yes No) No
+(Eq No Yes) No
+
+(NB (Boolean Truth Tables))
+(Well (Not Yes) (Not No))
+(Well (And Yes Yes) (And Yes No) (And No Yes) (And No No))
+(Well (Or Yes Yes) (Or Yes No) (Or No Yes) (Or No No))
+
+(All Nil) Yes
+(All (Cons a b)) (And (Do a) (All b))
+(Any Nil) No
+(Any (Cons a b)) (Or (Do a) (Any b))
+
+(Test Yes) Ok
+(Test No) Fail
+
+(NB (Boolean Tests))
+(Test (All (Cons (And Yes Yes) Nil)))
+(Test (Not (Any (Cons (And Yes No) (Cons (And No Yes) (Cons (And No No) Nil))))))
+(Test (All (Cons (Or Yes Yes) (Cons (Or Yes No) (Cons (Or No Yes) Nil)))))
+(Test (Not (Or No No)))
+
+(NB (Peano Arithmetic))
+(= Z Z)         Yes
+(= (S x) Z)     No
+(= Z (S x))     No
+(= (S x) (S y)) (= x y)
+(+ Z x)         x
+(+ (S x) y)     (+ x (S y))
+(2)             (S (S Z))
+(3)             (S (2))
+(4)             (S (3))
+(7)             (S (S (S (4))))
+
+(Test      (= (+ (2) (2)) (4)))
+(Test (Not (= (+ (2) (2)) (2))))
+(Test (Not (= (2) (+ (2) (2)))))
+(Test      (= (+ (3) (4)) (7)))
+
+(Empty List Is ())
