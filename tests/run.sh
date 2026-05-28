@@ -442,3 +442,4 @@ run_qfc4_heap_binary() {
 
 run_qfc4_heap_binary "stage5-pair-allocation" 42
 run_qfc4_heap_binary "stage5-bump-alloc" 19
+run_qfc4_heap_binary "stage5-alloc-proc" 19

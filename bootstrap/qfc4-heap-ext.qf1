@@ -28,6 +28,14 @@
   IncEbx)
 
 (Rule
+  (ParseStmt (AddEbx byte))
+  (AddEbx byte))
+
+(Rule
+  (ParseStmt (MoveEbxEax))
+  MoveEbxEax)
+
+(Rule
   (ParseStmt (LoadCarEbx))
   LoadCarEbx)
 
@@ -58,6 +66,14 @@
 (Rule
   (CompileStmt IncEbx)
   (Do (IncEbx) End))
+
+(Rule
+  (CompileStmt (AddEbx byte))
+  (Do (AddEbxImm8 byte) End))
+
+(Rule
+  (CompileStmt MoveEbxEax)
+  (Do (MovEbxEax) End))
 
 (Rule
   (CompileStmt LoadCarEbx)

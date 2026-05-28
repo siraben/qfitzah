@@ -140,6 +140,10 @@ back, and exits with status `42`.
 two pair cells through a mutable `HeapNext` pointer and exits with the first
 cell's car (`19`), proving the second allocation used the advanced pointer
 rather than overwriting the first cell.
+`bootstrap/stage5-alloc-proc.qf1` then factors the same logic into a reusable
+compiled `AllocPair` procedure that accepts car/cdr in `EBX`/`ECX`, advances
+`HeapNext`, returns the allocated pair in `EAX`, and is called twice by the
+checked program.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

@@ -305,6 +305,11 @@ that into a bump-pointer proof: it loads a `HeapNext` cell, constructs one
 pair, stores the advanced pointer, constructs a second pair through the updated
 pointer, then exits with the first pair's car (`19`) to prove the second
 allocation did not overwrite it.
+[bootstrap/stage5-alloc-proc.qf1](bootstrap/stage5-alloc-proc.qf1) factors the
+same behavior into a reusable compiled `AllocPair` procedure. Callers pass car
+in `EBX` and cdr in `ECX`; the procedure writes the pair, bumps `HeapNext` by
+eight bytes, returns the allocated pair in `EAX`, and the checked program calls
+it twice.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

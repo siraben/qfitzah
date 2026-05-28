@@ -57,6 +57,10 @@ These checked fixtures fit:
   - stores and reloads a mutable `HeapNext` cell
   - constructs two pair cells and exits with the first car (`19`) to prove the
     second allocation used the advanced pointer
+- `stage5-alloc-proc.qf1`
+  - factors the heap-next update into a reusable compiled `AllocPair` procedure
+  - calls the procedure twice, returning allocated pairs in `EAX`
+  - exits with the first pair's car (`19`) to prove separate allocations
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

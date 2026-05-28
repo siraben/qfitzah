@@ -110,11 +110,14 @@ Progress so far:
   constructions through it. The generated ELF exits with the first cell's car
   (`19`), proving the second allocation used the advanced pointer instead of
   overwriting the first cell.
+- `stage5-alloc-proc.qf1` factors that heap bump into a reusable compiled
+  `AllocPair` routine. Callers pass car/cdr in `EBX`/`ECX`; the routine writes
+  the pair, advances `HeapNext`, returns the pair in `EAX`, and is called twice
+  by the checked program.
 
 Still required for the byte-output path:
 
-- a reusable bump-pointer allocator routine, bounds checks, and a GC policy for
-  reclaiming or moving objects
+- allocator bounds checks and a GC policy for reclaiming or moving objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`

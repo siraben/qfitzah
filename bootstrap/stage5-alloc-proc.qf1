@@ -1,0 +1,73 @@
+; Stage 5 reusable allocation procedure fixture.
+;
+; AllocPair receives car in EBX and cdr in ECX, writes a pair at HeapNext,
+; advances HeapNext by eight bytes, and returns the pair pointer in EAX. Start
+; calls it twice and exits with the first pair's car. If the allocator routine
+; does not update HeapNext, the second call overwrites the first pair and the
+; program exits with 42 instead of 19.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (SetEbx 13)
+        (Seq
+          (SetEcx 01)
+          (Seq
+            (CallProc AllocPair)
+            (Seq
+              (PushEax)
+              (Seq
+                (SetEbx 2A)
+                (Seq
+                  (SetEcx 01)
+                  (Seq
+                    (CallProc AllocPair)
+                    (Seq
+                      (PopEax)
+                      (Seq
+                        (LoadCarEbx)
+                        (ExitReg Ebx))))))))))
+      (Def
+        AllocPair
+        NoFrame
+        (Seq
+          (LoadAddrEax HeapNext)
+          (Seq
+            (CarEax)
+            (Seq
+              (StoreCarEbx)
+              (Seq
+                (StoreCdrEcx)
+                (Seq
+                  (PushEax)
+                  (Seq
+                    (MoveEbxEax)
+                    (Seq
+                      (AddEbx 08)
+                      (Seq
+                        (LoadAddrEax HeapNext)
+                        (Seq
+                          (StoreCarEbx)
+                          (PopEax))))))))))
+        (PtrCell HeapNext Heap
+        (Data Heap 00
+        (Data Heap1 00
+        (Data Heap2 00
+        (Data Heap3 00
+        (Data Heap4 00
+        (Data Heap5 00
+        (Data Heap6 00
+        (Data Heap7 00
+        (Data Heap8 00
+        (Data Heap9 00
+        (Data Heap10 00
+        (Data Heap11 00
+        (Data Heap12 00
+        (Data Heap13 00
+        (Data Heap14 00
+        (Data Heap15 00
+        End)))))))))))))))))))))
