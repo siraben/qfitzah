@@ -37,9 +37,7 @@
         (Def
           PrintNil
           NoFrame
-          (Seq
-            (WriteByte LParen)
-            (WriteByte RParen))
+          (Write2 NilParens)
           (Def
             PrintAtom
             NoFrame
@@ -69,14 +67,18 @@
                 (Data
                   CharA
                   61
-                  (Data
-                    LParen
+                  (String2
+                    NilParens
                     28
+                    29
                     (Data
-                      RParen
-                      29
-                      (Pair
-                        ListA
-                        (Const AtomA)
-                        Nil
-                        End))))))))))))
+                      LParen
+                      28
+                      (Data
+                        RParen
+                        29
+                        (Pair
+                          ListA
+                          (Const AtomA)
+                          Nil
+                          End)))))))))))))

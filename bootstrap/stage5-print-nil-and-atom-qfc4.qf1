@@ -31,9 +31,7 @@
         (Def
           PrintNil
           NoFrame
-          (Seq
-            (WriteByte LParen)
-            (WriteByte RParen))
+          (Write2 Parens)
           (Def
             PrintAtom
             NoFrame
@@ -49,10 +47,8 @@
               (Data
                 CharA
                 61
-                (Data
-                  LParen
+                (String2
+                  Parens
                   28
-                  (Data
-                    RParen
-                    29
-                    End))))))))))
+                  29
+                  End)))))))))

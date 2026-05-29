@@ -334,7 +334,9 @@ character through its atom character pointer, and writes stdout `(a)`.
 `bootstrap/stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil
 output slice. With local rules from `qfc4-print-nil-ext.qf1`, the fixture
 materializes nil in `EAX`, checks nil before the non-nil path, then writes
-stdout `()`.
+stdout `()`. The same local extension provides a focused `Write2` statement so
+the nil printer writes both paren bytes in one syscall while common qfc4 stays
+unchanged.
 `bootstrap/stage5-print-nil-and-atom-qfc4.qf1` combines that nil branch with
 the atom printer in one `PrintExpr` routine. It prints `()a`, proving nil and
 non-nil atom dispatch coexist before the larger pair/tail printer is merged

@@ -311,7 +311,9 @@ Progress so far:
 - `stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil output path.
   With local rules from `qfc4-print-nil-ext.qf1`, the generated ELF
   materializes nil in `EAX`, checks nil before falling through to non-nil
-  handling, and produces stdout `()`.
+  handling, and produces stdout `()`. The local extension also gives this
+  printer slice a `Write2` statement, keeping the two paren bytes compact
+  without adding that rule to common qfc4.
 - `stage5-print-nil-and-atom-qfc4.qf1` combines that nil branch with the atom
   printer in one `PrintExpr` routine. The generated ELF prints `()a`, proving
   nil dispatch and non-nil atom dispatch can coexist before the larger

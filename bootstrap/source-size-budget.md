@@ -393,6 +393,8 @@ These checked fixtures fit:
   - uses local `qfc4-print-nil-ext.qf1` rules so the common qfc4 source does
     not grow for larger heap/GC fixture combinations
   - materializes nil in `EAX` as a runtime expression value
+  - uses the same local extension's `Write2` statement to write `()` through
+    one two-byte syscall instead of two separate byte writes
   - keeps the nil printer focused below the common qfasm2 `N220` boundary
   - verifies stdout hex `28 29` (`()`) and exit status `0`
 - `stage5-print-nil-and-atom-qfc4.qf1`

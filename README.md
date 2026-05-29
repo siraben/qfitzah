@@ -511,7 +511,9 @@ car, prints the atom name through its character pointer, and writes stdout
 [bootstrap/stage5-print-empty-list-qfc4.qf1](bootstrap/stage5-print-empty-list-qfc4.qf1)
 adds the first top-level nil output slice. With the local
 `qfc4-print-nil-ext.qf1` rule file, it materializes nil in `EAX`, checks it
-before falling through to non-nil handling, and writes stdout `()`.
+before falling through to non-nil handling, and writes stdout `()`. The local
+extension also adds a focused `Write2` statement so the nil printer emits both
+paren bytes through one syscall without growing common qfc4.
 [bootstrap/stage5-print-nil-and-atom-qfc4.qf1](bootstrap/stage5-print-nil-and-atom-qfc4.qf1)
 uses the same local nil extension with an atom printer in one `PrintExpr`
 routine. It writes stdout `()a`, proving nil dispatch and non-nil atom dispatch

@@ -27,13 +27,9 @@
         (Def
           PrintNil
           NoFrame
-          (Seq
-            (WriteByte LParen)
-            (WriteByte RParen))
-          (Data
-            LParen
+          (Write2 Parens)
+          (String2
+            Parens
             28
-            (Data
-              RParen
-              29
-              End)))))))
+            29
+            End))))))

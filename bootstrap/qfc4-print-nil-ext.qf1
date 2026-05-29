@@ -8,5 +8,19 @@
   LoadNilEax)
 
 (Rule
+  (ParseStmt (Write2 name))
+  (Write2 name))
+
+(Rule
   (CompileStmt LoadNilEax)
   (Do (MovEaxImm32 01) End))
+
+(Rule
+  (CompileStmt (Write2 name))
+  (Do
+    (MovEaxImm32 04)
+    (Do
+      (MovEbxImm32 01)
+      (Do
+        (MovEcxLabel name)
+        (Do (MovEdxImm32 02) (Do (Int 80) End))))))
