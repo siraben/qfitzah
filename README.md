@@ -372,6 +372,11 @@ statuses before the copied cdr child exits `23`.
 lift that two-field object proof through qfc4. The fixture keeps data before
 code so the finite address table remains valid, then runs as a staged qfc4 to
 qfasm3 source and qfasm3/qfasm2 to ELF pipeline.
+[bootstrap/stage5-copy-tree-gc.qf1](bootstrap/stage5-copy-tree-gc.qf1) is the
+next lower-level GC baseline: it scans copied pairs from `Scan` up to
+`HeapNext`, copies any pair-valued `car` or `cdr` field it discovers, rewrites
+the field to the copied child, and resumes allocation after a five-cell copied
+tree. It handles acyclic pair trees, not sharing or cycles yet.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

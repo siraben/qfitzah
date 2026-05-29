@@ -1,0 +1,118 @@
+; Optional qfasm2/qfasm3 support for Stage 5 scan-copy traversal fixtures.
+
+(Rule
+  (Size (CmpEaxEbx))
+  N2)
+
+(Rule
+  (Pass2 (Ins (CmpEaxEbx) rest) pc sym)
+  (Bytes 39 D8 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Size (JnzNear label))
+  N6)
+
+(Rule
+  (Pass2 (Ins (JnzNear label) rest) pc sym)
+  (Bytes 0F 85 (Rel32 (Sub (Lookup label sym) (Add pc N6))) (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Expand (Do (CmpEaxEbx) rest) scope)
+  (Ins (CmpEaxEbx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JnzNear name) rest) scope)
+  (Ins (JnzNear name) (Expand rest scope)))
+
+(Byte (Neg N129)) 7F
+(Byte (Neg N130)) 7E
+(Byte (Neg N131)) 7D
+(Byte (Neg N132)) 7C
+(Byte (Neg N133)) 7B
+(Byte (Neg N134)) 7A
+(Byte (Neg N135)) 79
+(Byte (Neg N136)) 78
+(Byte (Neg N137)) 77
+(Byte (Neg N138)) 76
+(Byte (Neg N139)) 75
+(Byte (Neg N140)) 74
+(Byte (Neg N141)) 73
+(Byte (Neg N142)) 72
+(Byte (Neg N143)) 71
+(Byte (Neg N144)) 70
+(Byte (Neg N145)) 6F
+(Byte (Neg N146)) 6E
+(Byte (Neg N147)) 6D
+(Byte (Neg N148)) 6C
+(Byte (Neg N149)) 6B
+(Byte (Neg N150)) 6A
+(Byte (Neg N151)) 69
+(Byte (Neg N152)) 68
+(Byte (Neg N153)) 67
+(Byte (Neg N154)) 66
+(Byte (Neg N155)) 65
+(Byte (Neg N156)) 64
+(Byte (Neg N157)) 63
+(Byte (Neg N158)) 62
+(Byte (Neg N159)) 61
+(Byte (Neg N160)) 60
+(Byte (Neg N161)) 5F
+(Byte (Neg N162)) 5E
+(Byte (Neg N163)) 5D
+(Byte (Neg N164)) 5C
+(Byte (Neg N165)) 5B
+(Byte (Neg N166)) 5A
+(Byte (Neg N167)) 59
+(Byte (Neg N168)) 58
+(Byte (Neg N169)) 57
+(Byte (Neg N170)) 56
+(Byte (Neg N171)) 55
+(Byte (Neg N172)) 54
+(Byte (Neg N173)) 53
+(Byte (Neg N174)) 52
+(Byte (Neg N175)) 51
+(Byte (Neg N176)) 50
+(Byte (Neg N177)) 4F
+(Byte (Neg N178)) 4E
+(Byte (Neg N179)) 4D
+(Byte (Neg N180)) 4C
+(Byte (Neg N181)) 4B
+(Byte (Neg N182)) 4A
+(Byte (Neg N183)) 49
+(Byte (Neg N184)) 48
+(Byte (Neg N185)) 47
+(Byte (Neg N186)) 46
+(Byte (Neg N187)) 45
+(Byte (Neg N188)) 44
+(Byte (Neg N189)) 43
+(Byte (Neg N190)) 42
+(Byte (Neg N191)) 41
+(Byte (Neg N192)) 40
+(Byte (Neg N193)) 3F
+(Byte (Neg N194)) 3E
+(Byte (Neg N195)) 3D
+(Byte (Neg N196)) 3C
+(Byte (Neg N197)) 3B
+(Byte (Neg N198)) 3A
+(Byte (Neg N199)) 39
+(Byte (Neg N200)) 38
+(Byte (Neg N201)) 37
+(Byte (Neg N202)) 36
+(Byte (Neg N203)) 35
+(Byte (Neg N204)) 34
+(Byte (Neg N205)) 33
+(Byte (Neg N206)) 32
+(Byte (Neg N207)) 31
+(Byte (Neg N208)) 30
+(Byte (Neg N209)) 2F
+(Byte (Neg N210)) 2E
+(Byte (Neg N211)) 2D
+(Byte (Neg N212)) 2C
+(Byte (Neg N213)) 2B
+(Byte (Neg N214)) 2A
+(Byte (Neg N215)) 29
+(Byte (Neg N216)) 28
+(Byte (Neg N217)) 27
+(Byte (Neg N218)) 26
+(Byte (Neg N219)) 25
+(Byte (Neg N220)) 24

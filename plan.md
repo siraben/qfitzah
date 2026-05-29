@@ -196,6 +196,12 @@ child, then exits through the copied `cdr` child (`23`).
 object shape through qfc4 with optional object-copy and raw object-data
 extensions. Its test keeps qfc4 and qfasm as two Qfitzah invocations and places
 data before code so the assembler's finite address facts stay in range.
+`bootstrap/stage5-copy-tree-gc.qf1` then replaces the fixed object shape with a
+qfasm2-level scan over copied pairs. The recovery path keeps a `Scan` cursor and
+`HeapNext`, discovers pair-valued `car` and `cdr` fields during traversal,
+copies those children, rewrites the copied fields, and exits through a copied
+nested right leaf (`35`). This proves acyclic pair-tree traversal, while sharing
+and cycles remain future forwarding-pointer work.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

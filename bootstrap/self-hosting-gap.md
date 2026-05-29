@@ -165,11 +165,19 @@ Progress so far:
   proof through qfc4. It uses optional object-copy and raw object-data rules,
   runs qfc4 and qfasm as two Qfitzah invocations, and keeps data before code so
   the final assembler stays inside its finite address table.
+- `stage5-copy-tree-gc.qf1` starts generalizing fixed object copies into a
+  qfasm2-level scan-copy traversal. It walks copied pairs from `Scan` to
+  `HeapNext`, copies newly discovered pair-valued `car` and `cdr` fields,
+  rewrites those copied fields, and proves the copied tree remains live after
+  old leaves are overwritten. This covers acyclic pair trees, not sharing or
+  cycles.
 
 Still required for the byte-output path:
 
-- generalizing the two-field object proof into traversal of arbitrary live
-  objects
+- lifting the scan-copy traversal through qfc4
+- adding forwarding pointers or equivalent handling for shared objects and
+  cycles
+- generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
