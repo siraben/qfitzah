@@ -247,6 +247,10 @@ byte-output runtime path at the direct qfasm2 level. It forces recovery, copies
 a static `(Bytes 41)` object graph, overwrites the old pair objects, and emits
 from the copied byte atom through `EmitByte`, `Nybble`, and `write(2)`, writing
 byte `41` before exiting `0`.
+`bootstrap/stage5-copy-bytes-isbytes-output-gc.qf1` adds the content-based
+`IsBytes` gate after recovery at the direct qfasm2 level. The copied head atom
+is recognized by length and bytes rather than pointer identity before the
+copied byte tail is emitted.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

@@ -219,6 +219,10 @@ Progress so far:
   object graph, overwrites the old pair objects, then emits from the copied
   byte atom through `EmitByte`, `Nybble`, and `write(2)`. The generated ELF
   writes byte `41` and exits `0`.
+- `stage5-copy-bytes-isbytes-output-gc.qf1` adds a content-based `IsBytes`
+  gate after recovery at the direct qfasm2 layer. The copied head atom is not a
+  shared `AtomBytes` pointer; it is recognized by length and character contents
+  before the copied byte tail is emitted as stdout `41`.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -231,7 +235,8 @@ Still required for the byte-output path:
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
-- integrating content-based `is_bytes` into the general compiled `EmitBytes`
+- lifting the content-checked GC-plus-byte-output proof through qfc4
+- integrating content-based `is_bytes` into the general nested `EmitBytes`
   fixture after recovery without exceeding the seed runtime's current
   source-size budget; see `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs

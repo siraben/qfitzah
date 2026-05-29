@@ -426,6 +426,10 @@ connects recovery to byte output at the direct qfasm2 layer. It forces
 recovery, copies a static `(Bytes 41)` object graph, overwrites the old pair
 objects, then runs the copied byte atom through `EmitByte`, `Nybble`, and
 `write(2)`; the generated ELF writes byte `41` and exits `0`.
+[bootstrap/stage5-copy-bytes-isbytes-output-gc.qf1](bootstrap/stage5-copy-bytes-isbytes-output-gc.qf1)
+adds the runtime `IsBytes` gate after recovery. The copied head atom is named
+separately and recognized by length and character contents, then the copied
+tail is emitted as byte `41`.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
