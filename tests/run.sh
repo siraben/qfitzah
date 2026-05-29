@@ -882,6 +882,11 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfc4-copy-bytes-output-ext.qf1" \
   "" \
   "41"
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-copy-bytes-isbytes-output-gc-qfc4" 0 \
+  "qfc4-copy-bytes-isbytes-output-ext.qf1" \
+  "qfasm-byte-output-ext.qf1" \
+  "41"
 
 run_qfc4_heap_check_binary() {
   local name=$1

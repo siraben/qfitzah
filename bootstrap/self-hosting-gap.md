@@ -223,6 +223,11 @@ Progress so far:
   gate after recovery at the direct qfasm2 layer. The copied head atom is not a
   shared `AtomBytes` pointer; it is recognized by length and character contents
   before the copied byte tail is emitted as stdout `41`.
+- `stage5-copy-bytes-isbytes-output-gc-qfc4.qf1` lifts the content-checked
+  recovery/output path through qfc4 using
+  `qfc4-copy-bytes-isbytes-output-ext.qf1` and `qfasm-byte-output-ext.qf1`.
+  The staged test checks the exact generated ELF, runtime stdout `41`, and
+  exit status `0`.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -235,7 +240,6 @@ Still required for the byte-output path:
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
-- lifting the content-checked GC-plus-byte-output proof through qfc4
 - integrating content-based `is_bytes` into the general nested `EmitBytes`
   fixture after recovery without exceeding the seed runtime's current
   source-size budget; see `bootstrap/source-size-budget.md`

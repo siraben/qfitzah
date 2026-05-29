@@ -1,0 +1,128 @@
+; Stage 5 GC plus content-checked byte-output fixture lifted through qfc4.
+;
+; Compile with qfc4-copy-bytes-isbytes-output-ext.qf1,
+; qfc4-scan-copy-ext.qf1, qfasm-byte-output-ext.qf1, and the Stage 5 heap/scan
+; extensions. The generated ELF copies `(Bytes 41)`, overwrites old pair
+; objects, recognizes the copied head atom by contents, then emits byte `41`.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Scan Heap
+    (PtrCell Root OldBytesExpr
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapTail 00
+    (Data HeapTail1 00
+    (Data HeapTail2 00
+    (Data HeapTail3 00
+    (Data HeapTail4 00
+    (Data HeapTail5 00
+    (Data HeapTail6 00
+    (Data HeapTail7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (String5 BytesChars 42 79 74 65 73
+    (Atom AtomNotSharedBytes BytesChars 05
+    (String2 Chars41 34 31
+    (Atom Atom41 Chars41 02
+    (Pair OldBytesExpr (Const AtomNotSharedBytes) (Ptr OldBytesTail)
+    (Pair OldBytesTail (Const Atom41) Nil
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitBytesOutputCopy)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (ScanCarField)
+            (Seq
+              (ScanCdrField)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (FinishBytesIsBytesOutputCopy))))))
+    (Def
+      IsBytes
+      NoFrame
+      (Seq
+        (TestPairEax)
+        (Seq
+          (JumpNotZeroLocal IsBytesNo)
+          (Seq
+            (CarEax)
+            (Seq
+              (UntagEax)
+              (Seq
+                (PushEax)
+                (Seq
+                  (CdrEax)
+                  (Seq
+                    (CmpEax 05)
+                    (Seq
+                      (JumpNotZeroLocal IsBytesNoPop)
+                      (Seq
+                        (PopEax)
+                        (Seq
+                          (CarEax)
+                          (Seq
+                            (CmpDwordAtEax 42 79 74 65)
+                            (Seq
+                              (JumpNotZeroLocal IsBytesNo)
+                              (Seq
+                                (CmpByteAtEaxPlus4 73)
+                                (Seq
+                                  (JumpLocal IsBytesDone)
+                                  (Seq
+                                    (Local IsBytesNoPop)
+                                    (Seq
+                                      (PopEax)
+                                      (Seq
+                                        (Local IsBytesNo)
+                                        (Seq
+                                          (CmpEax 00)
+                                          (Local IsBytesDone)))))))))))))))))))
+    (Def
+      EmitByte
+      NoFrame
+      (Seq
+        (LoadAtomCharsEcx)
+        (Seq
+          (LoadByteEbxFromEcx)
+          (Seq
+            (CallProc Nybble)
+            (Seq
+              (ShlEbx 04)
+              (Seq
+                (PushEbx)
+                (Seq
+                  (IncEcx)
+                  (Seq
+                    (LoadByteEbxFromEcx)
+                    (Seq
+                      (CallProc Nybble)
+                      (Seq
+                        (PopEcx)
+                        (Seq
+                          (OrEbxEcx)
+                          (WriteByteFromEbx)))))))))))
+    (Def
+      Nybble
+      NoFrame
+      (Seq
+        (SubEbx 30)
+        (Seq
+          (CmpEbx 09)
+          (IfBelowEq
+            Done
+            (Nop)
+            (SubEbx 07))))
+    End)))))))))))))))))))))))))))))))
+))

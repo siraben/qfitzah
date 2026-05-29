@@ -430,6 +430,9 @@ objects, then runs the copied byte atom through `EmitByte`, `Nybble`, and
 adds the runtime `IsBytes` gate after recovery. The copied head atom is named
 separately and recognized by length and character contents, then the copied
 tail is emitted as byte `41`.
+[bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1)
+lifts that content-checked recovery/output path through qfc4 with
+`qfc4-copy-bytes-isbytes-output-ext.qf1` and `qfasm-byte-output-ext.qf1`.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
