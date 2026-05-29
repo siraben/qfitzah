@@ -931,6 +931,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
   local qfasm_exts=${4:-}
   local expected_runtime_hex=${5:-}
   local assemble_timeout=${6:-90}
+  local include_wide_branch=${7:-yes}
   local qfc4_ext
   local qfasm_ext
   local tmp
@@ -957,8 +958,10 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
         "$repo_root/bootstrap/qfasm3.qf1" \
         "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
         "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1"
+        "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1"
+    if [[ "$include_wide_branch" == "yes" ]]; then
+      cat "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1"
+    fi
     for qfasm_ext in $qfasm_exts; do
       cat "$repo_root/bootstrap/$qfasm_ext"
     done
@@ -1060,6 +1063,13 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfasm-stage5-branch-ext.qf1 qfc4-print-atom-ext.qf1" \
   "28 61 62 63 29" \
   180
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-print-copied-nested-dynamic-atoms-qfc4" 0 \
+  "qfc4-print-nil-ext.qf1 qfc4-print-atom-ext.qf1 qfc4-copy-dynamic-atom-print-ext.qf1" \
+  "qfasm-stage5-branch-ext.qf1 qfc4-print-atom-ext.qf1" \
+  "28 61 62 63 20 28 64 65 29 29" \
+  240 \
+  no
 
 run_qfc4_heap_check_binary() {
   local name=$1

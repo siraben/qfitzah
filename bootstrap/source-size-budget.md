@@ -453,6 +453,17 @@ These checked fixtures fit:
     the copied car to the atom frontier, overwrites old records, and invokes
     `PrintExpr` on the copied root
   - verifies stdout hex `28 61 62 63 29` (`(abc)`) and exit status `0`
+- `stage5-print-copied-nested-dynamic-atoms-qfc4.qf1`
+  - reuses the same focused print-copy extension with `ScanCdrField` from the
+    scan-copy surface so a copied root list can discover and copy nested pairs
+  - intentionally omits `qfasm-stage5-wide-branch-ext.qf1` in the final qfasm
+    pass because this fixture needs only the scan near backedge and raw short
+    branch pass-through; the wide extension pushes the combined printer source
+    over the seed runtime's stable load
+  - copies `(abc (de))` from runtime-initialized atom records, overwrites all
+    old pair and atom records, and invokes `PrintExpr` on the copied root
+  - verifies stdout hex `28 61 62 63 20 28 64 65 29 29` (`(abc (de))`) and
+    exit status `0`
 - `stage5-print-list-tail-qfc4.qf1`
   - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
     boundary narrowly

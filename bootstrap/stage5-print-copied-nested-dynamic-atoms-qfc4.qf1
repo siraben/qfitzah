@@ -1,0 +1,145 @@
+; Stage 5 recovered nested dynamic atom normal-printer fixture.
+;
+; This extends the recovered printer path from one runtime atom to a nested
+; list graph with two runtime-initialized atoms. The scan copies pair edges and
+; atom fields into separate frontiers, overwrites every old pair and atom
+; record, then prints the copied graph as `(abc (de))`.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell AtomNext HeapAtomAbc
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapTail 00
+    (Data HeapTail1 00
+    (Data HeapTail2 00
+    (Data HeapTail3 00
+    (Data HeapTail4 00
+    (Data HeapTail5 00
+    (Data HeapTail6 00
+    (Data HeapTail7 00
+    (Data HeapListDe 00
+    (Data HeapListDe1 00
+    (Data HeapListDe2 00
+    (Data HeapListDe3 00
+    (Data HeapListDe4 00
+    (Data HeapListDe5 00
+    (Data HeapListDe6 00
+    (Data HeapListDe7 00
+    (RawPair HeapAtomAbc 00 00
+    (RawPair HeapAtomDe 00 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (Data CharsAbc 61
+    (Data CharB 62
+    (Data CharC 63
+    (Data CharsDe 64
+    (Data CharE 65
+    (String2 NilParens 28 29
+    (Data LParen 28
+    (Data RParen 29
+    (Data Space 20
+    (RawPair OldAtomAbc 00 00
+    (RawPair OldAtomDe 00 00
+    (Pair OldRoot (Const OldAtomAbc) (Ptr OldTail)
+    (Pair OldTail (Ptr OldListDe) Nil
+    (Pair OldListDe (Const OldAtomDe) Nil
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitDynamicNestedAtomPrintCopy)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (ScanDynamicAtomCarForPrint)
+            (Seq
+              (ScanCdrField)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (FinishDynamicNestedAtomPrintCopy))))))
+    (Def
+      PrintExpr
+      NoFrame
+      (Seq
+        (CmpEax 01)
+        (IfZero
+          NilExpr
+          (CallProc PrintNil)
+          (Seq
+            (TestPairEax)
+            (IfZero
+              Pair
+              (CallProc PrintList)
+              (CallProc PrintAtom)))))
+    (Def
+      PrintNil
+      NoFrame
+      (Write2 NilParens)
+    (Def
+      PrintAtom
+      NoFrame
+      (Seq
+        (LoadAtomCharsEcx)
+        (Seq
+          (LoadAtomLenEdx)
+          (WriteBytesFromEcxEdx)))
+    (Def
+      PrintList
+      NoFrame
+      (Seq
+        (PushEax)
+        (Seq
+          (WriteByte LParen)
+          (Seq
+            (PopEax)
+            (Seq
+              (PushEax)
+              (Seq
+                (CarEax)
+                (Seq
+                  (CallProc PrintExpr)
+                  (Seq
+                    (PopEax)
+                    (Seq
+                      (CdrEax)
+                      (Seq
+                        (CallProc PrintTail)
+                        (WriteByte RParen))))))))))
+    (Def
+      PrintTail
+      NoFrame
+      (Seq
+        (CmpEax 01)
+        (IfZero
+          Done
+          (Return)
+          (Seq
+            (PushEax)
+            (Seq
+              (WriteByte Space)
+              (Seq
+                (PopEax)
+                (Seq
+                  (PushEax)
+                  (Seq
+                    (CarEax)
+                    (Seq
+                      (CallProc PrintExpr)
+                      (Seq
+                        (PopEax)
+                        (Seq
+                          (CdrEax)
+                          (TailCallProc PrintTail)))))))))))
+    End))))))))))))))))))))))))))))))))))))))))))))))))))))
+))

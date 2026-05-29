@@ -547,6 +547,10 @@ connects the normal printer to the runtime atom-copy frontier. The generated
 ELF initializes an `abc` atom record at runtime, copies a root list and its
 tagged atom car into the recovery frontiers, overwrites the old pair and atom
 records, then prints the copied root as `(abc)`.
+[bootstrap/stage5-print-copied-nested-dynamic-atoms-qfc4.qf1](bootstrap/stage5-print-copied-nested-dynamic-atoms-qfc4.qf1)
+extends that recovered printer path to a nested graph. The scan copies cdr
+pair edges as well as runtime atom cars, overwrites all old pair and atom
+records, then prints the copied graph as `(abc (de))`.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout

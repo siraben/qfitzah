@@ -348,6 +348,11 @@ Progress so far:
   `PrintExpr` on the copied root. The generated ELF prints `(abc)`, so normal
   output now covers at least one recovered runtime atom object instead of only
   static atoms.
+- `stage5-print-copied-nested-dynamic-atoms-qfc4.qf1` extends that recovered
+  normal-output path to a nested graph. The scan copies both cdr pair edges and
+  runtime atom cars, rewrites the copied graph to the pair and atom frontiers,
+  overwrites all old pair and atom records, and prints `(abc (de))` from the
+  copied root.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout
@@ -385,7 +390,7 @@ Still required for the byte-output path:
   source-size budget; see `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs
 - broader integration with evaluated expression output and the normal printer
-  beyond the focused recovered runtime-atom fixture
+  beyond the focused recovered runtime-atom and nested-list fixtures
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
 

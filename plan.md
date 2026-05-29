@@ -370,6 +370,10 @@ copies a root list plus its tagged atom car into the pair and atom frontiers,
 overwrites the old records, then invokes `PrintExpr` on the copied root. The
 generated ELF prints `(abc)`, proving normal output no longer depends only on
 static atom records.
+`bootstrap/stage5-print-copied-nested-dynamic-atoms-qfc4.qf1` extends that
+same path to a nested recovered graph. The compiled scan loop copies cdr pair
+edges and runtime atom cars into separate frontiers, overwrites all old pair
+and atom records, then prints `(abc (de))` from the copied root.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

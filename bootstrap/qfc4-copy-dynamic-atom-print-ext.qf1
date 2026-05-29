@@ -17,6 +17,14 @@
   FinishDynamicAtomPrintCopy)
 
 (Rule
+  (ParseStmt (InitDynamicNestedAtomPrintCopy))
+  InitDynamicNestedAtomPrintCopy)
+
+(Rule
+  (ParseStmt (FinishDynamicNestedAtomPrintCopy))
+  FinishDynamicNestedAtomPrintCopy)
+
+(Rule
   (CompileStmt InitDynamicAtomPrintCopy)
   (Do
     (MovEaxLabel OldAtomAbc)
@@ -250,3 +258,131 @@
                                                                 (Do
                                                                   (Int 80)
                                                                   End)))))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt InitDynamicNestedAtomPrintCopy)
+  (Do
+    (MovEaxLabel OldAtomAbc)
+    (Do
+      (MovEbxLabel CharsAbc)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 03)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldAtomDe)
+              (Do
+                (MovEbxLabel CharsDe)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 02)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel HeapNext)
+                        (Do
+                          (MovEbxLabel HeapTail)
+                          (Do
+                            (StoreDwordAtEaxFromEbx)
+                            (Do
+                              (MovEaxLabel AtomNext)
+                              (Do
+                                (MovEbxLabel HeapAtomAbc)
+                                (Do
+                                  (StoreDwordAtEaxFromEbx)
+                                  (Do
+                                    (MovEaxLabel Scan)
+                                    (Do
+                                      (MovEbxLabel Heap)
+                                      (Do
+                                        (StoreDwordAtEaxFromEbx)
+                                        (Do
+                                          (MovEaxLabel Root)
+                                          (Do
+                                            (LoadEaxCar)
+                                            (Do
+                                              (LoadEbxCarFromEax)
+                                              (Do
+                                                (LoadEcxCdrFromEax)
+                                                (Do
+                                                  (MovEaxLabel Heap)
+                                                  (Do
+                                                    (StoreDwordAtEaxFromEbx)
+                                                    (Do
+                                                      (StoreDwordAtEaxPlus4FromEcx)
+                                                      (Do
+                                                        (MovEaxLabel Root)
+                                                        (Do
+                                                          (MovEbxLabel Heap)
+                                                          (Do
+                                                            (StoreDwordAtEaxFromEbx)
+                                                            End))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt FinishDynamicNestedAtomPrintCopy)
+  (Do
+    (MovEaxLabel OldRoot)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldTail)
+              (Do
+                (MovEbxImm32 3F)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 4D)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel OldListDe)
+                        (Do
+                          (MovEbxImm32 3F)
+                          (Do
+                            (StoreDwordAtEaxFromEbx)
+                            (Do
+                              (MovEcxImm32 4D)
+                              (Do
+                                (StoreDwordAtEaxPlus4FromEcx)
+                                (Do
+                                  (MovEaxLabel OldAtomAbc)
+                                  (Do
+                                    (MovEbxImm32 3F)
+                                    (Do
+                                      (StoreDwordAtEaxFromEbx)
+                                      (Do
+                                        (MovEcxImm32 4D)
+                                        (Do
+                                          (StoreDwordAtEaxPlus4FromEcx)
+                                          (Do
+                                            (MovEaxLabel OldAtomDe)
+                                            (Do
+                                              (MovEbxImm32 3F)
+                                              (Do
+                                                (StoreDwordAtEaxFromEbx)
+                                                (Do
+                                                  (MovEcxImm32 4D)
+                                                  (Do
+                                                    (StoreDwordAtEaxPlus4FromEcx)
+                                                    (Do
+                                                      (MovEaxLabel Root)
+                                                      (Do
+                                                        (LoadEaxCar)
+                                                        (Do
+                                                          (Invoke PrintExpr Empty)
+                                                          (Do
+                                                            (MovEbxImm32 00)
+                                                            (Do
+                                                              (MovEaxImm32 01)
+                                                              (Do
+                                                                (Int 80)
+                                                                End))))))))))))))))))))))))))))))))
