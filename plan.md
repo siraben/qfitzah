@@ -254,6 +254,10 @@ collector shape to the checked allocator path: the first pair allocation starts
 at `HeapLimit`, overflows, runs scan-forwarding recovery with runtime atom
 copying, retries the allocation after the copied graph, and verifies the copied
 cycle, atom frontier, and retry pair before exiting `0`.
+`bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4.qf1` lifts that
+checked overflow/recovery/retry path through qfc4 with focused optional
+qfc4/qfasm extensions. The staged source now expresses the allocator boundary
+and the scan-forwarding dynamic atom recovery in the same compiled path.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

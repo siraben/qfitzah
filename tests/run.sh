@@ -795,6 +795,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
   local qfc4_ext=${3:-qfc4-scan-forwarding-ext.qf1}
   local qfasm_ext=${4:-}
   local expected_runtime_hex=${5:-}
+  local assemble_timeout=${6:-90}
   local tmp
   local actual_hex
   local expected_hex
@@ -820,7 +821,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
         "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1" \
         "$repo_root/bootstrap/$qfasm_ext" \
         "$tmp/$name.m3" \
-      | timeout 90s "$qfitzah" > "$tmp/$name"
+      | timeout "${assemble_timeout}s" "$qfitzah" > "$tmp/$name"
   else
     cat "$repo_root/bootstrap/qfasm2.qf1" \
         "$repo_root/bootstrap/qfasm3.qf1" \
@@ -829,7 +830,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
         "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
         "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1" \
         "$tmp/$name.m3" \
-      | timeout 90s "$qfitzah" > "$tmp/$name"
+      | timeout "${assemble_timeout}s" "$qfitzah" > "$tmp/$name"
   fi
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
@@ -881,6 +882,12 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-scan-forwarding-dynamic-atom-gc-qfc4" 0 \
   "qfc4-scan-forwarding-dynamic-atom-ext.qf1" \
   "qfasm-stage5-branch-ext.qf1"
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4" 0 \
+  "qfc4-checked-scan-forwarding-dynamic-atom-ext.qf1" \
+  "qfasm-stage5-checked-ext.qf1" \
+  "" \
+  150
 run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-bytes-output-gc-qfc4" 0 \
   "qfc4-copy-bytes-output-ext.qf1" \

@@ -432,6 +432,10 @@ connects checked allocation to that collector shape: the first allocation
 starts at `HeapLimit`, overflows, runs scan-forwarding recovery with runtime
 atom copying, retries after the copied graph, and verifies the retry pair
 without overwriting copied live data.
+[bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4.qf1](bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4.qf1)
+lifts that checked overflow/recovery/retry path through qfc4 with focused
+qfc4/qfasm extensions, so the staged compiler surface now covers the allocator
+boundary and the collector shape together.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

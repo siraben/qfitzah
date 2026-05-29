@@ -1,0 +1,28 @@
+; Optional qfasm3/qfasm2 support for checked Stage 5 scan fixtures.
+;
+; This combines the raw short-branch pass-through used by focused scan snippets
+; with the HeapNext-vs-HeapLimit comparison used by checked allocation.
+
+(Rule
+  (Size (CmpEbxLabel label))
+  N6)
+
+(Rule
+  (Pass2 (Ins (CmpEbxLabel label) rest) pc sym)
+  (Bytes 81 FB (Addr (Lookup label sym)) (Pass2 rest (Add pc N6) sym)))
+
+(Rule
+  (Expand (Do (CmpEbxLabel label) rest) scope)
+  (Ins (CmpEbxLabel label) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jnz name) rest) scope)
+  (Ins (Jnz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jz name) rest) scope)
+  (Ins (Jz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jump name) rest) scope)
+  (Ins (Jump name) (Expand rest scope)))

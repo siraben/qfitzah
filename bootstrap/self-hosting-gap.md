@@ -226,6 +226,12 @@ Progress so far:
   `HeapLimit`, the first allocation must overflow, recovery copies the live
   cyclic child graph and runtime atom, and the allocator retries into the space
   after the copied graph before old records are overwritten and checked.
+- `stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4.qf1` lifts that
+  overflow-triggered collector path through qfc4 using
+  `qfc4-checked-scan-forwarding-dynamic-atom-ext.qf1` and
+  `qfasm-stage5-checked-ext.qf1`. This keeps checked allocation, recovery,
+  retry allocation, forwarding, and runtime atom copying in one staged compiled
+  path.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

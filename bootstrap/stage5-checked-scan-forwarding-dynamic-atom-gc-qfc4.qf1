@@ -1,0 +1,66 @@
+; Stage 5 checked allocation plus scan-forwarding dynamic atom GC lifted through qfc4.
+;
+; The staged source starts HeapNext at HeapLimit so the first checked pair
+; allocation must overflow. Recovery copies the live cyclic graph, copies the
+; runtime-initialized cdr atom into the atom frontier, retries allocation after
+; the copied graph, overwrites old records, verifies the copied data plus retry
+; pair, and exits `0`.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell AtomNext HeapAfterRetry
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapShared 00
+    (Data HeapShared1 00
+    (Data HeapShared2 00
+    (Data HeapShared3 00
+    (Data HeapShared4 00
+    (Data HeapShared5 00
+    (Data HeapShared6 00
+    (Data HeapShared7 00
+    (Data HeapRetry 00
+    (Data HeapRetry1 00
+    (Data HeapRetry2 00
+    (Data HeapRetry3 00
+    (Data HeapRetry4 00
+    (Data HeapRetry5 00
+    (Data HeapRetry6 00
+    (Data HeapRetry7 00
+    (RawPair HeapAfterRetry 00 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (String2 Chars41 34 31
+    (RawPair OldAtomCdr 00 00
+    (Pair OldRoot (Ptr OldShared) Nil
+    (Pair OldShared (Ptr OldShared) (Const OldAtomCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitialCheckedOverflow)
+        (Seq
+          (RecoverCheckedScanForwardingDynamicAtom)
+          (Seq
+            (Local ScanLoop)
+            (Seq
+              (CheckedScanForwardDynamicAtomCar)
+              (Seq
+                (CheckedScanForwardDynamicAtomCdr)
+                (Seq
+                  (AdvanceScanOrLoop ScanLoop)
+                  (Seq
+                    (RetryCheckedAllocation)
+                    (FinishCheckedScanForwardingDynamicAtom))))))))
+    End))))))))))))))))))))))))))))))))))))
+))

@@ -1,0 +1,355 @@
+; Optional qfc4 surface for checked scan-forwarding plus dynamic atoms.
+
+(Rule
+  (ParseStmt (InitialCheckedOverflow))
+  InitialCheckedOverflow)
+
+(Rule
+  (ParseStmt (RecoverCheckedScanForwardingDynamicAtom))
+  RecoverCheckedScanForwardingDynamicAtom)
+
+(Rule
+  (ParseStmt (CheckedScanForwardDynamicAtomCar))
+  CheckedScanForwardDynamicAtomCar)
+
+(Rule
+  (ParseStmt (CheckedScanForwardDynamicAtomCdr))
+  CheckedScanForwardDynamicAtomCdr)
+
+(Rule
+  (ParseStmt (RetryCheckedAllocation))
+  RetryCheckedAllocation)
+
+(Rule
+  (ParseStmt (FinishCheckedScanForwardingDynamicAtom))
+  FinishCheckedScanForwardingDynamicAtom)
+
+(Rule
+  (CompileStmt InitialCheckedOverflow)
+  (Do
+    (MovEaxLabel OldAtomCdr)
+    (Do
+      (MovEbxLabel Chars41)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 02)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel HeapNext)
+              (Do
+                (LoadEaxCar)
+                (Do
+                  (PushEax)
+                  (Do
+                    (MovEbxEax)
+                    (Do
+                      (AddEbxImm8 08)
+                      (Do
+                        (CmpEbxLabel HeapLimit)
+                        (Do
+                          (IfBelowEq UnexpectedInitialCommit (Do (MovEbxImm32 08) (Do (MovEaxImm32 01) (Do (Int 80) End))) (Do (Jump Recover) End))
+                          End)))))))))))))
+
+(Rule
+  (CompileStmt RecoverCheckedScanForwardingDynamicAtom)
+  (Do
+    (Label Recover)
+    (Do
+      (PopEax)
+      (Do
+        (MovEaxLabel AtomNext)
+        (Do
+          (MovEbxLabel HeapAfterRetry)
+          (Do
+            (StoreDwordAtEaxFromEbx)
+            (Do
+              (MovEaxLabel HeapNext)
+              (Do
+                (MovEbxLabel HeapShared)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEaxLabel Scan)
+                    (Do
+                      (MovEbxLabel Heap)
+                      (Do
+                        (StoreDwordAtEaxFromEbx)
+                        (Do
+                          (MovEaxLabel Root)
+                          (Do
+                            (LoadEaxCar)
+                            (Do
+                              (LoadEbxCarFromEax)
+                              (Do
+                                (LoadEcxCdrFromEax)
+                                (Do
+                                  (MovEaxLabel Heap)
+                                  (Do
+                                    (StoreDwordAtEaxFromEbx)
+                                    (Do
+                                      (StoreDwordAtEaxPlus4FromEcx)
+                                      (Do
+                                        (MovEaxLabel Root)
+                                        (Do
+                                          (MovEbxLabel Heap)
+                                          (Do
+                                            (StoreDwordAtEaxFromEbx)
+                                            End))))))))))))))))))))))
+
+(Rule
+  (CompileStmt CheckedScanForwardDynamicAtomCar)
+  (Do
+    (MovEaxLabel Scan)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (PushEax)
+          (Do
+            (TestAlPair)
+            (Do
+              (Jz HandleCarPair)
+              (Do
+                (PopEax)
+                (Do
+                  (Jump FinishCar)
+                  (Do
+                    (Label HandleCarPair)
+                    (Do
+                      (PopEax)
+                      (Do
+                        (PushEax)
+                        (Do
+                          (LoadEaxCdr)
+                          (Do
+                            (CmpEaxImm8 0F)
+                            (Do
+                              (Jz UseForwardedCar)
+                              (Do
+                                (PopEax)
+                                (Do
+                                  (PushEax)
+                                  (Do
+                                    (LoadEbxCarFromEax)
+                                    (Do
+                                      (LoadEcxCdrFromEax)
+                                      (Do
+                                        (MovEaxLabel HeapNext)
+                                        (Do
+                                          (LoadEaxCar)
+                                          (Do
+                                            (StoreDwordAtEaxFromEbx)
+                                            (Do
+                                              (StoreDwordAtEaxPlus4FromEcx)
+                                              (Do
+                                                (MovEbxEax)
+                                                (Do
+                                                  (PopEax)
+                                                  (Do
+                                                    (PushEbx)
+                                                    (Do
+                                                      (StoreDwordAtEaxFromEbx)
+                                                      (Do
+                                                        (MovEcxImm32 0F)
+                                                        (Do
+                                                          (StoreDwordAtEaxPlus4FromEcx)
+                                                          (Do
+                                                            (PopEbx)
+                                                            (Do
+                                                              (MovEaxLabel Scan)
+                                                              (Do
+                                                                (LoadEaxCar)
+                                                                (Do
+                                                                  (StoreDwordAtEaxFromEbx)
+                                                                  (Do
+                                                                    (AddEbxImm8 08)
+                                                                    (Do
+                                                                      (MovEaxLabel HeapNext)
+                                                                      (Do
+                                                                        (StoreDwordAtEaxFromEbx)
+                                                                        (Do
+                                                                          (Jump FinishCar)
+                                                                          (Do
+                                                                            (Label UseForwardedCar)
+                                                                            (Do
+                                                                              (PopEax)
+                                                                              (Do
+                                                                                (LoadEaxCar)
+                                                                                (Do
+                                                                                  (MovEbxEax)
+                                                                                  (Do
+                                                                                    (MovEaxLabel Scan)
+                                                                                    (Do
+                                                                                      (LoadEaxCar)
+                                                                                      (Do
+                                                                                        (StoreDwordAtEaxFromEbx)
+                                                                                        (Do
+                                                                                          (Label FinishCar)
+                                                                                          End)))))))))))))))))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt CheckedScanForwardDynamicAtomCdr)
+  (Do
+    (MovEaxLabel Scan)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCdr)
+        (Do
+          (CmpEaxImm8 01)
+          (Do
+            (Jz FinishCdrAtom)
+            (Do
+              (AndEaxNotTag)
+              (Do
+                (LoadEbxCarFromEax)
+                (Do
+                  (LoadEcxCdrFromEax)
+                  (Do
+                    (MovEaxLabel AtomNext)
+                    (Do
+                      (LoadEaxCar)
+                      (Do
+                        (StoreDwordAtEaxFromEbx)
+                        (Do
+                          (StoreDwordAtEaxPlus4FromEcx)
+                          (Do
+                            (MovEbxEax)
+                            (Do
+                              (AddEbxImm8 01)
+                              (Do
+                                (MovEcxEbx)
+                                (Do
+                                  (MovEaxLabel Scan)
+                                  (Do
+                                    (LoadEaxCar)
+                                    (Do
+                                      (StoreDwordAtEaxPlus4FromEcx)
+                                      (Do
+                                        (MovEaxLabel AtomNext)
+                                        (Do
+                                          (LoadEaxCar)
+                                          (Do
+                                            (MovEbxEax)
+                                            (Do
+                                              (AddEbxImm8 08)
+                                              (Do
+                                                (MovEaxLabel AtomNext)
+                                                (Do
+                                                  (StoreDwordAtEaxFromEbx)
+                                                  (Do
+                                                    (Label FinishCdrAtom)
+                                                    End))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt RetryCheckedAllocation)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEbxEax)
+          (Do
+            (AddEbxImm8 08)
+            (Do
+              (CmpEbxLabel HeapLimit)
+              (Do
+                (IfBelowEq CommitRetry (Do (MovEaxLabel HeapNext) (Do (StoreDwordAtEaxFromEbx) (Do (PopEax) (Do (MovEbxImm32 2A) (Do (StoreDwordAtEaxFromEbx) (Do (MovEcxImm32 01) (Do (StoreDwordAtEaxPlus4FromEcx) End))))))) (Do (MovEbxImm32 09) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                End))))))))
+
+(Rule
+  (CompileStmt FinishCheckedScanForwardingDynamicAtom)
+  (Do
+    (MovEaxLabel OldRoot)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldShared)
+              (Do
+                (MovEbxImm32 3F)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 4D)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel OldAtomCdr)
+                        (Do
+                          (MovEbxImm32 3F)
+                          (Do
+                            (StoreDwordAtEaxFromEbx)
+                            (Do
+                              (MovEcxImm32 4D)
+                              (Do
+                                (StoreDwordAtEaxPlus4FromEcx)
+                                (Do
+                                  (MovEaxLabel HeapNext)
+                                  (Do
+                                    (LoadEaxCar)
+                                    (Do
+                                      (MovEbxLabel HeapAfterRetry)
+                                      (Do
+                                        (CmpEaxEbx)
+                                        (Do
+                                          (IfZero CheckAtomFrontier End (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                          (Do
+                                            (MovEaxLabel AtomNext)
+                                            (Do
+                                              (LoadEaxCar)
+                                              (Do
+                                                (MovEbxLabel HeapAfterCopied)
+                                                (Do
+                                                  (CmpEaxEbx)
+                                                  (Do
+                                                    (IfZero CheckChildCycle End (Do (MovEbxImm32 04) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                    (Do
+                                                      (MovEaxLabel Root)
+                                                      (Do
+                                                        (LoadEaxCar)
+                                                        (Do
+                                                          (LoadEaxCar)
+                                                          (Do
+                                                            (PushEax)
+                                                            (Do
+                                                              (LoadEaxCar)
+                                                              (Do
+                                                                (PopEbx)
+                                                                (Do
+                                                                  (CmpEaxEbx)
+                                                                  (Do
+                                                                    (IfZero CheckCopiedAtomCdr End (Do (MovEbxImm32 05) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                                    (Do
+                                                                      (MovEaxLabel Root)
+                                                                      (Do
+                                                                        (LoadEaxCar)
+                                                                        (Do
+                                                                          (LoadEaxCar)
+                                                                          (Do
+                                                                            (LoadEaxCdr)
+                                                                            (Do
+                                                                              (AndEaxNotTag)
+                                                                              (Do
+                                                                                (CmpEaxLabel HeapAfterRetry)
+                                                                                (Do
+                                                                                  (IfZero CheckCopiedAtomLength End (Do (MovEbxImm32 06) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                                                  (Do
+                                                                                    (MovEaxLabel HeapAfterRetry)
+                                                                                    (Do
+                                                                                      (LoadEaxCdr)
+                                                                                      (Do
+                                                                                        (CmpEaxImm8 02)
+                                                                                        (Do
+                                                                                          (IfZero CheckRetryPair (Do (MovEaxLabel HeapRetry) (Do (LoadEaxCar) (Do (CmpEaxImm8 2A) (Do (IfZero CheckRetryNil (Do (MovEaxLabel HeapRetry) (Do (LoadEaxCdr) (Do (CmpEaxImm8 01) (Do (IfZero ExitOk (Do (MovEbxImm32 00) (Do (MovEaxImm32 01) (Do (Int 80) End))) (Do (MovEbxImm32 0B) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))) (Do (MovEbxImm32 0A) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))) (Do (MovEbxImm32 07) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                                                          End)))))))))))))))))))))))))))))))))))))))))))))
