@@ -466,6 +466,10 @@ extends that qfc4 path beyond the root object: recovery copies a root pair,
 the scan then discovers a child pair, and only when the child is scanned is its
 runtime-initialized cdr atom copied into the atom frontier and verified after
 the old records are overwritten.
+[bootstrap/stage5-copy-dynamic-atom-deep-gc-qfc4.qf1](bootstrap/stage5-copy-dynamic-atom-deep-gc-qfc4.qf1)
+extends the same proof across multiple scan iterations: root, child, and
+grandchild pairs are copied in order, then the grandchild's runtime-initialized
+cdr atom is copied when traversal reaches that grandchild.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its

@@ -1,0 +1,64 @@
+; Stage 5 deep dynamic atom-copy fixture lifted through qfc4.
+;
+; Recovery copies a root pair, then the scan loop discovers a child pair and a
+; grandchild pair on successive scan iterations. The grandchild's runtime
+; initialized tagged cdr atom is copied only after that grandchild is reached
+; by traversal. The generated ELF overwrites all old records, verifies the
+; copied pair chain and copied atom cdr, and exits `0`.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell AtomNext HeapAtomCdr
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapChild 00
+    (Data HeapChild1 00
+    (Data HeapChild2 00
+    (Data HeapChild3 00
+    (Data HeapChild4 00
+    (Data HeapChild5 00
+    (Data HeapChild6 00
+    (Data HeapChild7 00
+    (Data HeapGrandchild 00
+    (Data HeapGrandchild1 00
+    (Data HeapGrandchild2 00
+    (Data HeapGrandchild3 00
+    (Data HeapGrandchild4 00
+    (Data HeapGrandchild5 00
+    (Data HeapGrandchild6 00
+    (Data HeapGrandchild7 00
+    (Data HeapAfterPairs 00
+    (RawPair HeapAtomCdr 00 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (String2 Chars41 34 31
+    (RawPair OldAtomCdr 00 00
+    (Pair OldRoot (Ptr OldChild) Nil
+    (Pair OldChild (Ptr OldGrandchild) Nil
+    (Pair OldGrandchild Nil (Const OldAtomCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitDynamicAtomDeepCopy)
+        (Seq
+          (DynamicAtomDeepLoop)
+          (Seq
+            (ScanCarField)
+            (Seq
+              (ScanDynamicAtomCdr)
+              (Seq
+                (AdvanceDynamicAtomDeepLoop)
+                (FinishDynamicAtomDeepCopy))))))
+    End))))))))))))))))))))))))))))))))))))))
+))

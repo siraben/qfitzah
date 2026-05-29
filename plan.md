@@ -287,6 +287,11 @@ runtime atom frontier through one level of scan-discovered graph traversal: the
 root's car child is copied by the scan loop, and the child's runtime-initialized
 cdr atom is copied only when that child is scanned. The generated ELF verifies
 the copied child and copied atom field after overwriting all old records.
+`bootstrap/stage5-copy-dynamic-atom-deep-gc-qfc4.qf1` extends that through
+multiple scan iterations: root, child, and grandchild pairs are copied in
+sequence, and the grandchild's runtime-initialized cdr atom is copied only
+after traversal reaches the grandchild. The generated ELF verifies the copied
+pair chain and copied atom field after old records are overwritten.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

@@ -263,6 +263,11 @@ Progress so far:
   cdr atom is copied only when that child is scanned. The generated ELF
   overwrites all old records and verifies the copied child cdr points to the
   copied atom record.
+- `stage5-copy-dynamic-atom-deep-gc-qfc4.qf1` extends that proof across
+  multiple scan iterations. Root, child, and grandchild pairs are copied in
+  order, and the grandchild's runtime-initialized cdr atom is copied only after
+  traversal reaches the grandchild. The generated ELF verifies the copied pair
+  chain and atom field after old records are overwritten.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -274,7 +279,7 @@ Still required for the byte-output path:
   Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - generalizing runtime-initialized atom copying beyond focused field-copy and
-  one-level scan-discovered child fixtures
+  linear scan-discovered child fixtures
 - larger object graphs beyond the current finite layout budget
 - generalizing the recovered nested `EmitBytes` proof beyond the focused
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current
