@@ -951,6 +951,7 @@ run_qfasm2_stage5_list_binary "stage5-copy-two-field-object-gc" 23
 run_qfasm2_stage5_scan_binary() {
   local name=$1
   local expected_status=$2
+  local extra_ext=${3:-}
   local tmp
   local actual_hex
   local expected_hex
@@ -958,13 +959,24 @@ run_qfasm2_stage5_scan_binary() {
   local status
 
   tmp=$(mktemp -d)
-  cat "$repo_root/bootstrap/qfasm2.qf1" \
-      "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
-      "$repo_root/bootstrap/qfasm-heap-check-ext.qf1" \
-      "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
-      "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
-      "$repo_root/bootstrap/$name.qf1" \
-    | timeout 5s "$qfitzah" > "$tmp/$name"
+  if [[ -n "$extra_ext" ]]; then
+    cat "$repo_root/bootstrap/qfasm2.qf1" \
+        "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-heap-check-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
+        "$repo_root/bootstrap/$extra_ext" \
+        "$repo_root/bootstrap/$name.qf1" \
+      | timeout 20s "$qfitzah" > "$tmp/$name"
+  else
+    cat "$repo_root/bootstrap/qfasm2.qf1" \
+        "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-heap-check-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
+        "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
+        "$repo_root/bootstrap/$name.qf1" \
+      | timeout 20s "$qfitzah" > "$tmp/$name"
+  fi
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
   expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
@@ -1000,3 +1012,4 @@ run_qfasm2_stage5_scan_binary() {
 run_qfasm2_stage5_scan_binary "stage5-copy-tree-gc" 35
 run_qfasm2_stage5_scan_binary "stage5-forwarding-gc" 19
 run_qfasm2_stage5_scan_binary "stage5-forwarding-cycle-gc" 23
+run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-gc" 19 "qfasm-stage5-wide-branch-ext.qf1"

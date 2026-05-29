@@ -222,6 +222,12 @@ copied root itself, the old object is overwritten, and the ELF exits through
 the copied cycle (`23`). `bootstrap/stage5-forwarding-cycle-gc-qfc4.qf1` lifts
 that cycle proof through qfc4 with separate cycle-forwarding extensions to stay
 within the seed runtime's source budget.
+`bootstrap/stage5-scan-forwarding-gc.qf1` then combines scan traversal with
+forwarding at the qfasm2 layer. The scan copies a shared cyclic child once,
+rewrites both root fields and the child's self-edge to the copied child, checks
+that allocation advanced by only two cells, and exits through the copied child
+(`19`). This is the first focused proof that the scan loop and forwarding
+marker can cooperate on a cyclic shared graph.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

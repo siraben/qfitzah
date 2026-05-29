@@ -193,11 +193,17 @@ Progress so far:
   (`23`). `stage5-forwarding-cycle-gc-qfc4.qf1` lifts the same proof through
   qfc4 using separate cycle-forwarding extension files so it stays inside the
   seed runtime's source budget.
+- `stage5-scan-forwarding-gc.qf1` combines the scan-copy traversal and
+  forwarding mechanisms at the qfasm2 layer. A copied root has two fields that
+  point at one old child, and that child points to itself. The scan loop copies
+  the child once, records a forwarding marker, rewrites both root fields and
+  the child's self-edge to the copied child, checks `HeapNext`, and exits
+  through the copied child car (`19`).
 
 Still required for the byte-output path:
 
-- extending forwarding from focused pair proofs to general object graphs with
-  arbitrary sharing and cycles
+- lifting scan-forwarding through qfc4 and extending it from the focused shared
+  cyclic pair graph to arbitrary Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget

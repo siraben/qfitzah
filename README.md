@@ -401,6 +401,11 @@ copied `car` to the copied object itself, overwrites the old object, and exits
 through the copied self-cycle (`23`). The qfc4 lift uses separate optional
 cycle-forwarding extension files so the seed runtime does not load unrelated
 sharing rules for that staged test.
+[bootstrap/stage5-scan-forwarding-gc.qf1](bootstrap/stage5-scan-forwarding-gc.qf1)
+combines the scan traversal and forwarding paths at the qfasm2 layer. A root
+has two fields pointing at one child, and that child points to itself; the scan
+copies the child once, rewrites both root fields and the self-edge to the new
+cell, checks `HeapNext`, then exits through the copied child car (`19`).
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

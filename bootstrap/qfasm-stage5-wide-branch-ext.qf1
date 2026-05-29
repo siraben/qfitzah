@@ -1,0 +1,174 @@
+; Optional qfasm2/qfasm3 support for larger forward branch/call offsets.
+;
+; Keep this separate from qfasm-stage5-scan-ext because the extra byte facts
+; push some staged qfc4 combinations past the seed runtime's stable source
+; budget. The direct scan-forwarding fixture loads this only for its helper
+; procedure calls and the jump over those helpers.
+
+(Rule
+  (Size (JumpNear label))
+  N5)
+
+(Rule
+  (Pass2 (Ins (JumpNear label) rest) pc sym)
+  (Bytes E9 (Rel32 (Sub (Lookup label sym) (Add pc N5))) (Pass2 rest (Add pc N5) sym)))
+
+(Rule
+  (Expand (Do (JumpNear name) rest) scope)
+  (Ins (JumpNear name) (Expand rest scope)))
+
+(Byte N101) 65
+(Byte N102) 66
+(Byte N103) 67
+(Byte N104) 68
+(Byte N105) 69
+(Byte N106) 6A
+(Byte N107) 6B
+(Byte N108) 6C
+(Byte N109) 6D
+(Byte N110) 6E
+(Byte N111) 6F
+(Byte N112) 70
+(Byte N113) 71
+(Byte N114) 72
+(Byte N115) 73
+(Byte N116) 74
+(Byte N117) 75
+(Byte N118) 76
+(Byte N119) 77
+(Byte N120) 78
+(Byte N121) 79
+(Byte N122) 7A
+(Byte N123) 7B
+(Byte N124) 7C
+(Byte N125) 7D
+(Byte N126) 7E
+(Byte N127) 7F
+(Byte N128) 80
+(Byte N129) 81
+(Byte N130) 82
+(Byte N131) 83
+(Byte N132) 84
+(Byte N133) 85
+(Byte N134) 86
+(Byte N135) 87
+(Byte N136) 88
+(Byte N137) 89
+(Byte N138) 8A
+(Byte N139) 8B
+(Byte N140) 8C
+(Byte N141) 8D
+(Byte N142) 8E
+(Byte N143) 8F
+(Byte N144) 90
+(Byte N145) 91
+(Byte N146) 92
+(Byte N147) 93
+(Byte N148) 94
+(Byte N149) 95
+(Byte N150) 96
+(Byte N151) 97
+(Byte N152) 98
+(Byte N153) 99
+(Byte N154) 9A
+(Byte N155) 9B
+(Byte N156) 9C
+(Byte N157) 9D
+(Byte N158) 9E
+(Byte N159) 9F
+(Byte N160) A0
+(Byte N161) A1
+(Byte N162) A2
+(Byte N163) A3
+(Byte N164) A4
+(Byte N165) A5
+(Byte N166) A6
+(Byte N167) A7
+(Byte N168) A8
+(Byte N169) A9
+(Byte N170) AA
+(Byte N171) AB
+(Byte N172) AC
+(Byte N173) AD
+(Byte N174) AE
+(Byte N175) AF
+(Byte N176) B0
+(Byte N177) B1
+(Byte N178) B2
+(Byte N179) B3
+(Byte N180) B4
+(Byte N181) B5
+(Byte N182) B6
+(Byte N183) B7
+(Byte N184) B8
+(Byte N185) B9
+(Byte N186) BA
+(Byte N187) BB
+(Byte N188) BC
+(Byte N189) BD
+(Byte N190) BE
+(Byte N191) BF
+(Byte N192) C0
+(Byte N193) C1
+(Byte N194) C2
+(Byte N195) C3
+(Byte N196) C4
+(Byte N197) C5
+(Byte N198) C6
+(Byte N199) C7
+(Byte N200) C8
+(Byte N201) C9
+(Byte N202) CA
+(Byte N203) CB
+(Byte N204) CC
+(Byte N205) CD
+(Byte N206) CE
+(Byte N207) CF
+(Byte N208) D0
+(Byte N209) D1
+(Byte N210) D2
+(Byte N211) D3
+(Byte N212) D4
+(Byte N213) D5
+(Byte N214) D6
+(Byte N215) D7
+(Byte N216) D8
+(Byte N217) D9
+(Byte N218) DA
+(Byte N219) DB
+(Byte N220) DC
+(Byte N221) DD
+(Byte N222) DE
+(Byte N223) DF
+(Byte N224) E0
+(Byte N225) E1
+(Byte N226) E2
+(Byte N227) E3
+(Byte N228) E4
+(Byte N229) E5
+(Byte N230) E6
+(Byte N231) E7
+(Byte N232) E8
+(Byte N233) E9
+(Byte N234) EA
+(Byte N235) EB
+(Byte N236) EC
+(Byte N237) ED
+(Byte N238) EE
+(Byte N239) EF
+(Byte N240) F0
+(Byte N241) F1
+(Byte N242) F2
+(Byte N243) F3
+(Byte N244) F4
+(Byte N245) F5
+(Byte N246) F6
+(Byte N247) F7
+(Byte N248) F8
+(Byte N249) F9
+(Byte N250) FA
+(Byte N251) FB
+(Byte N252) FC
+(Byte N253) FD
+(Byte N254) FE
+(Byte N255) FF
