@@ -508,6 +508,12 @@ starts the normal-printer path. It compiles a static pair/atom graph,
 distinguishes a pair from an atom, prints list delimiters, follows the pair
 car, prints the atom name through its character pointer, and writes stdout
 `(a)`.
+[bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
+extends that slice to a nil-terminated two-element list. It traverses cdr,
+prints a separator before the next element, stops on nil, and writes stdout
+`(a b)`. The fixture uses `qfasm-n224-ext.qf1`, a narrow range extension that
+keeps qfasm2's common path at `N220` while allowing this 308-byte ELF to carry
+a correct file-size header and one larger backward call.
 [bootstrap/stage5-optimization-qfc4.qf1](bootstrap/stage5-optimization-qfc4.qf1)
 starts the optimization path with optional qfc4 rules in
 `qfc4-opt-ext.qf1`. The fixture folds `(Add1 (Literal 29))` to a literal

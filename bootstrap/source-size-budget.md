@@ -389,6 +389,12 @@ These checked fixtures fit:
     `PrintExpr`, `PrintAtom`, and `PrintList`
   - verifies the generated ELF prints stdout hex `28 61 29` (`(a)`) and exits
     `0`
+- `stage5-print-list-tail-qfc4.qf1`
+  - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
+    boundary narrowly
+  - extends the printer shape with cdr traversal, separator output, nil
+    termination, and a recursive tail printer
+  - verifies stdout hex `28 61 20 62 29` (`(a b)`) and exit status `0`
 - `stage5-scan-forwarding-gc-qfc4.qf1`
   - generated with `tools/generate_stage5_scan_forwarding_qfc4.py` and
     `qfc4-scan-forwarding-ext.qf1`

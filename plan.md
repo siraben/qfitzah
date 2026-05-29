@@ -331,6 +331,12 @@ stdout byte `41`, and exit `0`.
 qfc4 source compiles a static pair/atom graph, checks pair-vs-atom shape,
 prints list delimiters, follows the pair car, prints the atom's first
 character through its atom character pointer, and writes stdout `(a)`.
+`bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
+nil-terminated two-element list: it traverses cdr, inserts the space separator,
+recurs through the tail printer, stops on nil, and writes stdout `(a b)`.
+The fixture loads `qfasm-n224-ext.qf1`, which keeps qfasm2's common range
+small while adding the exact N221..N224 file-size/address and -101..-160
+backward-call byte facts needed by this larger generated ELF.
 `bootstrap/stage5-optimization-qfc4.qf1` starts Task 5.3 with a focused
 optional optimization layer. Loaded after qfc4, `qfc4-opt-ext.qf1` overrides
 the generic compile fallbacks to fold small `Add1` constants, reduce matches

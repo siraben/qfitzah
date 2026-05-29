@@ -1,0 +1,92 @@
+; Minimal qfasm2 range proof extension through N224.
+;
+; qfasm2's common path stops at N220.  This keeps the extension narrow while
+; allowing one larger qfc4 fixture to assemble a valid ELF instead of leaving
+; the file-size term unresolved in the program header.
+
+(Inc N220) N221
+(Inc N221) N222
+(Inc N222) N223
+(Inc N223) N224
+
+(Dec N221) N220
+(Dec N222) N221
+(Dec N223) N222
+(Dec N224) N223
+
+(Addr N221) (Bytes 31 81 04 08)
+(Addr N222) (Bytes 32 81 04 08)
+(Addr N223) (Bytes 33 81 04 08)
+(Addr N224) (Bytes 34 81 04 08)
+
+(ConstAddr N221) (Bytes 32 81 04 08)
+(ConstAddr N222) (Bytes 33 81 04 08)
+(ConstAddr N223) (Bytes 34 81 04 08)
+(ConstAddr N224) (Bytes 35 81 04 08)
+
+(FileSize N221) (Bytes 31 01 00 00)
+(FileSize N222) (Bytes 32 01 00 00)
+(FileSize N223) (Bytes 33 01 00 00)
+(FileSize N224) (Bytes 34 01 00 00)
+
+; Backward rel32 call bytes needed by the larger printer fixture.
+(Byte (Neg N101)) 9B
+(Byte (Neg N102)) 9A
+(Byte (Neg N103)) 99
+(Byte (Neg N104)) 98
+(Byte (Neg N105)) 97
+(Byte (Neg N106)) 96
+(Byte (Neg N107)) 95
+(Byte (Neg N108)) 94
+(Byte (Neg N109)) 93
+(Byte (Neg N110)) 92
+(Byte (Neg N111)) 91
+(Byte (Neg N112)) 90
+(Byte (Neg N113)) 8F
+(Byte (Neg N114)) 8E
+(Byte (Neg N115)) 8D
+(Byte (Neg N116)) 8C
+(Byte (Neg N117)) 8B
+(Byte (Neg N118)) 8A
+(Byte (Neg N119)) 89
+(Byte (Neg N120)) 88
+(Byte (Neg N121)) 87
+(Byte (Neg N122)) 86
+(Byte (Neg N123)) 85
+(Byte (Neg N124)) 84
+(Byte (Neg N125)) 83
+(Byte (Neg N126)) 82
+(Byte (Neg N127)) 81
+(Byte (Neg N128)) 80
+(Byte (Neg N129)) 7F
+(Byte (Neg N130)) 7E
+(Byte (Neg N131)) 7D
+(Byte (Neg N132)) 7C
+(Byte (Neg N133)) 7B
+(Byte (Neg N134)) 7A
+(Byte (Neg N135)) 79
+(Byte (Neg N136)) 78
+(Byte (Neg N137)) 77
+(Byte (Neg N138)) 76
+(Byte (Neg N139)) 75
+(Byte (Neg N140)) 74
+(Byte (Neg N141)) 73
+(Byte (Neg N142)) 72
+(Byte (Neg N143)) 71
+(Byte (Neg N144)) 70
+(Byte (Neg N145)) 6F
+(Byte (Neg N146)) 6E
+(Byte (Neg N147)) 6D
+(Byte (Neg N148)) 6C
+(Byte (Neg N149)) 6B
+(Byte (Neg N150)) 6A
+(Byte (Neg N151)) 69
+(Byte (Neg N152)) 68
+(Byte (Neg N153)) 67
+(Byte (Neg N154)) 66
+(Byte (Neg N155)) 65
+(Byte (Neg N156)) 64
+(Byte (Neg N157)) 63
+(Byte (Neg N158)) 62
+(Byte (Neg N159)) 61
+(Byte (Neg N160)) 60

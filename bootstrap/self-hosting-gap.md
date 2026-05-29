@@ -308,6 +308,12 @@ Progress so far:
   static pair/atom graph, branches on pair-vs-atom shape, prints list
   delimiters, follows the pair car, and prints the atom name byte through the
   atom's character pointer, producing stdout `(a)`.
+- `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
+  nil-terminated two-element list. It traverses cdr, emits the inter-element
+  space, recurs through the tail printer, stops on nil, and produces stdout
+  `(a b)`. It intentionally uses `qfasm-n224-ext.qf1` so this larger generated
+  ELF proves the next finite qfasm2 range step without growing the common
+  assembler load.
 - `stage5-optimization-qfc4.qf1` starts Task 5.3 with optional qfc4 optimizer
   rules in `qfc4-opt-ext.qf1`. The extension is loaded after qfc4 so its
   constant-folding, known-match, and straight-line dead-code rules override

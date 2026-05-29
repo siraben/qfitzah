@@ -347,6 +347,7 @@ run_qfc4_binary "stage4-emit-bytes-object" 0 "41"
 run_qfc4_binary "stage4-emit-bytes-nested" 0 "41"
 run_qfc4_binary "stage4-emit-bytes-general" 0 "41"
 run_qfc4_binary "stage5-print-list-qfc4" 0 "28 61 29"
+run_qfc4_binary "stage5-print-list-tail-qfc4" 0 "28 61 20 62 29" "qfasm-n224-ext.qf1"
 run_qfc4_binary "stage4-is-bytes-content" 42
 run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"
