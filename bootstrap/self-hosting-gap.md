@@ -341,6 +341,13 @@ Progress so far:
   uses `qfasm-print-n268-ext.qf1`, and prints `()(abc (de))`, proving nil,
   nested list traversal, separators, and multi-byte atom output now coexist in
   one compiled normal-printer slice.
+- `stage5-print-copied-dynamic-atom-qfc4.qf1` connects the normal-printer
+  slice to the runtime recovery path. It initializes an `abc` atom record at
+  runtime, copies a root list and its tagged atom car into the recovery
+  frontiers, overwrites the old pair and atom records, and then invokes
+  `PrintExpr` on the copied root. The generated ELF prints `(abc)`, so normal
+  output now covers at least one recovered runtime atom object instead of only
+  static atoms.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout
@@ -377,7 +384,8 @@ Still required for the byte-output path:
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current
   source-size budget; see `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs
-- integration with evaluated expression output and the normal printer
+- broader integration with evaluated expression output and the normal printer
+  beyond the focused recovered runtime-atom fixture
 
 Only after those pieces exist should the roadmap mark Stage 5 as implemented.
 

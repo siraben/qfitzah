@@ -927,10 +927,12 @@ run_qfc4_heap_forwarding_staged_binary \
 run_qfc4_heap_scan_forwarding_staged_binary() {
   local name=$1
   local expected_status=$2
-  local qfc4_ext=${3:-qfc4-scan-forwarding-ext.qf1}
-  local qfasm_ext=${4:-}
+  local qfc4_exts=${3:-qfc4-scan-forwarding-ext.qf1}
+  local qfasm_exts=${4:-}
   local expected_runtime_hex=${5:-}
   local assemble_timeout=${6:-90}
+  local qfc4_ext
+  local qfasm_ext
   local tmp
   local actual_hex
   local expected_hex
@@ -939,34 +941,29 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
   local status
 
   tmp=$(mktemp -d)
-  cat "$repo_root/bootstrap/qfc4.qf1" \
-      "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
-      "$repo_root/bootstrap/qfc4-object-data-ext.qf1" \
-      "$repo_root/bootstrap/qfc4-scan-copy-ext.qf1" \
-      "$repo_root/bootstrap/$qfc4_ext" \
-      "$repo_root/bootstrap/$name.qf1" \
-    | timeout 20s "$qfitzah" > "$tmp/$name.m3"
+  {
+    cat "$repo_root/bootstrap/qfc4.qf1" \
+        "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
+        "$repo_root/bootstrap/qfc4-object-data-ext.qf1" \
+        "$repo_root/bootstrap/qfc4-scan-copy-ext.qf1"
+    for qfc4_ext in $qfc4_exts; do
+      cat "$repo_root/bootstrap/$qfc4_ext"
+    done
+    cat "$repo_root/bootstrap/$name.qf1"
+  } | timeout 20s "$qfitzah" > "$tmp/$name.m3"
 
-  if [[ -n "$qfasm_ext" ]]; then
+  {
     cat "$repo_root/bootstrap/qfasm2.qf1" \
         "$repo_root/bootstrap/qfasm3.qf1" \
         "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
         "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
         "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1" \
-        "$repo_root/bootstrap/$qfasm_ext" \
-        "$tmp/$name.m3" \
-      | timeout "${assemble_timeout}s" "$qfitzah" > "$tmp/$name"
-  else
-    cat "$repo_root/bootstrap/qfasm2.qf1" \
-        "$repo_root/bootstrap/qfasm3.qf1" \
-        "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
-        "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1" \
-        "$tmp/$name.m3" \
-      | timeout "${assemble_timeout}s" "$qfitzah" > "$tmp/$name"
-  fi
+        "$repo_root/bootstrap/qfasm-stage5-wide-branch-ext.qf1"
+    for qfasm_ext in $qfasm_exts; do
+      cat "$repo_root/bootstrap/$qfasm_ext"
+    done
+    cat "$tmp/$name.m3"
+  } | timeout "${assemble_timeout}s" "$qfitzah" > "$tmp/$name"
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
   expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
@@ -1057,6 +1054,12 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfasm-stage5-branch-ext.qf1" \
   "" \
   300
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-print-copied-dynamic-atom-qfc4" 0 \
+  "qfc4-print-nil-ext.qf1 qfc4-print-atom-ext.qf1 qfc4-copy-dynamic-atom-print-ext.qf1" \
+  "qfasm-stage5-branch-ext.qf1 qfc4-print-atom-ext.qf1" \
+  "28 61 62 63 29" \
+  180
 
 run_qfc4_heap_check_binary() {
   local name=$1

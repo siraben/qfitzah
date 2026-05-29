@@ -364,6 +364,12 @@ test loads `qfc4-print-atom-ext.qf1` in both the qfc4 and qfasm passes,
 assembles with `qfasm-print-n268-ext.qf1`, and prints `()(abc (de))`, proving
 the normal-printer slice can combine nil dispatch, nested lists, separators,
 and multi-byte atom names.
+`bootstrap/stage5-print-copied-dynamic-atom-qfc4.qf1` connects that printer to
+the runtime recovery path: qfc4 initializes an `abc` atom record at runtime,
+copies a root list plus its tagged atom car into the pair and atom frontiers,
+overwrites the old records, then invokes `PrintExpr` on the copied root. The
+generated ELF prints `(abc)`, proving normal output no longer depends only on
+static atom records.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

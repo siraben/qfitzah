@@ -443,6 +443,16 @@ These checked fixtures fit:
     and multi-byte atom names
   - verifies stdout hex `28 29 28 61 62 63 20 28 64 65 29 29`
     (`()(abc (de))`) and exit status `0`
+- `stage5-print-copied-dynamic-atom-qfc4.qf1`
+  - uses `qfc4-copy-dynamic-atom-print-ext.qf1` to keep the runtime atom-copy
+    and normal-printer integration focused
+  - loads `qfc4-print-nil-ext.qf1` and `qfc4-print-atom-ext.qf1` in the qfc4
+    pass, plus `qfasm-stage5-branch-ext.qf1` and `qfc4-print-atom-ext.qf1` in
+    the qfasm pass
+  - copies a root list whose car is a runtime-initialized tagged atom, rewrites
+    the copied car to the atom frontier, overwrites old records, and invokes
+    `PrintExpr` on the copied root
+  - verifies stdout hex `28 61 62 63 29` (`(abc)`) and exit status `0`
 - `stage5-print-list-tail-qfc4.qf1`
   - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
     boundary narrowly

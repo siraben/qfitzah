@@ -542,6 +542,11 @@ assembles as qfc4 -> qfasm3 -> ELF with `qfasm-print-n268-ext.qf1` plus
 `qfc4-print-atom-ext.qf1`, and writes stdout `()(abc (de))`. This proves the
 recursive normal-printer slice can combine nil, nested lists, separators, and
 multi-byte atom names in one compiled path.
+[bootstrap/stage5-print-copied-dynamic-atom-qfc4.qf1](bootstrap/stage5-print-copied-dynamic-atom-qfc4.qf1)
+connects the normal printer to the runtime atom-copy frontier. The generated
+ELF initializes an `abc` atom record at runtime, copies a root list and its
+tagged atom car into the recovery frontiers, overwrites the old pair and atom
+records, then prints the copied root as `(abc)`.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout
