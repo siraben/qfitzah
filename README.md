@@ -382,6 +382,13 @@ tree. It handles acyclic pair trees, not sharing or cycles yet.
 lift that scan-copy traversal through qfc4. The generated ELF has the same
 observable result (`35`), with local near-branch/range support for the scan
 loop backedge.
+[bootstrap/stage5-forwarding-gc.qf1](bootstrap/stage5-forwarding-gc.qf1) starts
+the forwarding-pointer work needed for shared graphs. It copies a root whose
+`car` and `cdr` both point at the same old pair, installs a temporary
+forwarding marker in the old pair, rewrites both copied fields to the single
+new child, and checks pointer equality plus `HeapNext` before exiting with the
+copied child car (`19`). This proves one shared acyclic pair, not cycles or a
+general Qfitzah object forwarding format yet.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
@@ -396,7 +403,8 @@ repeated pattern variables, structural equality for repeated list-valued
 variables, unmatched template variables, reader ergonomics, empty-list
 matching, nested byte-stream flattening, the example compilers, the
 Qfitzah-hosted assembler stages, runnable Stage 4 byte-output runtime slices,
-and the current Stage 5 mutable allocation and recovery slices.
+and the current Stage 5 mutable allocation, recovery, scan-copy, and forwarding
+slices.
 Test programs live in
 `tests/cases/*.qf1`, with expected snippets in matching `.expected` files and
 forbidden snippets in optional `.unexpected` files.

@@ -930,3 +930,4 @@ run_qfasm2_stage5_scan_binary() {
 }
 
 run_qfasm2_stage5_scan_binary "stage5-copy-tree-gc" 35
+run_qfasm2_stage5_scan_binary "stage5-forwarding-gc" 19

@@ -174,11 +174,18 @@ Progress so far:
 - `stage5-copy-tree-gc-qfc4.qf1` lifts that scan-copy traversal through qfc4
   using `qfc4-scan-copy-ext.qf1`. The staged test emits a runnable ELF through
   qfc4 -> qfasm3 -> qfasm2 and exits through the copied right leaf (`35`).
+- `stage5-forwarding-gc.qf1` starts sharing preservation at the qfasm2 layer.
+  A root has both fields pointing at one old pair; recovery copies that child
+  once, stores a temporary forwarding pointer/marker in the old pair, rewrites
+  both copied fields to the single new child, checks pointer equality and
+  `HeapNext`, and exits through the copied child (`19`). This is a focused
+  shared-acyclic-pair proof, not a cycle-safe or fully general forwarding
+  representation yet.
 
 Still required for the byte-output path:
 
-- adding forwarding pointers or equivalent handling for shared objects and
-  cycles
+- lifting forwarding pointers through qfc4 and extending them from the focused
+  shared-pair proof to shared objects and cycles
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget

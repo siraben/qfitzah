@@ -207,6 +207,11 @@ and cycles remain future forwarding-pointer work.
 The staged test runs qfc4 and qfasm separately, uses the local scan qfasm
 extension for the near loop backedge, and exits through the copied right leaf
 (`35`).
+`bootstrap/stage5-forwarding-gc.qf1` starts the forwarding-pointer path at the
+qfasm2 layer. A root whose two fields share one old pair copies that child once,
+marks the old child with a temporary forwarding marker, rewrites both copied
+fields to the same new child, checks pointer equality and `HeapNext`, and exits
+through the copied child (`19`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
