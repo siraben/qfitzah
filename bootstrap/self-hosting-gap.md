@@ -171,10 +171,12 @@ Progress so far:
   rewrites those copied fields, and proves the copied tree remains live after
   old leaves are overwritten. This covers acyclic pair trees, not sharing or
   cycles.
+- `stage5-copy-tree-gc-qfc4.qf1` lifts that scan-copy traversal through qfc4
+  using `qfc4-scan-copy-ext.qf1`. The staged test emits a runnable ELF through
+  qfc4 -> qfasm3 -> qfasm2 and exits through the copied right leaf (`35`).
 
 Still required for the byte-output path:
 
-- lifting the scan-copy traversal through qfc4
 - adding forwarding pointers or equivalent handling for shared objects and
   cycles
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects

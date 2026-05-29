@@ -146,6 +146,15 @@ These checked fixtures fit:
     exits through a copied nested right leaf (`35`)
   - proves acyclic pair-tree traversal; forwarding shared or cyclic structures
     is still outside this fixture
+- `stage5-copy-tree-gc-qfc4.qf1`
+  - uses `qfc4-scan-copy-ext.qf1` plus mixed raw object data forms from
+    `qfc4-object-data-ext.qf1`
+  - runs as a staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+    under Qfitzah
+  - uses the same `qfasm-stage5-scan-ext.qf1` range and near-branch support as
+    the direct scan fixture
+  - exits through the copied right leaf (`35`), proving the scan-copy traversal
+    now lowers through qfc4
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

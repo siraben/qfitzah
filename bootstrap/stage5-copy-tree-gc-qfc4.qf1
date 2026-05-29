@@ -1,0 +1,88 @@
+; Stage 5 pair-tree scan-copy traversal lifted through qfc4.
+;
+; Compile with qfc4-scan-copy-ext.qf1 and qfc4-object-data-ext.qf1. The source
+; copies Root, scans copied pairs from Scan up to HeapNext, copies pair-valued
+; car/cdr fields discovered during traversal, rewrites copied fields, overwrites
+; old leaves, allocates after the copied tree, and exits through the copied
+; right leaf (`35`).
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data Heap8 00
+    (Data Heap9 00
+    (Data Heap10 00
+    (Data Heap11 00
+    (Data Heap12 00
+    (Data Heap13 00
+    (Data Heap14 00
+    (Data Heap15 00
+    (Data Heap16 00
+    (Data Heap17 00
+    (Data Heap18 00
+    (Data Heap19 00
+    (Data Heap20 00
+    (Data Heap21 00
+    (Data Heap22 00
+    (Data Heap23 00
+    (Data Heap24 00
+    (Data Heap25 00
+    (Data Heap26 00
+    (Data Heap27 00
+    (Data Heap28 00
+    (Data Heap29 00
+    (Data Heap30 00
+    (Data Heap31 00
+    (Data Heap32 00
+    (Data Heap33 00
+    (Data Heap34 00
+    (Data Heap35 00
+    (Data Heap36 00
+    (Data Heap37 00
+    (Data Heap38 00
+    (Data Heap39 00
+    (Data HeapAfterCopied 00
+    (Data HeapAfterCopied1 00
+    (Data HeapAfterCopied2 00
+    (Data HeapAfterCopied3 00
+    (Data HeapAfterCopied4 00
+    (Data HeapAfterCopied5 00
+    (Data HeapAfterCopied6 00
+    (Data HeapAfterCopied7 00
+    (Data HeapLimit 00
+    (RawPairPtrs OldRoot OldLeft OldRight
+    (RawPairPtrVal OldLeft OldLeafA 01
+    (RawPairValPtr OldRight 17 OldLeafB
+    (RawPair OldLeafA 13 01
+    (RawPair OldLeafB 23 01
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitTreeScanCopy)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (ScanCarField)
+            (Seq
+              (ScanCdrField)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (Seq
+                  (SetOldTreeLeaves)
+                  (Seq
+                    (AllocAtNext 2A 01)
+                    (CheckCopiedTree))))))))
+      End)))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+)))

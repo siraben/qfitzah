@@ -9,12 +9,28 @@
   (AstRawPairPtrs name car cdr (ParseDefs rest)))
 
 (Rule
+  (ParseDefs (RawPairPtrVal name car cdr rest))
+  (AstRawPairPtrVal name car cdr (ParseDefs rest)))
+
+(Rule
+  (ParseDefs (RawPairValPtr name car cdr rest))
+  (AstRawPairValPtr name car cdr (ParseDefs rest)))
+
+(Rule
   (CompileDefs (AstRawPair name car cdr rest))
   (DAppend (CompileRawPair name car cdr) (CompileDefs rest)))
 
 (Rule
   (CompileDefs (AstRawPairPtrs name car cdr rest))
   (DAppend (CompileRawPairPtrs name car cdr) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstRawPairPtrVal name car cdr rest))
+  (DAppend (CompileRawPairPtrVal name car cdr) (CompileDefs rest)))
+
+(Rule
+  (CompileDefs (AstRawPairValPtr name car cdr rest))
+  (DAppend (CompileRawPairValPtr name car cdr) (CompileDefs rest)))
 
 (Rule
   (CompileRawPair name car cdr)
@@ -27,3 +43,15 @@
   (Do
     (Align4)
     (Do (Label name) (Do (DwordLabel car) (Do (DwordLabel cdr) End)))))
+
+(Rule
+  (CompileRawPairPtrVal name car cdr)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (DwordLabel car) (Do (Dword cdr) End)))))
+
+(Rule
+  (CompileRawPairValPtr name car cdr)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword car) (Do (DwordLabel cdr) End)))))

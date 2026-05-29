@@ -377,6 +377,11 @@ next lower-level GC baseline: it scans copied pairs from `Scan` up to
 `HeapNext`, copies any pair-valued `car` or `cdr` field it discovers, rewrites
 the field to the copied child, and resumes allocation after a five-cell copied
 tree. It handles acyclic pair trees, not sharing or cycles yet.
+[bootstrap/qfc4-scan-copy-ext.qf1](bootstrap/qfc4-scan-copy-ext.qf1) and
+[bootstrap/stage5-copy-tree-gc-qfc4.qf1](bootstrap/stage5-copy-tree-gc-qfc4.qf1)
+lift that scan-copy traversal through qfc4. The generated ELF has the same
+observable result (`35`), with local near-branch/range support for the scan
+loop backedge.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

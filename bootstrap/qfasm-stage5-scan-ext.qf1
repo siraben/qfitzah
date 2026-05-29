@@ -1,5 +1,7 @@
 ; Optional qfasm2/qfasm3 support for Stage 5 scan-copy traversal fixtures.
 
+(Add n N6) (Add (Inc n) N5)
+
 (Rule
   (Size (CmpEaxEbx))
   N2)
@@ -23,6 +25,72 @@
 (Rule
   (Expand (Do (JnzNear name) rest) scope)
   (Ins (JnzNear name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (JnzNearLocal name) rest) scope)
+  (Ins (JnzNear (Scoped scope name)) (Expand rest scope)))
+
+(Rule
+  (Expand CopyEaxPairToHeapNextAndStoreCar scope)
+  (Expand
+    (Do
+      (LoadEbxCarFromEax)
+      (Do
+        (LoadEcxCdrFromEax)
+        (Do
+          (MovEaxLabel HeapNext)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (StoreDwordAtEaxPlus4FromEcx)
+                (Do
+                  (MovEbxEax)
+                  (Do
+                    (MovEaxLabel Scan)
+                    (Do
+                      (LoadEaxCar)
+                      (Do
+                        (StoreDwordAtEaxFromEbx)
+                        (Do
+                          (AddEbxImm8 08)
+                          (Do
+                            (MovEaxLabel HeapNext)
+                            (Do (StoreDwordAtEaxFromEbx) End)))))))))))))
+    scope))
+
+(Rule
+  (Expand CopyEaxPairToHeapNextAndStoreCdr scope)
+  (Expand
+    (Do
+      (LoadEbxCarFromEax)
+      (Do
+        (LoadEcxCdrFromEax)
+        (Do
+          (MovEaxLabel HeapNext)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (StoreDwordAtEaxPlus4FromEcx)
+                (Do
+                  (MovEbxEax)
+                  (Do
+                    (MovEcxEbx)
+                    (Do
+                      (MovEaxLabel Scan)
+                      (Do
+                        (LoadEaxCar)
+                        (Do
+                          (StoreDwordAtEaxPlus4FromEcx)
+                          (Do
+                            (AddEbxImm8 08)
+                            (Do
+                              (MovEaxLabel HeapNext)
+                              (Do (StoreDwordAtEaxFromEbx) End))))))))))))))
+    scope))
 
 (Byte (Neg N129)) 7F
 (Byte (Neg N130)) 7E

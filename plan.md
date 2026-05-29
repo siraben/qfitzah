@@ -202,6 +202,11 @@ qfasm2-level scan over copied pairs. The recovery path keeps a `Scan` cursor and
 copies those children, rewrites the copied fields, and exits through a copied
 nested right leaf (`35`). This proves acyclic pair-tree traversal, while sharing
 and cycles remain future forwarding-pointer work.
+`bootstrap/stage5-copy-tree-gc-qfc4.qf1` and
+`bootstrap/qfc4-scan-copy-ext.qf1` lift that scan-copy traversal through qfc4.
+The staged test runs qfc4 and qfasm separately, uses the local scan qfasm
+extension for the near loop backedge, and exits through the copied right leaf
+(`35`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

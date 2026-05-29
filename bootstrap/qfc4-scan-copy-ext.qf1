@@ -1,0 +1,255 @@
+; Optional qfc4 scan-copy traversal surface.
+;
+; This keeps the Stage 5 pair-tree traversal readable while lowering the scan
+; algorithm through qfc4 into qfasm3/qfasm2 code.
+
+(Rule
+  (ParseStmt (Local name))
+  (Local name))
+
+(Rule
+  (ParseStmt (JnzNearLocal name))
+  (JnzNearLocal name))
+
+(Rule
+  (ParseStmt (InitTreeScanCopy))
+  InitTreeScanCopy)
+
+(Rule
+  (ParseStmt (ScanCarField))
+  ScanCarField)
+
+(Rule
+  (ParseStmt (ScanCdrField))
+  ScanCdrField)
+
+(Rule
+  (ParseStmt (AdvanceScanOrLoop name))
+  (AdvanceScanOrLoop name))
+
+(Rule
+  (ParseStmt (SetOldTreeLeaves))
+  SetOldTreeLeaves)
+
+(Rule
+  (ParseStmt (CheckCopiedTree))
+  CheckCopiedTree)
+
+(Rule
+  (CompileStmt (Local name))
+  (Do (Local name) End))
+
+(Rule
+  (CompileStmt (JnzNearLocal name))
+  (Do (JnzNearLocal name) End))
+
+(Rule
+  (CompileStmt InitTreeScanCopy)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (MovEbxLabel Heap8)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel Scan)
+          (Do
+            (MovEbxLabel Heap)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (MovEaxLabel Root)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (LoadEbxCarFromEax)
+                    (Do
+                      (LoadEcxCdrFromEax)
+                      (Do
+                        (MovEaxLabel Heap)
+                        (Do
+                          (StoreDwordAtEaxFromEbx)
+                          (Do
+                            (StoreDwordAtEaxPlus4FromEcx)
+                            (Do
+                              (MovEaxLabel Root)
+                              (Do
+                                (MovEbxLabel Heap)
+                                (Do (StoreDwordAtEaxFromEbx) End)))))))))))))))))
+
+(Rule
+  (CopyEaxPairToHeapNextAndStoreCar)
+  (Do
+    (LoadEbxCarFromEax)
+    (Do
+      (LoadEcxCdrFromEax)
+      (Do
+        (MovEaxLabel HeapNext)
+        (Do
+          (LoadEaxCar)
+          (Do
+            (StoreDwordAtEaxFromEbx)
+            (Do
+              (StoreDwordAtEaxPlus4FromEcx)
+              (Do
+                (MovEbxEax)
+                (Do
+                  (MovEaxLabel Scan)
+                  (Do
+                    (LoadEaxCar)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (AddEbxImm8 08)
+                        (Do
+                          (MovEaxLabel HeapNext)
+                          (Do (StoreDwordAtEaxFromEbx) End))))))))))))))
+
+(Rule
+  (CopyEaxPairToHeapNextAndStoreCdr)
+  (Do
+    (LoadEbxCarFromEax)
+    (Do
+      (LoadEcxCdrFromEax)
+      (Do
+        (MovEaxLabel HeapNext)
+        (Do
+          (LoadEaxCar)
+          (Do
+            (StoreDwordAtEaxFromEbx)
+            (Do
+              (StoreDwordAtEaxPlus4FromEcx)
+              (Do
+                (MovEbxEax)
+                (Do
+                  (MovEcxEbx)
+                  (Do
+                    (MovEaxLabel Scan)
+                    (Do
+                      (LoadEaxCar)
+                      (Do
+                        (StoreDwordAtEaxPlus4FromEcx)
+                        (Do
+                          (AddEbxImm8 08)
+                          (Do
+                            (MovEaxLabel HeapNext)
+                            (Do (StoreDwordAtEaxFromEbx) End)))))))))))))))
+
+(Rule
+  (CompileStmt ScanCarField)
+  (Do
+    (MovEaxLabel Scan)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (PushEax)
+          (Do
+            (TestAlPair)
+            (Do
+              (IfZero
+                CopyCar
+                (Do
+                  (PopEax)
+                  CopyEaxPairToHeapNextAndStoreCar)
+                (Do (PopEax) End))
+              End)))))))
+
+(Rule
+  (CompileStmt ScanCdrField)
+  (Do
+    (MovEaxLabel Scan)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCdr)
+        (Do
+          (PushEax)
+          (Do
+            (TestAlPair)
+            (Do
+              (IfZero
+                CopyCdr
+                (Do
+                  (PopEax)
+                  CopyEaxPairToHeapNextAndStoreCdr)
+                (Do (PopEax) End))
+              End)))))))
+
+(Rule
+  (CompileStmt (AdvanceScanOrLoop name))
+  (Do
+    (MovEaxLabel Scan)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (MovEbxEax)
+        (Do
+          (AddEbxImm8 08)
+          (Do
+            (MovEaxLabel Scan)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (MovEaxLabel HeapNext)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (MovEbxEax)
+                    (Do
+                      (MovEaxLabel Scan)
+                      (Do
+                        (LoadEaxCar)
+                        (Do
+                          (CmpEaxEbx)
+                          (Do (JnzNearLocal name) End))))))))))))))
+
+(Rule
+  (CompileStmt SetOldTreeLeaves)
+  (Do
+    (MovEaxLabel OldLeafA)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel OldLeafB)
+          (Do
+            (MovEbxImm32 4D)
+            (Do (StoreDwordAtEaxFromEbx) End)))))))
+
+(Rule
+  (CompileStmt CheckCopiedTree)
+  (Do
+    (MovEaxLabel Root)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (LoadEaxCar)
+          (Do
+            (LoadEbxCarFromEax)
+            (Do
+              (CmpEbxImm8 13)
+              (Do
+                (IfZero
+                  CheckRightLeaf
+                  (Do
+                    (MovEaxLabel Root)
+                    (Do
+                      (LoadEaxCar)
+                      (Do
+                        (LoadEaxCdr)
+                        (Do
+                          (LoadEaxCdr)
+                          (Do
+                            (LoadEbxCarFromEax)
+                            (Do
+                              (MovEaxImm32 01)
+                              (Do (Int 80) End)))))))
+                  (Do
+                    (MovEaxImm32 01)
+                    (Do (Int 80) End)))
+                End))))))))
