@@ -274,6 +274,12 @@ These checked fixtures fit:
   - removes a leading `Nop` and eliminates a dead second exit after the first
     straight-line `Exit`
   - verifies the optimized generated ELF is 97 bytes and exits `42`
+- `stage5-known-match-opt-qfc4.qf1`
+  - uses the same optional `qfc4-opt-ext.qf1` rule file
+  - reduces a compile-time zero match test to the selected arm before qfasm3
+    expansion
+  - verifies the generated ELF has the compact 97-byte literal exit shape and
+    exits `42`
 - `stage5-tco-qfc4.qf1`
   - uses the same optional `qfc4-opt-ext.qf1` rule file
   - rewrites a final `(CallProc Target)` followed by `(Return)` through the

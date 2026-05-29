@@ -333,6 +333,10 @@ the generic compile fallbacks to fold small `Add1` constants, reduce matches
 with known tests, and eliminate straight-line statements after `Exit` or
 `Return`; the fixture proves constant folding plus dead-code elimination by
 emitting a smaller ELF that exits `42`.
+`bootstrap/stage5-known-match-opt-qfc4.qf1` adds a direct known-branch
+optimization proof: a match whose test is compile-time zero is reduced to only
+the selected arm before qfasm3 expansion, producing the same compact literal
+exit path and exit status `42`.
 `bootstrap/stage5-tco-qfc4.qf1` adds the tail-call optimization part of Task
 5.3 to the same optional layer. `qfc4-opt-ext.qf1` recognizes a final
 `(CallProc name)` followed by `(Return)` and lowers it through the existing

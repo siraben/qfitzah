@@ -1,0 +1,18 @@
+; qfc4 known-match optimization fixture.
+;
+; With `qfc4-opt-ext.qf1`, the match test is known to be zero at compile time,
+; so qfc4 emits only the selected arm instead of a runtime `IfZero` tree.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Exit
+        (Match
+          M0
+          (Zero)
+          (Case Zero (Add1 (Literal 29)))
+          (Case Else (Literal 63))))
+      End)))
