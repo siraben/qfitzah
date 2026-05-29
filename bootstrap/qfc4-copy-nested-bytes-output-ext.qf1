@@ -1,0 +1,139 @@
+; Optional qfc4 surface for recovered nested byte-output fixture.
+
+(Rule
+  (ParseStmt (JumpLocal name))
+  (JumpLocal name))
+
+(Rule
+  (ParseStmt (JumpNotZeroLocal name))
+  (JumpNotZeroLocal name))
+
+(Rule
+  (ParseStmt (UntagEax))
+  UntagEax)
+
+(Rule
+  (ParseStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (CmpDwordAtEax b1 b2 b3 b4))
+
+(Rule
+  (ParseStmt (CmpByteAtEaxPlus4 byte))
+  (CmpByteAtEaxPlus4 byte))
+
+(Rule
+  (CompileStmt (JumpLocal name))
+  (Do (JumpLocal name) End))
+
+(Rule
+  (CompileStmt (JumpNotZeroLocal name))
+  (Do (JumpNotZeroLocal name) End))
+
+(Rule
+  (CompileStmt UntagEax)
+  (Do (AndEaxNotTag) End))
+
+(Rule
+  (CompileStmt (CmpDwordAtEax b1 b2 b3 b4))
+  (Do (CmpDwordAtEaxImm32 b1 b2 b3 b4) End))
+
+(Rule
+  (CompileStmt (CmpByteAtEaxPlus4 byte))
+  (Do (CmpByteAtEaxPlus4Imm8 byte) End))
+
+(Rule
+  (ParseStmt (InitNestedBytesOutputCopy))
+  InitNestedBytesOutputCopy)
+
+(Rule
+  (ParseStmt (FinishNestedBytesOutputCopy))
+  FinishNestedBytesOutputCopy)
+
+(Rule
+  (CompileStmt InitNestedBytesOutputCopy)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (MovEbxLabel HeapOuterTail)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel Scan)
+          (Do
+            (MovEbxLabel Heap)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (MovEaxLabel Root)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (LoadEbxCarFromEax)
+                    (Do
+                      (LoadEcxCdrFromEax)
+                      (Do
+                        (MovEaxLabel Heap)
+                        (Do
+                          (StoreDwordAtEaxFromEbx)
+                          (Do
+                            (StoreDwordAtEaxPlus4FromEcx)
+                            (Do
+                              (MovEaxLabel Root)
+                              (Do
+                                (MovEbxLabel Heap)
+                                (Do
+                                  (StoreDwordAtEaxFromEbx)
+                                  End)))))))))))))))))
+
+(Rule
+  (CompileStmt FinishNestedBytesOutputCopy)
+  (Do
+    (MovEaxLabel OldBytesOuter)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldOuterTail)
+              (Do
+                (MovEbxImm32 3F)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 4D)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel OldBytesInner)
+                        (Do
+                          (MovEbxImm32 3F)
+                          (Do
+                            (StoreDwordAtEaxFromEbx)
+                            (Do
+                              (MovEcxImm32 4D)
+                              (Do
+                                (StoreDwordAtEaxPlus4FromEcx)
+                                (Do
+                                  (MovEaxLabel OldInnerTail)
+                                  (Do
+                                    (MovEbxImm32 3F)
+                                    (Do
+                                      (StoreDwordAtEaxFromEbx)
+                                      (Do
+                                        (MovEcxImm32 4D)
+                                        (Do
+                                          (StoreDwordAtEaxPlus4FromEcx)
+                                          (Do
+                                            (MovEaxLabel HeapNext)
+                                            (Do
+                                              (LoadEaxCar)
+                                              (Do
+                                                (MovEbxLabel HeapAfterCopied)
+                                                (Do
+                                                  (CmpEaxEbx)
+                                                  (Do
+                                                    (IfZero HeapNextOk (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (Invoke EmitBytes Empty) (Do (MovEbxImm32 00) (Do (MovEaxImm32 01) (Do (Int 80) End))))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                    End))))))))))))))))))))))))))

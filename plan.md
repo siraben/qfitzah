@@ -260,6 +260,11 @@ byte `41`.
 content-checked recovery/output path through qfc4, keeping `IsBytes`,
 `EmitByte`, and `Nybble` in readable staged source and checking stdout byte
 `41`.
+`bootstrap/stage5-copy-nested-bytes-output-gc-qfc4.qf1` lifts the recovered
+nested byte-output path through qfc4. The staged source keeps recursive
+`EmitBytes`, content-based `IsBytes`, `EmitByte`, and `Nybble` readable, then
+the generated ELF copies `(Bytes (Bytes 41))`, overwrites all old pair cells,
+and emits stdout byte `41`.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

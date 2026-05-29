@@ -438,6 +438,11 @@ content and flattens the copied nested object to stdout byte `41`.
 [bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1)
 lifts that content-checked recovery/output path through qfc4 with
 `qfc4-copy-bytes-isbytes-output-ext.qf1` and `qfasm-byte-output-ext.qf1`.
+[bootstrap/stage5-copy-nested-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-nested-bytes-output-gc-qfc4.qf1)
+lifts the copied nested-byte proof through qfc4 with
+`qfc4-copy-nested-bytes-output-ext.qf1`. The staged source keeps recursive
+`EmitBytes`, content-based `IsBytes`, `EmitByte`, and `Nybble` readable, then
+the generated ELF prints stdout byte `41`.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
