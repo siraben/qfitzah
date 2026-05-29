@@ -389,6 +389,12 @@ These checked fixtures fit:
     `PrintExpr`, `PrintAtom`, and `PrintList`
   - verifies the generated ELF prints stdout hex `28 61 29` (`(a)`) and exits
     `0`
+- `stage5-print-empty-list-qfc4.qf1`
+  - uses local `qfc4-print-nil-ext.qf1` rules so the common qfc4 source does
+    not grow for larger heap/GC fixture combinations
+  - materializes nil in `EAX` as a runtime expression value
+  - keeps the nil printer focused below the common qfasm2 `N220` boundary
+  - verifies stdout hex `28 29` (`()`) and exit status `0`
 - `stage5-print-list-tail-qfc4.qf1`
   - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
     boundary narrowly

@@ -1,0 +1,12 @@
+; Focused qfc4 normal-printer nil extension.
+;
+; Keep this local for now: adding even small rules to common qfc4 can push
+; larger heap/GC fixture combinations over the seed runtime's source budget.
+
+(Rule
+  (ParseStmt (LoadNilEax))
+  LoadNilEax)
+
+(Rule
+  (CompileStmt LoadNilEax)
+  (Do (MovEaxImm32 01) End))

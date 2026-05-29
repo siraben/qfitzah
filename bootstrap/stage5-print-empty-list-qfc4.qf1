@@ -1,0 +1,39 @@
+; qfc4 normal-printer empty-list fixture.
+;
+; This focused slice makes top-level nil a printable expression. The generated
+; ELF prints `()`, proving the empty-list branch before it is merged into the
+; larger pair/atom normal-printer path.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadNilEax)
+        (Seq
+          (CallProc PrintExpr)
+          (Exit (Literal 00))))
+      (Def
+        PrintExpr
+        NoFrame
+        (Seq
+          (CmpEax 01)
+          (IfZero
+            NilExpr
+            (CallProc PrintNil)
+            (Exit (Literal 07))))
+        (Def
+          PrintNil
+          NoFrame
+          (Seq
+            (WriteByte LParen)
+            (WriteByte RParen))
+          (Data
+            LParen
+            28
+            (Data
+              RParen
+              29
+              End)))))))

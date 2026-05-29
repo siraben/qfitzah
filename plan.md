@@ -331,6 +331,10 @@ stdout byte `41`, and exit `0`.
 qfc4 source compiles a static pair/atom graph, checks pair-vs-atom shape,
 prints list delimiters, follows the pair car, prints the atom's first
 character through its atom character pointer, and writes stdout `(a)`.
+`bootstrap/stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil
+output slice. With local rules from `qfc4-print-nil-ext.qf1`, the fixture
+materializes nil in `EAX`, checks nil before the non-nil path, then writes
+stdout `()`.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

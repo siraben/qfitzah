@@ -308,6 +308,10 @@ Progress so far:
   static pair/atom graph, branches on pair-vs-atom shape, prints list
   delimiters, follows the pair car, and prints the atom name byte through the
   atom's character pointer, producing stdout `(a)`.
+- `stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil output path.
+  With local rules from `qfc4-print-nil-ext.qf1`, the generated ELF
+  materializes nil in `EAX`, checks nil before falling through to non-nil
+  handling, and produces stdout `()`.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout

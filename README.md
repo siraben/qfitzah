@@ -508,6 +508,10 @@ starts the normal-printer path. It compiles a static pair/atom graph,
 distinguishes a pair from an atom, prints list delimiters, follows the pair
 car, prints the atom name through its character pointer, and writes stdout
 `(a)`.
+[bootstrap/stage5-print-empty-list-qfc4.qf1](bootstrap/stage5-print-empty-list-qfc4.qf1)
+adds the first top-level nil output slice. With the local
+`qfc4-print-nil-ext.qf1` rule file, it materializes nil in `EAX`, checks it
+before falling through to non-nil handling, and writes stdout `()`.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout
