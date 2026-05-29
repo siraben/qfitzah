@@ -1,0 +1,309 @@
+; Focused qfasm2 range extension for the merged normal-printer fixture.
+;
+; The common qfasm2 tables stop at N220. This fixture has a 272-byte
+; segment and one backward direct call at -189, so keep the extra
+; finite arithmetic and byte facts local to this proof.
+
+(Inc N220) N221
+(Inc N221) N222
+(Inc N222) N223
+(Inc N223) N224
+(Inc N224) N225
+(Inc N225) N226
+(Inc N226) N227
+(Inc N227) N228
+(Inc N228) N229
+(Inc N229) N230
+(Inc N230) N231
+(Inc N231) N232
+(Inc N232) N233
+(Inc N233) N234
+(Inc N234) N235
+(Inc N235) N236
+(Inc N236) N237
+(Inc N237) N238
+(Inc N238) N239
+(Inc N239) N240
+(Inc N240) N241
+(Inc N241) N242
+(Inc N242) N243
+(Inc N243) N244
+(Inc N244) N245
+(Inc N245) N246
+(Inc N246) N247
+(Inc N247) N248
+(Inc N248) N249
+(Inc N249) N250
+(Inc N250) N251
+(Inc N251) N252
+(Inc N252) N253
+(Inc N253) N254
+(Inc N254) N255
+(Inc N255) N256
+(Inc N256) N257
+(Inc N257) N258
+(Inc N258) N259
+(Inc N259) N260
+(Inc N260) N261
+(Inc N261) N262
+(Inc N262) N263
+(Inc N263) N264
+(Inc N264) N265
+(Inc N265) N266
+(Inc N266) N267
+(Inc N267) N268
+(Inc N268) N269
+(Inc N269) N270
+(Inc N270) N271
+(Inc N271) N272
+
+(Dec N221) N220
+(Dec N222) N221
+(Dec N223) N222
+(Dec N224) N223
+(Dec N225) N224
+(Dec N226) N225
+(Dec N227) N226
+(Dec N228) N227
+(Dec N229) N228
+(Dec N230) N229
+(Dec N231) N230
+(Dec N232) N231
+(Dec N233) N232
+(Dec N234) N233
+(Dec N235) N234
+(Dec N236) N235
+(Dec N237) N236
+(Dec N238) N237
+(Dec N239) N238
+(Dec N240) N239
+(Dec N241) N240
+(Dec N242) N241
+(Dec N243) N242
+(Dec N244) N243
+(Dec N245) N244
+(Dec N246) N245
+(Dec N247) N246
+(Dec N248) N247
+(Dec N249) N248
+(Dec N250) N249
+(Dec N251) N250
+(Dec N252) N251
+(Dec N253) N252
+(Dec N254) N253
+(Dec N255) N254
+(Dec N256) N255
+(Dec N257) N256
+(Dec N258) N257
+(Dec N259) N258
+(Dec N260) N259
+(Dec N261) N260
+(Dec N262) N261
+(Dec N263) N262
+(Dec N264) N263
+(Dec N265) N264
+(Dec N266) N265
+(Dec N267) N266
+(Dec N268) N267
+(Dec N269) N268
+(Dec N270) N269
+(Dec N271) N270
+(Dec N272) N271
+
+(Addr N221) (Bytes 31 81 04 08)
+(Addr N222) (Bytes 32 81 04 08)
+(Addr N223) (Bytes 33 81 04 08)
+(Addr N224) (Bytes 34 81 04 08)
+(Addr N225) (Bytes 35 81 04 08)
+(Addr N226) (Bytes 36 81 04 08)
+(Addr N227) (Bytes 37 81 04 08)
+(Addr N228) (Bytes 38 81 04 08)
+(Addr N229) (Bytes 39 81 04 08)
+(Addr N230) (Bytes 3A 81 04 08)
+(Addr N231) (Bytes 3B 81 04 08)
+(Addr N232) (Bytes 3C 81 04 08)
+(Addr N233) (Bytes 3D 81 04 08)
+(Addr N234) (Bytes 3E 81 04 08)
+(Addr N235) (Bytes 3F 81 04 08)
+(Addr N236) (Bytes 40 81 04 08)
+(Addr N237) (Bytes 41 81 04 08)
+(Addr N238) (Bytes 42 81 04 08)
+(Addr N239) (Bytes 43 81 04 08)
+(Addr N240) (Bytes 44 81 04 08)
+(Addr N241) (Bytes 45 81 04 08)
+(Addr N242) (Bytes 46 81 04 08)
+(Addr N243) (Bytes 47 81 04 08)
+(Addr N244) (Bytes 48 81 04 08)
+(Addr N245) (Bytes 49 81 04 08)
+(Addr N246) (Bytes 4A 81 04 08)
+(Addr N247) (Bytes 4B 81 04 08)
+(Addr N248) (Bytes 4C 81 04 08)
+(Addr N249) (Bytes 4D 81 04 08)
+(Addr N250) (Bytes 4E 81 04 08)
+(Addr N251) (Bytes 4F 81 04 08)
+(Addr N252) (Bytes 50 81 04 08)
+(Addr N253) (Bytes 51 81 04 08)
+(Addr N254) (Bytes 52 81 04 08)
+(Addr N255) (Bytes 53 81 04 08)
+(Addr N256) (Bytes 54 81 04 08)
+(Addr N257) (Bytes 55 81 04 08)
+(Addr N258) (Bytes 56 81 04 08)
+(Addr N259) (Bytes 57 81 04 08)
+(Addr N260) (Bytes 58 81 04 08)
+(Addr N261) (Bytes 59 81 04 08)
+(Addr N262) (Bytes 5A 81 04 08)
+(Addr N263) (Bytes 5B 81 04 08)
+(Addr N264) (Bytes 5C 81 04 08)
+(Addr N265) (Bytes 5D 81 04 08)
+(Addr N266) (Bytes 5E 81 04 08)
+(Addr N267) (Bytes 5F 81 04 08)
+(Addr N268) (Bytes 60 81 04 08)
+(Addr N269) (Bytes 61 81 04 08)
+(Addr N270) (Bytes 62 81 04 08)
+(Addr N271) (Bytes 63 81 04 08)
+(Addr N272) (Bytes 64 81 04 08)
+
+(ConstAddr N221) (Bytes 32 81 04 08)
+(ConstAddr N222) (Bytes 33 81 04 08)
+(ConstAddr N223) (Bytes 34 81 04 08)
+(ConstAddr N224) (Bytes 35 81 04 08)
+(ConstAddr N225) (Bytes 36 81 04 08)
+(ConstAddr N226) (Bytes 37 81 04 08)
+(ConstAddr N227) (Bytes 38 81 04 08)
+(ConstAddr N228) (Bytes 39 81 04 08)
+(ConstAddr N229) (Bytes 3A 81 04 08)
+(ConstAddr N230) (Bytes 3B 81 04 08)
+(ConstAddr N231) (Bytes 3C 81 04 08)
+(ConstAddr N232) (Bytes 3D 81 04 08)
+(ConstAddr N233) (Bytes 3E 81 04 08)
+(ConstAddr N234) (Bytes 3F 81 04 08)
+(ConstAddr N235) (Bytes 40 81 04 08)
+(ConstAddr N236) (Bytes 41 81 04 08)
+(ConstAddr N237) (Bytes 42 81 04 08)
+(ConstAddr N238) (Bytes 43 81 04 08)
+(ConstAddr N239) (Bytes 44 81 04 08)
+(ConstAddr N240) (Bytes 45 81 04 08)
+(ConstAddr N241) (Bytes 46 81 04 08)
+(ConstAddr N242) (Bytes 47 81 04 08)
+(ConstAddr N243) (Bytes 48 81 04 08)
+(ConstAddr N244) (Bytes 49 81 04 08)
+(ConstAddr N245) (Bytes 4A 81 04 08)
+(ConstAddr N246) (Bytes 4B 81 04 08)
+(ConstAddr N247) (Bytes 4C 81 04 08)
+(ConstAddr N248) (Bytes 4D 81 04 08)
+(ConstAddr N249) (Bytes 4E 81 04 08)
+(ConstAddr N250) (Bytes 4F 81 04 08)
+(ConstAddr N251) (Bytes 50 81 04 08)
+(ConstAddr N252) (Bytes 51 81 04 08)
+(ConstAddr N253) (Bytes 52 81 04 08)
+(ConstAddr N254) (Bytes 53 81 04 08)
+(ConstAddr N255) (Bytes 54 81 04 08)
+(ConstAddr N256) (Bytes 55 81 04 08)
+(ConstAddr N257) (Bytes 56 81 04 08)
+(ConstAddr N258) (Bytes 57 81 04 08)
+(ConstAddr N259) (Bytes 58 81 04 08)
+(ConstAddr N260) (Bytes 59 81 04 08)
+(ConstAddr N261) (Bytes 5A 81 04 08)
+(ConstAddr N262) (Bytes 5B 81 04 08)
+(ConstAddr N263) (Bytes 5C 81 04 08)
+(ConstAddr N264) (Bytes 5D 81 04 08)
+(ConstAddr N265) (Bytes 5E 81 04 08)
+(ConstAddr N266) (Bytes 5F 81 04 08)
+(ConstAddr N267) (Bytes 60 81 04 08)
+(ConstAddr N268) (Bytes 61 81 04 08)
+(ConstAddr N269) (Bytes 62 81 04 08)
+(ConstAddr N270) (Bytes 63 81 04 08)
+(ConstAddr N271) (Bytes 64 81 04 08)
+(ConstAddr N272) (Bytes 65 81 04 08)
+
+(FileSize N272) (Bytes 64 01 00 00)
+
+(Byte (Neg N101)) 9B
+(Byte (Neg N102)) 9A
+(Byte (Neg N103)) 99
+(Byte (Neg N104)) 98
+(Byte (Neg N105)) 97
+(Byte (Neg N106)) 96
+(Byte (Neg N107)) 95
+(Byte (Neg N108)) 94
+(Byte (Neg N109)) 93
+(Byte (Neg N110)) 92
+(Byte (Neg N111)) 91
+(Byte (Neg N112)) 90
+(Byte (Neg N113)) 8F
+(Byte (Neg N114)) 8E
+(Byte (Neg N115)) 8D
+(Byte (Neg N116)) 8C
+(Byte (Neg N117)) 8B
+(Byte (Neg N118)) 8A
+(Byte (Neg N119)) 89
+(Byte (Neg N120)) 88
+(Byte (Neg N121)) 87
+(Byte (Neg N122)) 86
+(Byte (Neg N123)) 85
+(Byte (Neg N124)) 84
+(Byte (Neg N125)) 83
+(Byte (Neg N126)) 82
+(Byte (Neg N127)) 81
+(Byte (Neg N128)) 80
+(Byte (Neg N129)) 7F
+(Byte (Neg N130)) 7E
+(Byte (Neg N131)) 7D
+(Byte (Neg N132)) 7C
+(Byte (Neg N133)) 7B
+(Byte (Neg N134)) 7A
+(Byte (Neg N135)) 79
+(Byte (Neg N136)) 78
+(Byte (Neg N137)) 77
+(Byte (Neg N138)) 76
+(Byte (Neg N139)) 75
+(Byte (Neg N140)) 74
+(Byte (Neg N141)) 73
+(Byte (Neg N142)) 72
+(Byte (Neg N143)) 71
+(Byte (Neg N144)) 70
+(Byte (Neg N145)) 6F
+(Byte (Neg N146)) 6E
+(Byte (Neg N147)) 6D
+(Byte (Neg N148)) 6C
+(Byte (Neg N149)) 6B
+(Byte (Neg N150)) 6A
+(Byte (Neg N151)) 69
+(Byte (Neg N152)) 68
+(Byte (Neg N153)) 67
+(Byte (Neg N154)) 66
+(Byte (Neg N155)) 65
+(Byte (Neg N156)) 64
+(Byte (Neg N157)) 63
+(Byte (Neg N158)) 62
+(Byte (Neg N159)) 61
+(Byte (Neg N160)) 60
+(Byte (Neg N161)) 5F
+(Byte (Neg N162)) 5E
+(Byte (Neg N163)) 5D
+(Byte (Neg N164)) 5C
+(Byte (Neg N165)) 5B
+(Byte (Neg N166)) 5A
+(Byte (Neg N167)) 59
+(Byte (Neg N168)) 58
+(Byte (Neg N169)) 57
+(Byte (Neg N170)) 56
+(Byte (Neg N171)) 55
+(Byte (Neg N172)) 54
+(Byte (Neg N173)) 53
+(Byte (Neg N174)) 52
+(Byte (Neg N175)) 51
+(Byte (Neg N176)) 50
+(Byte (Neg N177)) 4F
+(Byte (Neg N178)) 4E
+(Byte (Neg N179)) 4D
+(Byte (Neg N180)) 4C
+(Byte (Neg N181)) 4B
+(Byte (Neg N182)) 4A
+(Byte (Neg N183)) 49
+(Byte (Neg N184)) 48
+(Byte (Neg N185)) 47
+(Byte (Neg N186)) 46
+(Byte (Neg N187)) 45
+(Byte (Neg N188)) 44
+(Byte (Neg N189)) 43
