@@ -456,6 +456,11 @@ byte `41` from the copied cdr atom.
 combines those paths in one scan: a copied pair has runtime-initialized tagged
 atoms in both `car` and `cdr`, both fields are rewritten to copied atom records,
 the old atoms are overwritten, and stdout still comes from the copied cdr atom.
+[bootstrap/stage5-copy-dynamic-atom-fields-gc-qfc4.qf1](bootstrap/stage5-copy-dynamic-atom-fields-gc-qfc4.qf1)
+lifts that combined dynamic atom-field proof through qfc4 with
+`qfc4-copy-dynamic-atom-fields-ext.qf1`. Its staged test uses the small
+`qfasm-stage5-branch-ext.qf1` shim to pass direct short-branch scan snippets
+through qfasm3, then checks the exact ELF and stdout byte `41`.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its

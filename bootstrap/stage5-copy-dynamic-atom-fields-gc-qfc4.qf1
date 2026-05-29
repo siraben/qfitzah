@@ -1,0 +1,96 @@
+; Stage 5 dynamic atom field-copy fixture lifted through qfc4.
+;
+; Compile with qfc4-copy-dynamic-atom-fields-ext.qf1 and the Stage 5
+; heap/scan extensions. The generated ELF copies one pair whose car and cdr are
+; runtime-initialized tagged atoms, rewrites both copied fields to copied atom
+; records, overwrites the old records, and emits byte `41` from the copied cdr.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell AtomNext HeapAtomCar
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapAtomCar 00
+    (Data HeapAtomCar1 00
+    (Data HeapAtomCar2 00
+    (Data HeapAtomCar3 00
+    (Data HeapAtomCar4 00
+    (Data HeapAtomCar5 00
+    (Data HeapAtomCar6 00
+    (Data HeapAtomCar7 00
+    (Data HeapAtomCdr 00
+    (Data HeapAtomCdr1 00
+    (Data HeapAtomCdr2 00
+    (Data HeapAtomCdr3 00
+    (Data HeapAtomCdr4 00
+    (Data HeapAtomCdr5 00
+    (Data HeapAtomCdr6 00
+    (Data HeapAtomCdr7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (String2 Chars42 34 32
+    (String2 Chars41 34 31
+    (RawPair OldAtomCar 00 00
+    (RawPair OldAtomCdr 00 00
+    (Pair OldRoot (Const OldAtomCar) (Const OldAtomCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitDynamicAtomFieldsCopy)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (ScanDynamicAtomCar)
+            (Seq
+              (ScanDynamicAtomCdr)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (FinishDynamicAtomFieldsCopy))))))
+    (Def
+      EmitByte
+      NoFrame
+      (Seq
+        (LoadAtomCharsEcx)
+        (Seq
+          (LoadByteEbxFromEcx)
+          (Seq
+            (CallProc Nybble)
+            (Seq
+              (ShlEbx 04)
+              (Seq
+                (PushEbx)
+                (Seq
+                  (IncEcx)
+                  (Seq
+                    (LoadByteEbxFromEcx)
+                    (Seq
+                      (CallProc Nybble)
+                      (Seq
+                        (PopEcx)
+                        (Seq
+                          (OrEbxEcx)
+                          (WriteByteFromEbx)))))))))))
+    (Def
+      Nybble
+      NoFrame
+      (Seq
+        (SubEbx 30)
+        (Seq
+          (CmpEbx 09)
+          (IfBelowEq
+            Done
+            (Nop)
+            (SubEbx 07))))
+    End))))))))))))))))))))))))))))))))))))))
+))

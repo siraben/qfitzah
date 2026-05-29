@@ -253,6 +253,10 @@ Progress so far:
   atom paths in one copied pair. Both runtime-initialized atom fields are
   rewritten to copied atom records, all old records are overwritten, and the
   generated ELF emits stdout `41` from the copied cdr atom.
+- `stage5-copy-dynamic-atom-fields-gc-qfc4.qf1` lifts that combined
+  runtime-initialized atom-copy proof through qfc4. The staged test lowers
+  qfc4 to qfasm3, uses a small qfasm3 branch pass-through shim for the direct
+  scan snippets, assembles an exact ELF, and verifies stdout `41`.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -263,8 +267,8 @@ Still required for the byte-output path:
 - extending scan-forwarding from focused and mixed pair graphs to arbitrary
   Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
-- lifting runtime-initialized atom copying through qfc4 and generalizing it
-  beyond the focused direct field-copy fixtures
+- generalizing runtime-initialized atom copying beyond the focused direct and
+  qfc4 field-copy fixtures
 - larger object graphs beyond the current finite layout budget
 - generalizing the recovered nested `EmitBytes` proof beyond the focused
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current

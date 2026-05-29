@@ -1,0 +1,17 @@
+; Optional qfasm3 pass-through support for raw qfasm2 branch forms.
+;
+; Some generated qfc4 Stage 5 fixtures reuse direct qfasm2 scan snippets with
+; explicit labels and short branches. This shim lets qfasm3 pass those branch
+; forms through to qfasm2 while keeping the common qfasm3 source small.
+
+(Rule
+  (Expand (Do (Jnz name) rest) scope)
+  (Ins (Jnz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jz name) rest) scope)
+  (Ins (Jz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jump name) rest) scope)
+  (Ins (Jump name) (Expand rest scope)))
