@@ -314,6 +314,11 @@ Progress so far:
   `(a b)`. It intentionally uses `qfasm-n224-ext.qf1` so this larger generated
   ELF proves the next finite qfasm2 range step without growing the common
   assembler load.
+- `stage5-print-nested-list-qfc4.qf1` keeps that printer code and changes the
+  static object graph to `(a (b))`. The generated ELF proves a tail element can
+  recurse back through `PrintExpr` as another list, producing stdout `(a (b))`
+  while loading only the existing `qfasm-n224-ext.qf1` plus a tiny
+  `qfasm-n232-size-ext.qf1` header-size fact.
 - `stage5-optimization-qfc4.qf1` starts Task 5.3 with optional qfc4 optimizer
   rules in `qfc4-opt-ext.qf1`. The extension is loaded after qfc4 so its
   constant-folding, known-match, and straight-line dead-code rules override

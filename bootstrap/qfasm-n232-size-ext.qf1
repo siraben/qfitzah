@@ -1,0 +1,16 @@
+; Minimal qfasm2 size extension from N224 through N232.
+;
+; Load after qfasm-n224-ext.qf1.  The nested normal-printer fixture has no
+; labels past the N224 range, but its total segment size is N232, so the ELF
+; header needs just this additional size path.
+
+(Inc N224) N225
+(Inc N225) N226
+(Inc N226) N227
+(Inc N227) N228
+(Inc N228) N229
+(Inc N229) N230
+(Inc N230) N231
+(Inc N231) N232
+
+(FileSize N232) (Bytes 3C 01 00 00)

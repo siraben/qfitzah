@@ -337,6 +337,11 @@ recurs through the tail printer, stops on nil, and writes stdout `(a b)`.
 The fixture loads `qfasm-n224-ext.qf1`, which keeps qfasm2's common range
 small while adding the exact N221..N224 file-size/address and -101..-160
 backward-call byte facts needed by this larger generated ELF.
+`bootstrap/stage5-print-nested-list-qfc4.qf1` keeps that printer code and
+changes only the static graph to `(a (b))`, proving nested normal output through
+`PrintExpr` recursion from a tail element. It reuses `qfasm-n224-ext.qf1` and
+adds `qfasm-n232-size-ext.qf1` for the one extra ELF file-size fact needed by
+the larger data segment.
 `bootstrap/stage5-optimization-qfc4.qf1` starts Task 5.3 with a focused
 optional optimization layer. Loaded after qfc4, `qfc4-opt-ext.qf1` overrides
 the generic compile fallbacks to fold small `Add1` constants, reduce matches

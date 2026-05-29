@@ -279,28 +279,28 @@ run_qfc4_binary() {
   local name=$1
   local expected_status=$2
   local expected_runtime_hex=${3:-}
-  local qfc4_ext=${4:-}
+  local qfc4_exts=()
   local tmp
   local actual_hex
   local expected_hex
   local runtime_hex
   local status
 
-  tmp=$(mktemp -d)
-  if [[ -n "$qfc4_ext" ]]; then
-    cat "$repo_root/bootstrap/qfasm2.qf1" \
-        "$repo_root/bootstrap/qfasm3.qf1" \
-        "$repo_root/bootstrap/qfc4.qf1" \
-        "$repo_root/bootstrap/$qfc4_ext" \
-        "$repo_root/bootstrap/$name.qf1" \
-      | timeout 5s "$qfitzah" > "$tmp/$name"
-  else
-    cat "$repo_root/bootstrap/qfasm2.qf1" \
-        "$repo_root/bootstrap/qfasm3.qf1" \
-        "$repo_root/bootstrap/qfc4.qf1" \
-        "$repo_root/bootstrap/$name.qf1" \
-      | timeout 5s "$qfitzah" > "$tmp/$name"
+  if [[ $# -gt 3 ]]; then
+    shift 3
+    qfc4_exts=("$@")
   fi
+
+  tmp=$(mktemp -d)
+  {
+    cat "$repo_root/bootstrap/qfasm2.qf1" \
+        "$repo_root/bootstrap/qfasm3.qf1" \
+        "$repo_root/bootstrap/qfc4.qf1"
+    for qfc4_ext in "${qfc4_exts[@]}"; do
+      cat "$repo_root/bootstrap/$qfc4_ext"
+    done
+    cat "$repo_root/bootstrap/$name.qf1"
+  } | timeout 5s "$qfitzah" > "$tmp/$name"
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
   expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
@@ -348,6 +348,7 @@ run_qfc4_binary "stage4-emit-bytes-nested" 0 "41"
 run_qfc4_binary "stage4-emit-bytes-general" 0 "41"
 run_qfc4_binary "stage5-print-list-qfc4" 0 "28 61 29"
 run_qfc4_binary "stage5-print-list-tail-qfc4" 0 "28 61 20 62 29" "qfasm-n224-ext.qf1"
+run_qfc4_binary "stage5-print-nested-list-qfc4" 0 "28 61 20 28 62 29 29" "qfasm-n224-ext.qf1" "qfasm-n232-size-ext.qf1"
 run_qfc4_binary "stage4-is-bytes-content" 42
 run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"

@@ -514,6 +514,11 @@ prints a separator before the next element, stops on nil, and writes stdout
 `(a b)`. The fixture uses `qfasm-n224-ext.qf1`, a narrow range extension that
 keeps qfasm2's common path at `N220` while allowing this 308-byte ELF to carry
 a correct file-size header and one larger backward call.
+[bootstrap/stage5-print-nested-list-qfc4.qf1](bootstrap/stage5-print-nested-list-qfc4.qf1)
+uses the same printer on `(a (b))`, proving that a tail element can recurse
+back through `PrintExpr` as another list. It loads `qfasm-n224-ext.qf1` plus
+the tiny `qfasm-n232-size-ext.qf1` header-size fact instead of widening the
+common assembler tables.
 [bootstrap/stage5-optimization-qfc4.qf1](bootstrap/stage5-optimization-qfc4.qf1)
 starts the optimization path with optional qfc4 rules in
 `qfc4-opt-ext.qf1`. The fixture folds `(Add1 (Literal 29))` to a literal
