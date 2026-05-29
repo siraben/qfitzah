@@ -1,0 +1,125 @@
+; Optional qfc4 surface for a two-argument dispatch table.
+
+(Rule
+  (ParseDefs (DispatchEntry name sig arg1 arg2 method rest))
+  (AstDispatchEntry name sig arg1 arg2 method (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchEntry name sig arg1 arg2 method rest))
+  (DAppend (CompileDispatchEntry name sig arg1 arg2 method) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchEntry name sig arg1 arg2 method)
+  (Do
+    (Align4)
+    (Do
+      (Label sig)
+      (Do
+        (Dword arg1)
+        (Do
+          (Dword arg2)
+          (Do
+            (Align4)
+            (Do
+              (Label name)
+              (Do (DwordLabel sig) (Do (DwordLabel method) End)))))))))
+
+(Rule
+  (ParseStmt (DispatchTwoEntries))
+  DispatchTwoEntries)
+
+(Rule
+  (ParseStmt (MethodWrong))
+  MethodWrong)
+
+(Rule
+  (ParseStmt (MethodHit))
+  MethodHit)
+
+(Rule
+  (CompileStmt DispatchTwoEntries)
+  (Do
+    (MovEaxLabel EntryWrong)
+    (Do
+      (PushEax)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (LoadEbxCarFromEax)
+          (Do
+            (CmpEbxImm8 13)
+            (Do
+              (Jnz TryEntryHit)
+              (Do
+                (LoadEaxCdr)
+                (Do
+                  (CmpEaxImm8 2A)
+                  (Do
+                    (Jnz TryEntryHit)
+                    (Do
+                      (PopEax)
+                      (Do
+                        (LoadEaxCdr)
+                        (Do
+                          (CallEax)
+                          (Do
+                            (Jump DispatchDone)
+                            (Do
+                              (Label TryEntryHit)
+                              (Do
+                                (PopEax)
+                                (Do
+                                  (MovEaxLabel EntryHit)
+                                  (Do
+                                    (PushEax)
+                                    (Do
+                                      (LoadEaxCar)
+                                      (Do
+                                        (LoadEbxCarFromEax)
+                                        (Do
+                                          (CmpEbxImm8 13)
+                                          (Do
+                                            (Jnz DispatchMiss)
+                                            (Do
+                                              (LoadEaxCdr)
+                                              (Do
+                                                (CmpEaxImm8 2A)
+                                                (Do
+                                                  (Jnz DispatchMiss)
+                                                  (Do
+                                                    (PopEax)
+                                                    (Do
+                                                      (LoadEaxCdr)
+                                                      (Do
+                                                        (CallEax)
+                                                        (Do
+                                                          (Jump DispatchDone)
+                                                          (Do
+                                                            (Label DispatchMiss)
+                                                            (Do
+                                                              (PopEax)
+                                                              (Do
+                                                                (MovEbxImm32 09)
+                                                                (Do
+                                                                  (MovEaxImm32 01)
+                                                                  (Do
+                                                                    (Int 80)
+                                                                    (Do
+                                                                      (Label DispatchDone)
+                                                                      End)))))))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt MethodWrong)
+  (Do
+    (MovEbxImm32 07)
+    (Do
+      (Ret)
+      End)))
+
+(Rule
+  (CompileStmt MethodHit)
+  (Do
+    (MovEbxImm32 2A)
+    (Do
+      (Ret)
+      End)))

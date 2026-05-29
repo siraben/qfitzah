@@ -232,6 +232,11 @@ Progress so far:
   `qfasm-stage5-checked-ext.qf1`. This keeps checked allocation, recovery,
   retry allocation, forwarding, and runtime atom copying in one staged compiled
   path.
+- `stage5-dispatch-table-qfc4.qf1` starts the multiple-dispatch-table work
+  from Task 5.2. The qfc4 source compiles two dispatch entries, each with a
+  two-argument signature record and a concrete method pointer, then runtime
+  dispatch loads and indirectly calls the matching method address after
+  skipping a non-matching entry.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

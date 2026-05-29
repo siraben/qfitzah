@@ -1,0 +1,29 @@
+; Stage 5 multiple-dispatch table fixture lifted through qfc4.
+;
+; The qfc4 source compiles two dispatch entries. Each entry contains a
+; two-argument signature record plus a concrete method code pointer. Runtime
+; dispatch checks both signature fields, skips the first non-matching entry,
+; loads the matching method pointer from the table, calls it indirectly, and
+; exits with the method result (`42`).
+
+(QfcAssemble
+  (Source
+    Start
+    (DispatchEntry EntryWrong SigWrong 13 23 MethodWrong
+    (DispatchEntry EntryHit SigHit 13 2A MethodHit
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (DispatchTwoEntries)
+        (ExitReg Ebx))
+    (Def
+      MethodWrong
+      NoFrame
+      (MethodWrong)
+    (Def
+      MethodHit
+      NoFrame
+      (MethodHit)
+    End)))))
+))

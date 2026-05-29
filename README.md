@@ -436,6 +436,11 @@ without overwriting copied live data.
 lifts that checked overflow/recovery/retry path through qfc4 with focused
 qfc4/qfasm extensions, so the staged compiler surface now covers the allocator
 boundary and the collector shape together.
+[bootstrap/stage5-dispatch-table-qfc4.qf1](bootstrap/stage5-dispatch-table-qfc4.qf1)
+starts the multiple-dispatch-table path. qfc4 compiles two table entries with
+two-argument signature records and concrete method pointers; runtime dispatch
+skips the first non-matching entry, loads the matching method pointer, calls it
+indirectly, and exits with status `42`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

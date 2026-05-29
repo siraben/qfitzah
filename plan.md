@@ -258,6 +258,12 @@ cycle, atom frontier, and retry pair before exiting `0`.
 checked overflow/recovery/retry path through qfc4 with focused optional
 qfc4/qfasm extensions. The staged source now expresses the allocator boundary
 and the scan-forwarding dynamic atom recovery in the same compiled path.
+`bootstrap/stage5-dispatch-table-qfc4.qf1` starts Task 5.2 with a focused
+multiple-dispatch proof: qfc4 compiles two table entries containing
+two-argument signature records plus concrete method code pointers, runtime
+dispatch skips the first non-matching entry, loads the matching method address
+from the table, calls it indirectly, and exits with the selected method result
+(`42`).
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

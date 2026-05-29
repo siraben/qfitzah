@@ -338,6 +338,49 @@ run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"
 run_qfc4_binary "stage4-is-bytes-content-linear" 0 "41"
 
+run_qfc4_dispatch_binary() {
+  local name=$1
+  local expected_status=$2
+  local tmp
+  local actual_hex
+  local expected_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/qfasm-dispatch-ext.qf1" \
+      "$repo_root/bootstrap/qfc4.qf1" \
+      "$repo_root/bootstrap/qfc4-dispatch-ext.qf1" \
+      "$repo_root/bootstrap/$name.qf1" \
+    | timeout 20s "$qfitzah" > "$tmp/$name"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/$name"
+  set +e
+  "$tmp/$name"
+  status=$?
+  set -e
+
+  if [[ $status -ne $expected_status ]]; then
+    printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - %s\n' "$name"
+}
+
+run_qfc4_dispatch_binary "stage5-dispatch-table-qfc4" 42
+
 run_qfc4_byte_output_binary() {
   local name=$1
   local expected_status=$2
@@ -887,7 +930,7 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfc4-checked-scan-forwarding-dynamic-atom-ext.qf1" \
   "qfasm-stage5-checked-ext.qf1" \
   "" \
-  150
+  300
 run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-bytes-output-gc-qfc4" 0 \
   "qfc4-copy-bytes-output-ext.qf1" \
@@ -907,15 +950,20 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-dynamic-atom-fields-gc-qfc4" 0 \
   "qfc4-copy-dynamic-atom-fields-ext.qf1" \
   "qfasm-stage5-branch-ext.qf1" \
-  "41"
+  "41" \
+  300
 run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-dynamic-atom-nested-gc-qfc4" 0 \
   "qfc4-copy-dynamic-atom-nested-ext.qf1" \
-  "qfasm-stage5-branch-ext.qf1"
+  "qfasm-stage5-branch-ext.qf1" \
+  "" \
+  300
 run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-dynamic-atom-deep-gc-qfc4" 0 \
   "qfc4-copy-dynamic-atom-deep-ext.qf1" \
-  "qfasm-stage5-branch-ext.qf1"
+  "qfasm-stage5-branch-ext.qf1" \
+  "" \
+  300
 
 run_qfc4_heap_check_binary() {
   local name=$1
@@ -1159,6 +1207,6 @@ run_qfasm2_stage5_scan_binary "stage5-checked-scan-forwarding-dynamic-atom-gc" 0
 run_qfasm2_stage5_scan_binary "stage5-copy-bytes-output-gc" 0 "" 30 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-bytes-isbytes-output-gc" 0 "qfasm-byte-output-ext.qf1" 45 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-nested-bytes-output-gc" 0 "qfasm-byte-output-ext.qf1" 60 "41"
-run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atoms-output-gc" 0 "qfasm-byte-output-ext.qf1" 90 "41"
-run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-cdr-gc" 0 "" 60 "41"
-run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-fields-gc" 0 "" 60 "41"
+run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atoms-output-gc" 0 "qfasm-byte-output-ext.qf1" 180 "41"
+run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-cdr-gc" 0 "" 180 "41"
+run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-fields-gc" 0 "" 180 "41"

@@ -1,0 +1,21 @@
+; Optional qfasm2/qfasm3 support for dispatch-table fixtures.
+
+(Rule
+  (Size (CallEax))
+  N2)
+
+(Rule
+  (Pass2 (Ins (CallEax) rest) pc sym)
+  (Bytes FF D0 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Expand (Do (CallEax) rest) scope)
+  (Ins (CallEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jnz name) rest) scope)
+  (Ins (Jnz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jump name) rest) scope)
+  (Ins (Jump name) (Expand rest scope)))
