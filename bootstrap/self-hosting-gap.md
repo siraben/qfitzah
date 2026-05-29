@@ -245,6 +245,10 @@ Progress so far:
   a separate atom frontier and rewritten to tagged copied atoms. The old atom
   records are overwritten before the copied `Bytes` object is checked by
   content and emitted as stdout `41`.
+- `stage5-copy-dynamic-atom-cdr-gc.qf1` extends that direct atom frontier proof
+  to tagged atom fields in pair cdrs. The copied cdr is rewritten to the copied
+  atom record, the old atom is overwritten, and the generated ELF emits stdout
+  `41` from the copied cdr atom.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -256,7 +260,7 @@ Still required for the byte-output path:
   Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - lifting runtime-initialized atom copying through qfc4 and generalizing it
-  beyond tagged atom fields in pair cars
+  beyond the focused direct car/cdr atom-field fixtures
 - larger object graphs beyond the current finite layout budget
 - generalizing the recovered nested `EmitBytes` proof beyond the focused
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current

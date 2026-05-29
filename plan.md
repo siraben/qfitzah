@@ -270,6 +270,9 @@ records out of static data. It initializes the `Bytes` and `41` atom records in
 writable cells at runtime, copies tagged atom fields into a separate atom
 frontier during recovery, overwrites the old atom records, and still emits
 stdout byte `41` from the copied graph.
+`bootstrap/stage5-copy-dynamic-atom-cdr-gc.qf1` extends the same atom frontier
+to tagged atom fields in pair cdrs, rewriting the copied cdr to the copied atom
+record and emitting stdout byte `41` after the old atom is overwritten.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,
