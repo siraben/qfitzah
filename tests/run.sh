@@ -337,6 +337,7 @@ run_qfc4_binary() {
 
 run_qfc4_binary "stage4-exit42" 42
 run_qfc4_binary "stage5-optimization-qfc4" 42 "" "qfc4-opt-ext.qf1"
+run_qfc4_binary "stage5-tco-qfc4" 42 "" "qfc4-opt-ext.qf1"
 run_qfc4_binary "stage4-tagged-exit43" 43
 run_qfc4_binary "stage4-nybble" 10
 run_qfc4_binary "stage4-emit-byte" 0 "41"

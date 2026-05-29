@@ -6,6 +6,14 @@
 
 ; Straight-line dead-code elimination.
 (Rule
+  (CompileStmt (Seq (CallProc name) Return))
+  (CompileStmt (TailCallProc name)))
+
+(Rule
+  (CompileStmt (Seq (ParseStmt (CallProc name)) (ParseStmt (Return))))
+  (CompileStmt (TailCallProc name)))
+
+(Rule
   (CompileStmt (Seq Nop rest))
   (CompileStmt rest))
 

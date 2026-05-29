@@ -308,6 +308,10 @@ Progress so far:
   rules in `qfc4-opt-ext.qf1`. The extension is loaded after qfc4 so its
   constant-folding, known-match, and straight-line dead-code rules override
   the generic compile fallbacks without growing the common qfc4 rule load.
+- `stage5-tco-qfc4.qf1` extends that same optional optimizer with a focused
+  tail-call rule. A final call immediately followed by return compiles through
+  `TailCallProc`, so the generated wrapper jumps directly to its target and
+  exits through the target's code.
 
 Still required for the byte-output path:
 

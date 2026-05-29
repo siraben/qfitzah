@@ -1,0 +1,25 @@
+; qfc4 tail-call optimization fixture.
+;
+; With `qfc4-opt-ext.qf1`, Wrapper's final `(CallProc Target) (Return)` pair
+; is compiled as a direct tail jump to Target rather than call/ret.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (CallProc Wrapper)
+        (Exit (Literal 01)))
+      (Def
+        Wrapper
+        NoFrame
+        (Seq
+          (CallProc Target)
+          (Return))
+        (Def
+          Target
+          NoFrame
+          (Exit (Literal 2A))
+          End)))))

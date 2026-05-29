@@ -508,6 +508,10 @@ starts the optimization path with optional qfc4 rules in
 `qfc4-opt-ext.qf1`. The fixture folds `(Add1 (Literal 29))` to a literal
 `42`, removes a leading `Nop`, drops a dead second exit, and emits a smaller
 runnable ELF that exits `42`.
+[bootstrap/stage5-tco-qfc4.qf1](bootstrap/stage5-tco-qfc4.qf1) extends that
+optional optimizer with a focused tail-call rule. A final `(CallProc Target)`
+followed by `(Return)` in `Wrapper` is compiled as a direct jump to `Target`;
+the expected ELF checks that shape and exits `42`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

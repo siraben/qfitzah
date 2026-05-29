@@ -333,6 +333,11 @@ the generic compile fallbacks to fold small `Add1` constants, reduce matches
 with known tests, and eliminate straight-line statements after `Exit` or
 `Return`; the fixture proves constant folding plus dead-code elimination by
 emitting a smaller ELF that exits `42`.
+`bootstrap/stage5-tco-qfc4.qf1` adds the tail-call optimization part of Task
+5.3 to the same optional layer. `qfc4-opt-ext.qf1` recognizes a final
+`(CallProc name)` followed by `(Return)` and lowers it through the existing
+`TailCallProc` path; the fixture's exact ELF contains a direct jump from
+`Wrapper` to `Target` and exits `42`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
