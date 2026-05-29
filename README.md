@@ -446,6 +446,10 @@ makes that dispatch path loop over a linked table. qfc4 compiles entries with
 signature, method, and next-entry pointers; runtime dispatch skips an arg1
 miss, skips an arg2 miss, follows the next links, indirectly calls the matching
 method, and exits with status `42`.
+[bootstrap/stage5-dispatch-chain-miss-qfc4.qf1](bootstrap/stage5-dispatch-chain-miss-qfc4.qf1)
+exercises the same linked dispatch loop with no matching entry. It skips both
+entries, reaches the end-of-chain sentinel, and exits through the dispatch-miss
+path with status `9`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

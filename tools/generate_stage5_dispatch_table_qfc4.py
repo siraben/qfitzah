@@ -12,6 +12,7 @@ QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-ext.qf1"
 QFC4_CHAIN_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-chain-ext.qf1"
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-table-qfc4.qf1"
 QFC4_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-qfc4.qf1"
+QFC4_CHAIN_MISS_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-miss-qfc4.qf1"
 
 
 def bad_status(value):
@@ -365,12 +366,54 @@ def write_qfc4_chain_source():
     )
 
 
+def write_qfc4_chain_miss_source():
+    defs = [
+        "(DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryMissArg2",
+        "(DispatchChainEntry EntryMissArg2 SigMissArg2 PayloadMissArg2 13 23 MethodWrongB NoEntry",
+        "(DispatchEnd NoEntry",
+        """(Def
+      Start
+      NoFrame
+      (Seq
+        (DispatchChain)
+        (ExitReg Ebx))""",
+        """(Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)""",
+        """(Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)""",
+        """(Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)""",
+    ]
+
+    QFC4_CHAIN_MISS_SRC_OUT.write_text(
+        """; Stage 5 looped multiple-dispatch miss fixture lifted through qfc4.
+;
+; The qfc4 source compiles a linked dispatch table with no matching method.
+; Runtime dispatch skips an arg1 miss and then an arg2 miss, reaches the
+; end-of-chain sentinel, and exits through the dispatch-miss path (`9`).
+
+(QfcAssemble
+  (Source
+    Start
+"""
+        + qfc4_defs_block(defs)
+        + "\n))\n"
+    )
+
+
 def main():
     write_qfasm_extension()
     write_qfc4_extension()
     write_qfc4_chain_extension()
     write_qfc4_source()
     write_qfc4_chain_source()
+    write_qfc4_chain_miss_source()
 
 
 if __name__ == "__main__":

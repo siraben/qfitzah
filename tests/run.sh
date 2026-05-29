@@ -472,6 +472,7 @@ run_qfc4_dispatch_binary() {
 
 run_qfc4_dispatch_binary "stage5-dispatch-table-qfc4" 42
 run_qfc4_dispatch_binary "stage5-dispatch-chain-qfc4" 42 "qfc4-dispatch-chain-ext.qf1"
+run_qfc4_dispatch_binary "stage5-dispatch-chain-miss-qfc4" 9 "qfc4-dispatch-chain-ext.qf1"
 
 run_qfc4_byte_output_binary() {
   local name=$1

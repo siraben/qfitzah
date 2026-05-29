@@ -242,6 +242,10 @@ Progress so far:
   next-entry pointers; runtime dispatch loops over the chain, skips both an
   arg1 miss and an arg2 miss, follows next links, and indirectly calls the
   first matching method.
+- `stage5-dispatch-chain-miss-qfc4.qf1` exercises the same linked-table
+  dispatcher when no entry matches. Runtime dispatch skips both entries,
+  reaches the end-of-chain sentinel, and exits through the dispatch-miss path
+  with status `9`.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
