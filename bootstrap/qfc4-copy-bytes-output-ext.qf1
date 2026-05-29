@@ -1,0 +1,79 @@
+; Optional qfc4 surface for GC plus byte-output fixture.
+
+(Rule
+  (ParseStmt (InitBytesOutputCopy))
+  InitBytesOutputCopy)
+
+(Rule
+  (ParseStmt (FinishBytesOutputCopy))
+  FinishBytesOutputCopy)
+
+(Rule
+  (CompileStmt InitBytesOutputCopy)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (MovEbxLabel HeapTail)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel Scan)
+          (Do
+            (MovEbxLabel Heap)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (MovEaxLabel Root)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (LoadEbxCarFromEax)
+                    (Do
+                      (LoadEcxCdrFromEax)
+                      (Do
+                        (MovEaxLabel Heap)
+                        (Do
+                          (StoreDwordAtEaxFromEbx)
+                          (Do
+                            (StoreDwordAtEaxPlus4FromEcx)
+                            (Do
+                              (MovEaxLabel Root)
+                              (Do
+                                (MovEbxLabel Heap)
+                                (Do
+                                  (StoreDwordAtEaxFromEbx)
+                                  End)))))))))))))))))
+
+(Rule
+  (CompileStmt FinishBytesOutputCopy)
+  (Do
+    (MovEaxLabel OldBytesExpr)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldBytesTail)
+              (Do
+                (MovEbxImm32 3F)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 4D)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel HeapNext)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (MovEbxLabel HeapAfterCopied)
+                            (Do
+                              (CmpEaxEbx)
+                              (Do
+                                (IfZero HeapNextOk (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (LoadEaxCar) (Do (Invoke EmitByte Empty) (Do (MovEbxImm32 00) (Do (MovEaxImm32 01) (Do (Int 80) End)))))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                End))))))))))))))))

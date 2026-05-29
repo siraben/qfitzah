@@ -247,6 +247,10 @@ byte-output runtime path at the direct qfasm2 level. It forces recovery, copies
 a static `(Bytes 41)` object graph, overwrites the old pair objects, and emits
 from the copied byte atom through `EmitByte`, `Nybble`, and `write(2)`, writing
 byte `41` before exiting `0`.
+`bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
+with a focused byte-output recovery extension while keeping the scan loop and
+`EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,
+stdout byte `41`, and exit `0`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

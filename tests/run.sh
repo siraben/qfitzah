@@ -794,10 +794,12 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
   local expected_status=$2
   local qfc4_ext=${3:-qfc4-scan-forwarding-ext.qf1}
   local qfasm_ext=${4:-}
+  local expected_runtime_hex=${5:-}
   local tmp
   local actual_hex
   local expected_hex
   local flags_hex
+  local runtime_hex
   local status
 
   tmp=$(mktemp -d)
@@ -847,7 +849,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
 
   chmod +x "$tmp/$name"
   set +e
-  "$tmp/$name"
+  "$tmp/$name" > "$tmp/runtime.out"
   status=$?
   set -e
 
@@ -855,6 +857,15 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
     printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
     rm -rf "$tmp"
     exit 1
+  fi
+
+  if [[ -n "$expected_runtime_hex" ]]; then
+    runtime_hex=$(od -An -tx1 -v "$tmp/runtime.out" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+    if [[ "$runtime_hex" != "$expected_runtime_hex" ]]; then
+      printf 'FAIL %s: expected runtime stdout hex %s, got %s\n' "$name" "$expected_runtime_hex" "$runtime_hex" >&2
+      rm -rf "$tmp"
+      exit 1
+    fi
   fi
 
   rm -rf "$tmp"
@@ -866,6 +877,11 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-scan-forwarding-complex-gc-qfc4" 19 \
   "qfc4-scan-forwarding-complex-ext.qf1" \
   "qfasm-const-compare-ext.qf1"
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-copy-bytes-output-gc-qfc4" 0 \
+  "qfc4-copy-bytes-output-ext.qf1" \
+  "" \
+  "41"
 
 run_qfc4_heap_check_binary() {
   local name=$1
