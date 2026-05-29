@@ -427,6 +427,11 @@ lifts that combined forwarding-plus-atom proof through qfc4 with
 `qfc4-scan-forwarding-dynamic-atom-ext.qf1`. The staged test reuses the split
 branch pass-through shim for the short branches in the focused scan handlers
 and verifies a runnable ELF with exit status `0`.
+[bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc.qf1](bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc.qf1)
+connects checked allocation to that collector shape: the first allocation
+starts at `HeapLimit`, overflows, runs scan-forwarding recovery with runtime
+atom copying, retries after the copied graph, and verifies the retry pair
+without overwriting copied live data.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

@@ -249,6 +249,11 @@ extension. The staged source keeps the scan loop readable, copies the child's
 self-cycle through forwarding, copies the runtime cdr atom into the atom
 frontier, overwrites all old records, and exits `0` after checking the copied
 cycle, frontiers, and atom length.
+`bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc.qf1` connects that
+collector shape to the checked allocator path: the first pair allocation starts
+at `HeapLimit`, overflows, runs scan-forwarding recovery with runtime atom
+copying, retries the allocation after the copied graph, and verifies the copied
+cycle, atom frontier, and retry pair before exiting `0`.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

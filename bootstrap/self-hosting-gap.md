@@ -221,6 +221,11 @@ Progress so far:
   `qfc4-scan-forwarding-dynamic-atom-ext.qf1`. The staged test uses the split
   short-branch pass-through shim for reused scan snippets and verifies exit
   status `0` after checking the copied cycle, frontiers, and atom length.
+- `stage5-checked-scan-forwarding-dynamic-atom-gc.qf1` connects checked pair
+  allocation to that collector shape at the qfasm2 layer. `HeapNext` starts at
+  `HeapLimit`, the first allocation must overflow, recovery copies the live
+  cyclic child graph and runtime atom, and the allocator retries into the space
+  after the copied graph before old records are overwritten and checked.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
