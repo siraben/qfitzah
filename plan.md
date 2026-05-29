@@ -228,6 +228,10 @@ rewrites both root fields and the child's self-edge to the copied child, checks
 that allocation advanced by only two cells, and exits through the copied child
 (`19`). This is the first focused proof that the scan loop and forwarding
 marker can cooperate on a cyclic shared graph.
+`bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
+through qfc4. The staged source keeps the loop in qfc4 form, factors one field
+handler as a helper procedure to stay inside branch ranges, and emits a
+runnable ELF that exits through the copied child (`19`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

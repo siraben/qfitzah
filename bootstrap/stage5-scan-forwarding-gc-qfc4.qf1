@@ -1,0 +1,52 @@
+; Stage 5 scan-forwarding recovery lifted through qfc4.
+;
+; Compile with qfc4-scan-forwarding-ext.qf1 and the Stage 5 heap/scan
+; extensions. The source keeps the scan loop readable while the optional qfc4
+; extension owns the long forwarding field handlers.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapChild 00
+    (Data HeapChild1 00
+    (Data HeapChild2 00
+    (Data HeapChild3 00
+    (Data HeapChild4 00
+    (Data HeapChild5 00
+    (Data HeapChild6 00
+    (Data HeapChild7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (RawPairPtrs OldRoot OldShared OldShared
+    (RawPairValPtr OldShared 13 OldShared
+    (Def
+      ScanCdr
+      NoFrame
+      (ScanForwardCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitScanForwarding)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (CallProc ScanCdr)
+            (Seq
+              (ScanForwardCarInline)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (CheckScanForwarding))))))
+    End)))))))))))))))))))))))))
+))

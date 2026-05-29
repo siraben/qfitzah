@@ -198,6 +198,16 @@ These checked fixtures fit:
   - copies a shared cyclic child once, rewrites both root fields and the
     copied child's self-edge to the copied child, verifies `HeapNext`, and exits
     through the copied child car (`19`)
+- `stage5-scan-forwarding-gc-qfc4.qf1`
+  - generated with `tools/generate_stage5_scan_forwarding_qfc4.py` and
+    `qfc4-scan-forwarding-ext.qf1`
+  - runs as a staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+    under Qfitzah
+  - keeps one field handler as a helper procedure before `Start` and inlines
+    the other in the scan loop so calls and the loop backedge stay inside the
+    current finite branch facts
+  - exits through the copied child car (`19`), proving the scan-forwarding
+    shape now lowers through qfc4
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:
