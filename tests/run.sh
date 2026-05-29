@@ -279,6 +279,7 @@ run_qfc4_binary() {
   local name=$1
   local expected_status=$2
   local expected_runtime_hex=${3:-}
+  local qfc4_ext=${4:-}
   local tmp
   local actual_hex
   local expected_hex
@@ -286,11 +287,20 @@ run_qfc4_binary() {
   local status
 
   tmp=$(mktemp -d)
-  cat "$repo_root/bootstrap/qfasm2.qf1" \
-      "$repo_root/bootstrap/qfasm3.qf1" \
-      "$repo_root/bootstrap/qfc4.qf1" \
-      "$repo_root/bootstrap/$name.qf1" \
-    | timeout 5s "$qfitzah" > "$tmp/$name"
+  if [[ -n "$qfc4_ext" ]]; then
+    cat "$repo_root/bootstrap/qfasm2.qf1" \
+        "$repo_root/bootstrap/qfasm3.qf1" \
+        "$repo_root/bootstrap/qfc4.qf1" \
+        "$repo_root/bootstrap/$qfc4_ext" \
+        "$repo_root/bootstrap/$name.qf1" \
+      | timeout 5s "$qfitzah" > "$tmp/$name"
+  else
+    cat "$repo_root/bootstrap/qfasm2.qf1" \
+        "$repo_root/bootstrap/qfasm3.qf1" \
+        "$repo_root/bootstrap/qfc4.qf1" \
+        "$repo_root/bootstrap/$name.qf1" \
+      | timeout 5s "$qfitzah" > "$tmp/$name"
+  fi
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
   expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
@@ -326,6 +336,7 @@ run_qfc4_binary() {
 }
 
 run_qfc4_binary "stage4-exit42" 42
+run_qfc4_binary "stage5-optimization-qfc4" 42 "" "qfc4-opt-ext.qf1"
 run_qfc4_binary "stage4-tagged-exit43" 43
 run_qfc4_binary "stage4-nybble" 10
 run_qfc4_binary "stage4-emit-byte" 0 "41"

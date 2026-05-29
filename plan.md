@@ -327,6 +327,12 @@ pair chain and copied atom field after old records are overwritten.
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,
 stdout byte `41`, and exit `0`.
+`bootstrap/stage5-optimization-qfc4.qf1` starts Task 5.3 with a focused
+optional optimization layer. Loaded after qfc4, `qfc4-opt-ext.qf1` overrides
+the generic compile fallbacks to fold small `Add1` constants, reduce matches
+with known tests, and eliminate straight-line statements after `Exit` or
+`Return`; the fixture proves constant folding plus dead-code elimination by
+emitting a smaller ELF that exits `42`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

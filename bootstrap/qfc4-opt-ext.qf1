@@ -1,0 +1,88 @@
+; Optional qfc4 optimization rules for focused Stage 5.3 fixtures.
+;
+; Later matching rules take precedence in Qfitzah, so this file must be loaded
+; after `qfc4.qf1`. Keeping these rules optional avoids growing the common qfc4
+; rule set past the seed runtime's practical source-size budget.
+
+; Straight-line dead-code elimination.
+(Rule
+  (CompileStmt (Seq Nop rest))
+  (CompileStmt rest))
+
+(Rule
+  (CompileStmt (Seq (ParseStmt (Nop)) rest))
+  (CompileStmt rest))
+
+(Rule
+  (CompileStmt (Seq (Exit value) rest))
+  (CompileStmt (Exit value)))
+
+(Rule
+  (CompileStmt (Seq (ParseStmt (Exit value)) rest))
+  (CompileStmt (Exit (ParseExpr value))))
+
+(Rule
+  (CompileStmt (Seq Return rest))
+  (CompileStmt Return))
+
+(Rule
+  (CompileStmt (Seq (ParseStmt (Return)) rest))
+  (CompileStmt Return))
+
+; Constant folding for the bootstrap's small literal range.
+(Rule
+  (CompileEbx (Add1 Zero))
+  (Do (MovEbxImm32 01) End))
+
+(Rule
+  (CompileEbx (Add1 (ParseExpr (Zero))))
+  (Do (MovEbxImm32 01) End))
+
+(Rule
+  (CompileEbx (Add1 (Literal 00)))
+  (Do (MovEbxImm32 01) End))
+
+(Rule
+  (CompileEbx (Add1 (ParseExpr (Literal 00))))
+  (Do (MovEbxImm32 01) End))
+
+(Rule
+  (CompileEbx (Add1 (Literal 01)))
+  (Do (MovEbxImm32 02) End))
+
+(Rule
+  (CompileEbx (Add1 (ParseExpr (Literal 01))))
+  (Do (MovEbxImm32 02) End))
+
+(Rule
+  (CompileEbx (Add1 (Literal 29)))
+  (Do (MovEbxImm32 2A) End))
+
+(Rule
+  (CompileEbx (Add1 (ParseExpr (Literal 29))))
+  (Do (MovEbxImm32 2A) End))
+
+(Rule
+  (CompileEbx (Add1 (Literal 2A)))
+  (Do (MovEbxImm32 2B) End))
+
+(Rule
+  (CompileEbx (Add1 (ParseExpr (Literal 2A))))
+  (Do (MovEbxImm32 2B) End))
+
+; Compile-time match reduction for known tests.
+(Rule
+  (CompileEbx (Match name Zero (Case Zero then) (Case Else otherwise)))
+  (CompileEbx then))
+
+(Rule
+  (CompileEbx (Match name (ParseExpr (Zero)) (Case Zero then) (Case Else otherwise)))
+  (CompileEbx then))
+
+(Rule
+  (CompileEbx (Match name (Add1 Zero) (Case Zero then) (Case Else otherwise)))
+  (CompileEbx otherwise))
+
+(Rule
+  (CompileEbx (Match name (ParseExpr (Add1 (Zero))) (Case Zero then) (Case Else otherwise)))
+  (CompileEbx otherwise))

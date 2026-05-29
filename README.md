@@ -503,6 +503,11 @@ cdr atom is copied when traversal reaches that grandchild.
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
 test checks both the exact generated ELF and runtime stdout `41`.
+[bootstrap/stage5-optimization-qfc4.qf1](bootstrap/stage5-optimization-qfc4.qf1)
+starts the optimization path with optional qfc4 rules in
+`qfc4-opt-ext.qf1`. The fixture folds `(Add1 (Literal 29))` to a literal
+`42`, removes a leading `Nop`, drops a dead second exit, and emits a smaller
+runnable ELF that exits `42`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

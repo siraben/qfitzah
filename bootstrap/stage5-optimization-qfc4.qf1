@@ -1,0 +1,17 @@
+; qfc4 optimization-pass fixture.
+;
+; The optimizer folds `(Add1 (Literal 29))` to `(Literal 2A)`, removes the
+; leading `Nop`, and drops the dead second exit after the first `Exit`.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (Nop)
+        (Seq
+          (Exit (Add1 (Literal 29)))
+          (Exit (Literal 63))))
+      End)))
