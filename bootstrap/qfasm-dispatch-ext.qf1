@@ -17,5 +17,9 @@
   (Ins (Jnz name) (Expand rest scope)))
 
 (Rule
+  (Expand (Do (Jz name) rest) scope)
+  (Ins (Jz name) (Expand rest scope)))
+
+(Rule
   (Expand (Do (Jump name) rest) scope)
   (Ins (Jump name) (Expand rest scope)))

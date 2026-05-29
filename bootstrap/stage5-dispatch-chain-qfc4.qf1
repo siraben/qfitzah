@@ -1,0 +1,35 @@
+; Stage 5 looped multiple-dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles a linked dispatch table. Each entry stores a
+; two-argument signature, a method pointer, and a next-entry pointer. Runtime
+; dispatch loops over the chain, skips an arg1 miss and then an arg2 miss,
+; loads the first matching method pointer, calls it indirectly, and exits with
+; the selected method result (`42`).
+
+(QfcAssemble
+  (Source
+    Start
+    (DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryMissArg2
+    (DispatchChainEntry EntryMissArg2 SigMissArg2 PayloadMissArg2 13 23 MethodWrongB EntryHitChain
+    (DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry
+    (DispatchEnd NoEntry
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (DispatchChain)
+        (ExitReg Ebx))
+    (Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)
+    (Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)
+    (Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)
+    End))))))))
+))

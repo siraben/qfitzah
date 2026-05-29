@@ -341,6 +341,7 @@ run_qfc4_binary "stage4-is-bytes-content-linear" 0 "41"
 run_qfc4_dispatch_binary() {
   local name=$1
   local expected_status=$2
+  local qfc4_ext=${3:-qfc4-dispatch-ext.qf1}
   local tmp
   local actual_hex
   local expected_hex
@@ -351,7 +352,7 @@ run_qfc4_dispatch_binary() {
       "$repo_root/bootstrap/qfasm3.qf1" \
       "$repo_root/bootstrap/qfasm-dispatch-ext.qf1" \
       "$repo_root/bootstrap/qfc4.qf1" \
-      "$repo_root/bootstrap/qfc4-dispatch-ext.qf1" \
+      "$repo_root/bootstrap/$qfc4_ext" \
       "$repo_root/bootstrap/$name.qf1" \
     | timeout 20s "$qfitzah" > "$tmp/$name"
 
@@ -380,6 +381,7 @@ run_qfc4_dispatch_binary() {
 }
 
 run_qfc4_dispatch_binary "stage5-dispatch-table-qfc4" 42
+run_qfc4_dispatch_binary "stage5-dispatch-chain-qfc4" 42 "qfc4-dispatch-chain-ext.qf1"
 
 run_qfc4_byte_output_binary() {
   local name=$1

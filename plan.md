@@ -264,6 +264,11 @@ two-argument signature records plus concrete method code pointers, runtime
 dispatch skips the first non-matching entry, loads the matching method address
 from the table, calls it indirectly, and exits with the selected method result
 (`42`).
+`bootstrap/stage5-dispatch-chain-qfc4.qf1` turns that into a linked-table
+lookup: qfc4 compiles each entry as signature, method pointer, and next-entry
+pointer records; runtime dispatch loops over the chain, skips both an arg1
+miss and an arg2 miss, follows next links, calls the first matching method
+indirectly, and exits `42`.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

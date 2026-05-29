@@ -441,6 +441,11 @@ starts the multiple-dispatch-table path. qfc4 compiles two table entries with
 two-argument signature records and concrete method pointers; runtime dispatch
 skips the first non-matching entry, loads the matching method pointer, calls it
 indirectly, and exits with status `42`.
+[bootstrap/stage5-dispatch-chain-qfc4.qf1](bootstrap/stage5-dispatch-chain-qfc4.qf1)
+makes that dispatch path loop over a linked table. qfc4 compiles entries with
+signature, method, and next-entry pointers; runtime dispatch skips an arg1
+miss, skips an arg2 miss, follows the next links, indirectly calls the matching
+method, and exits with status `42`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

@@ -9,7 +9,9 @@ from generate_stage5_scan_forwarding_qfc4 import compile_rule, do_expr, qfc4_def
 ROOT = Path(__file__).resolve().parents[1]
 QFASM_EXT_OUT = ROOT / "bootstrap" / "qfasm-dispatch-ext.qf1"
 QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-ext.qf1"
+QFC4_CHAIN_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-chain-ext.qf1"
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-table-qfc4.qf1"
+QFC4_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-qfc4.qf1"
 
 
 def bad_status(value):
@@ -64,6 +66,57 @@ def method_hit():
     ]
 
 
+def dispatch_chain():
+    return [
+        "(MovEaxLabel EntryMissArg1)",
+        "(Label DispatchLoop)",
+        "(CmpEaxLabel NoEntry)",
+        "(Jz DispatchMiss)",
+        "(PushEax)",
+        "(LoadEaxCar)",
+        "(LoadEbxCarFromEax)",
+        "(CmpEbxImm8 13)",
+        "(Jnz DispatchAdvance)",
+        "(LoadEaxCdr)",
+        "(CmpEaxImm8 2A)",
+        "(Jnz DispatchAdvance)",
+        "(PopEax)",
+        "(LoadEaxCdr)",
+        "(LoadEaxCar)",
+        "(CallEax)",
+        "(Jump DispatchDone)",
+        "(Label DispatchAdvance)",
+        "(PopEax)",
+        "(LoadEaxCdr)",
+        "(LoadEaxCdr)",
+        "(Jump DispatchLoop)",
+        "(Label DispatchMiss)",
+        *bad_status("09"),
+        "(Label DispatchDone)",
+    ]
+
+
+def method_wrong_a():
+    return [
+        "(MovEbxImm32 07)",
+        "(Ret)",
+    ]
+
+
+def method_wrong_b():
+    return [
+        "(MovEbxImm32 08)",
+        "(Ret)",
+    ]
+
+
+def method_hit_chain():
+    return [
+        "(MovEbxImm32 2A)",
+        "(Ret)",
+    ]
+
+
 def write_qfasm_extension():
     QFASM_EXT_OUT.write_text(
         """; Optional qfasm2/qfasm3 support for dispatch-table fixtures.
@@ -83,6 +136,10 @@ def write_qfasm_extension():
 (Rule
   (Expand (Do (Jnz name) rest) scope)
   (Ins (Jnz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jz name) rest) scope)
+  (Ins (Jz name) (Expand rest scope)))
 
 (Rule
   (Expand (Do (Jump name) rest) scope)
@@ -145,6 +202,87 @@ def write_qfc4_extension():
     QFC4_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
 
 
+def write_qfc4_chain_extension():
+    parts = [
+        """; Optional qfc4 surface for a looped two-argument dispatch chain.
+
+(Rule
+  (ParseDefs (DispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (AstDispatchChainEntry name sig payload arg1 arg2 method next (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (DAppend (CompileDispatchChainEntry name sig payload arg1 arg2 method next) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchChainEntry name sig payload arg1 arg2 method next)
+  (Do
+    (Align4)
+    (Do
+      (Label sig)
+      (Do
+        (Dword arg1)
+        (Do
+          (Dword arg2)
+          (Do
+            (Align4)
+            (Do
+              (Label payload)
+              (Do
+                (DwordLabel method)
+                (Do
+                  (DwordLabel next)
+                  (Do
+                    (Align4)
+                    (Do
+                      (Label name)
+                      (Do (DwordLabel sig) (Do (DwordLabel payload) End)))))))))))))
+
+(Rule
+  (ParseDefs (DispatchEnd name rest))
+  (AstDispatchEnd name (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchEnd name rest))
+  (DAppend (CompileDispatchEnd name) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchEnd name)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword 00) End))))
+
+(Rule
+  (ParseStmt (DispatchChain))
+  DispatchChain)
+
+(Rule
+  (ParseStmt (MethodWrongA))
+  MethodWrongA)
+
+(Rule
+  (ParseStmt (MethodWrongB))
+  MethodWrongB)
+
+(Rule
+  (ParseStmt (MethodHitChain))
+  MethodHitChain)
+
+"""
+    ]
+
+    for name, instrs in [
+        ("DispatchChain", dispatch_chain()),
+        ("MethodWrongA", method_wrong_a()),
+        ("MethodWrongB", method_wrong_b()),
+        ("MethodHitChain", method_hit_chain()),
+    ]:
+        parts.append(compile_rule(name, instrs))
+        parts.append("\n")
+
+    QFC4_CHAIN_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
+
+
 def write_qfc4_source():
     defs = [
         "(DispatchEntry EntryWrong SigWrong 13 23 MethodWrong",
@@ -183,10 +321,56 @@ def write_qfc4_source():
     )
 
 
+def write_qfc4_chain_source():
+    defs = [
+        "(DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryMissArg2",
+        "(DispatchChainEntry EntryMissArg2 SigMissArg2 PayloadMissArg2 13 23 MethodWrongB EntryHitChain",
+        "(DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry",
+        "(DispatchEnd NoEntry",
+        """(Def
+      Start
+      NoFrame
+      (Seq
+        (DispatchChain)
+        (ExitReg Ebx))""",
+        """(Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)""",
+        """(Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)""",
+        """(Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)""",
+    ]
+
+    QFC4_CHAIN_SRC_OUT.write_text(
+        """; Stage 5 looped multiple-dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles a linked dispatch table. Each entry stores a
+; two-argument signature, a method pointer, and a next-entry pointer. Runtime
+; dispatch loops over the chain, skips an arg1 miss and then an arg2 miss,
+; loads the first matching method pointer, calls it indirectly, and exits with
+; the selected method result (`42`).
+
+(QfcAssemble
+  (Source
+    Start
+"""
+        + qfc4_defs_block(defs)
+        + "\n))\n"
+    )
+
+
 def main():
     write_qfasm_extension()
     write_qfc4_extension()
+    write_qfc4_chain_extension()
     write_qfc4_source()
+    write_qfc4_chain_source()
 
 
 if __name__ == "__main__":

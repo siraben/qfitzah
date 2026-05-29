@@ -237,6 +237,11 @@ Progress so far:
   two-argument signature record and a concrete method pointer, then runtime
   dispatch loads and indirectly calls the matching method address after
   skipping a non-matching entry.
+- `stage5-dispatch-chain-qfc4.qf1` makes that lookup table-shaped instead of
+  fully unrolled. The qfc4 source compiles entries with signature, method, and
+  next-entry pointers; runtime dispatch loops over the chain, skips both an
+  arg1 miss and an arg2 miss, follows next links, and indirectly calls the
+  first matching method.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
