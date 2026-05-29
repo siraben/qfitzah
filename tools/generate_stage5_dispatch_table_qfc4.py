@@ -8,11 +8,14 @@ from generate_stage5_scan_forwarding_qfc4 import compile_rule, do_expr, qfc4_def
 
 ROOT = Path(__file__).resolve().parents[1]
 QFASM_EXT_OUT = ROOT / "bootstrap" / "qfasm-dispatch-ext.qf1"
+QFASM_RUNTIME_EXT_OUT = ROOT / "bootstrap" / "qfasm-dispatch-runtime-ext.qf1"
 QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-ext.qf1"
 QFC4_CHAIN_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-chain-ext.qf1"
+QFC4_RUNTIME_CHAIN_EXT_OUT = ROOT / "bootstrap" / "qfc4-dispatch-runtime-chain-ext.qf1"
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-table-qfc4.qf1"
 QFC4_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-qfc4.qf1"
 QFC4_CHAIN_MISS_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-miss-qfc4.qf1"
+QFC4_RUNTIME_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-runtime-chain-qfc4.qf1"
 
 
 def bad_status(value):
@@ -97,6 +100,42 @@ def dispatch_chain():
     ]
 
 
+def runtime_dispatch_chain():
+    return [
+        "(MovEaxLabel Arg1Class)",
+        "(LoadEaxCar)",
+        "(MovEcxEax)",
+        "(MovEaxLabel Arg2Class)",
+        "(LoadEaxCar)",
+        "(MovEdxEax)",
+        "(MovEaxLabel EntryMissArg1)",
+        "(Label DispatchLoop)",
+        "(CmpEaxLabel NoEntry)",
+        "(Jz DispatchMiss)",
+        "(PushEax)",
+        "(LoadEaxCar)",
+        "(LoadEbxCarFromEax)",
+        "(CmpEbxEcx)",
+        "(Jnz DispatchAdvance)",
+        "(LoadEaxCdr)",
+        "(CmpEaxEdx)",
+        "(Jnz DispatchAdvance)",
+        "(PopEax)",
+        "(LoadEaxCdr)",
+        "(LoadEaxCar)",
+        "(CallEax)",
+        "(Jump DispatchDone)",
+        "(Label DispatchAdvance)",
+        "(PopEax)",
+        "(LoadEaxCdr)",
+        "(LoadEaxCdr)",
+        "(Jump DispatchLoop)",
+        "(Label DispatchMiss)",
+        *bad_status("09"),
+        "(Label DispatchDone)",
+    ]
+
+
 def method_wrong_a():
     return [
         "(MovEbxImm32 07)",
@@ -133,6 +172,85 @@ def write_qfasm_extension():
 (Rule
   (Expand (Do (CallEax) rest) scope)
   (Ins (CallEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jnz name) rest) scope)
+  (Ins (Jnz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jz name) rest) scope)
+  (Ins (Jz name) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (Jump name) rest) scope)
+  (Ins (Jump name) (Expand rest scope)))
+"""
+    )
+
+
+def write_qfasm_runtime_extension():
+    QFASM_RUNTIME_EXT_OUT.write_text(
+        """; Optional qfasm2/qfasm3 support for runtime-argument dispatch fixtures.
+
+(Rule
+  (Size (CallEax))
+  N2)
+
+(Rule
+  (Size (MovEcxEax))
+  N2)
+
+(Rule
+  (Size (MovEdxEax))
+  N2)
+
+(Rule
+  (Size (CmpEbxEcx))
+  N2)
+
+(Rule
+  (Size (CmpEaxEdx))
+  N2)
+
+(Rule
+  (Pass2 (Ins (CallEax) rest) pc sym)
+  (Bytes FF D0 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Pass2 (Ins (MovEcxEax) rest) pc sym)
+  (Bytes 89 C1 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Pass2 (Ins (MovEdxEax) rest) pc sym)
+  (Bytes 89 C2 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpEbxEcx) rest) pc sym)
+  (Bytes 39 CB (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Pass2 (Ins (CmpEaxEdx) rest) pc sym)
+  (Bytes 39 D0 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
+  (Expand (Do (CallEax) rest) scope)
+  (Ins (CallEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEcxEax) rest) scope)
+  (Ins (MovEcxEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (MovEdxEax) rest) scope)
+  (Ins (MovEdxEax) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEbxEcx) rest) scope)
+  (Ins (CmpEbxEcx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (CmpEaxEdx) rest) scope)
+  (Ins (CmpEaxEdx) (Expand rest scope)))
 
 (Rule
   (Expand (Do (Jnz name) rest) scope)
@@ -284,6 +402,101 @@ def write_qfc4_chain_extension():
     QFC4_CHAIN_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
 
 
+def write_qfc4_runtime_chain_extension():
+    parts = [
+        """; Optional qfc4 surface for runtime-argument two-argument dispatch.
+
+(Rule
+  (ParseDefs (DispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (AstDispatchChainEntry name sig payload arg1 arg2 method next (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (DAppend (CompileDispatchChainEntry name sig payload arg1 arg2 method next) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchChainEntry name sig payload arg1 arg2 method next)
+  (Do
+    (Align4)
+    (Do
+      (Label sig)
+      (Do
+        (Dword arg1)
+        (Do
+          (Dword arg2)
+          (Do
+            (Align4)
+            (Do
+              (Label payload)
+              (Do
+                (DwordLabel method)
+                (Do
+                  (DwordLabel next)
+                  (Do
+                    (Align4)
+                    (Do
+                      (Label name)
+                      (Do (DwordLabel sig) (Do (DwordLabel payload) End)))))))))))))
+
+(Rule
+  (ParseDefs (DispatchEnd name rest))
+  (AstDispatchEnd name (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchEnd name rest))
+  (DAppend (CompileDispatchEnd name) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchEnd name)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword 00) End))))
+
+(Rule
+  (ParseDefs (DispatchArgClass name value rest))
+  (AstDispatchArgClass name value (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchArgClass name value rest))
+  (DAppend (CompileDispatchArgClass name value) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchArgClass name value)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword value) End))))
+
+(Rule
+  (ParseStmt (RuntimeDispatchChain))
+  RuntimeDispatchChain)
+
+(Rule
+  (ParseStmt (MethodWrongA))
+  MethodWrongA)
+
+(Rule
+  (ParseStmt (MethodWrongB))
+  MethodWrongB)
+
+(Rule
+  (ParseStmt (MethodHitChain))
+  MethodHitChain)
+
+"""
+    ]
+
+    for name, instrs in [
+        ("RuntimeDispatchChain", runtime_dispatch_chain()),
+        ("MethodWrongA", method_wrong_a()),
+        ("MethodWrongB", method_wrong_b()),
+        ("MethodHitChain", method_hit_chain()),
+    ]:
+        parts.append(compile_rule(name, instrs))
+        parts.append("\n")
+
+    QFC4_RUNTIME_CHAIN_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
+
+
 def write_qfc4_source():
     defs = [
         "(DispatchEntry EntryWrong SigWrong 13 23 MethodWrong",
@@ -407,13 +620,62 @@ def write_qfc4_chain_miss_source():
     )
 
 
+def write_qfc4_runtime_chain_source():
+    defs = [
+        "(DispatchArgClass Arg1Class 13",
+        "(DispatchArgClass Arg2Class 2A",
+        "(DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryMissArg2",
+        "(DispatchChainEntry EntryMissArg2 SigMissArg2 PayloadMissArg2 13 23 MethodWrongB EntryHitChain",
+        "(DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry",
+        "(DispatchEnd NoEntry",
+        """(Def
+      Start
+      NoFrame
+      (Seq
+        (RuntimeDispatchChain)
+        (ExitReg Ebx))""",
+        """(Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)""",
+        """(Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)""",
+        """(Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)""",
+    ]
+
+    QFC4_RUNTIME_CHAIN_SRC_OUT.write_text(
+        """; Stage 5 runtime-argument multiple-dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles runtime argument class cells plus a linked dispatch
+; table. Runtime dispatch loads the two actual class values from data records,
+; compares table signatures against those values, skips arg1 and arg2 misses,
+; indirectly calls the matching method, and exits with the selected method
+; result (`42`).
+
+(QfcAssemble
+  (Source
+    Start
+"""
+        + qfc4_defs_block(defs)
+        + "\n))\n"
+    )
+
+
 def main():
     write_qfasm_extension()
+    write_qfasm_runtime_extension()
     write_qfc4_extension()
     write_qfc4_chain_extension()
+    write_qfc4_runtime_chain_extension()
     write_qfc4_source()
     write_qfc4_chain_source()
     write_qfc4_chain_miss_source()
+    write_qfc4_runtime_chain_source()
 
 
 if __name__ == "__main__":

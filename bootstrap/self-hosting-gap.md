@@ -246,6 +246,13 @@ Progress so far:
   dispatcher when no entry matches. Runtime dispatch skips both entries,
   reaches the end-of-chain sentinel, and exits through the dispatch-miss path
   with status `9`.
+- `stage5-dispatch-runtime-chain-qfc4.qf1` moves the dispatched argument
+  signature from hardcoded comparison immediates into runtime data cells. The
+  qfc4 source compiles those class cells plus the linked table, then generated
+  code loads the actual classes, compares table entries against those runtime
+  values, skips arg1 and arg2 misses, and indirectly calls the matching method.
+  It runs through a split qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF
+  pipeline to avoid exceeding the seed runtime's all-in-one rule budget.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

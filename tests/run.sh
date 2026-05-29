@@ -474,6 +474,58 @@ run_qfc4_dispatch_binary "stage5-dispatch-table-qfc4" 42
 run_qfc4_dispatch_binary "stage5-dispatch-chain-qfc4" 42 "qfc4-dispatch-chain-ext.qf1"
 run_qfc4_dispatch_binary "stage5-dispatch-chain-miss-qfc4" 9 "qfc4-dispatch-chain-ext.qf1"
 
+run_qfc4_dispatch_staged_binary() {
+  local name=$1
+  local expected_status=$2
+  local qfasm_ext=$3
+  local qfc4_ext=$4
+  local tmp
+  local actual_hex
+  local expected_hex
+  local status
+
+  tmp=$(mktemp -d)
+  cat "$repo_root/bootstrap/qfc4.qf1" \
+      "$repo_root/bootstrap/$qfc4_ext" \
+      "$repo_root/bootstrap/$name.qf1" \
+    | timeout 20s "$qfitzah" > "$tmp/$name.m3"
+
+  cat "$repo_root/bootstrap/qfasm2.qf1" \
+      "$repo_root/bootstrap/qfasm3.qf1" \
+      "$repo_root/bootstrap/$qfasm_ext" \
+      "$tmp/$name.m3" \
+    | timeout 20s "$qfitzah" > "$tmp/$name"
+
+  actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
+  if [[ "$actual_hex" != "$expected_hex" ]]; then
+    printf 'FAIL %s: expected hex:\n%s\nactual hex:\n%s\n' "$name" "$expected_hex" "$actual_hex" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  chmod +x "$tmp/$name"
+  set +e
+  "$tmp/$name"
+  status=$?
+  set -e
+
+  if [[ $status -ne $expected_status ]]; then
+    printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+
+  rm -rf "$tmp"
+  printf 'ok - %s\n' "$name"
+}
+
+run_qfc4_dispatch_staged_binary \
+  "stage5-dispatch-runtime-chain-qfc4" \
+  42 \
+  "qfasm-dispatch-runtime-ext.qf1" \
+  "qfc4-dispatch-runtime-chain-ext.qf1"
+
 run_qfc4_byte_output_binary() {
   local name=$1
   local expected_status=$2

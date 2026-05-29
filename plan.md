@@ -273,6 +273,15 @@ indirectly, and exits `42`.
 same linked-table dispatcher. It compiles a chain with no matching method,
 reaches the `NoEntry` sentinel, and exits through the dispatch-miss path with
 status `9`.
+`bootstrap/stage5-dispatch-runtime-chain-qfc4.qf1` moves the call-site
+signature out of the dispatch loop immediates and into runtime data cells. The
+compiled dispatcher loads the two actual class values before walking the linked
+table, compares entries against those runtime values with register-register
+comparisons, skips arg1 and arg2 misses, and indirectly calls the selected
+method (`42`). Its test uses a staged qfc4 -> qfasm3 source, then
+qfasm3/qfasm2 -> ELF pipeline because loading the runtime dispatch extensions
+with all assembler/compiler stages at once exceeds the seed runtime's stable
+source budget.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

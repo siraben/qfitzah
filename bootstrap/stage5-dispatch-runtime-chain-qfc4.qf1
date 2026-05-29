@@ -1,0 +1,37 @@
+; Stage 5 runtime-argument multiple-dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles runtime argument class cells plus a linked dispatch
+; table. Runtime dispatch loads the two actual class values from data records,
+; compares table signatures against those values, skips arg1 and arg2 misses,
+; indirectly calls the matching method, and exits with the selected method
+; result (`42`).
+
+(QfcAssemble
+  (Source
+    Start
+    (DispatchArgClass Arg1Class 13
+    (DispatchArgClass Arg2Class 2A
+    (DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryMissArg2
+    (DispatchChainEntry EntryMissArg2 SigMissArg2 PayloadMissArg2 13 23 MethodWrongB EntryHitChain
+    (DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry
+    (DispatchEnd NoEntry
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (RuntimeDispatchChain)
+        (ExitReg Ebx))
+    (Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)
+    (Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)
+    (Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)
+    End))))))))))
+))

@@ -1,0 +1,171 @@
+; Optional qfc4 surface for runtime-argument two-argument dispatch.
+
+(Rule
+  (ParseDefs (DispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (AstDispatchChainEntry name sig payload arg1 arg2 method next (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchChainEntry name sig payload arg1 arg2 method next rest))
+  (DAppend (CompileDispatchChainEntry name sig payload arg1 arg2 method next) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchChainEntry name sig payload arg1 arg2 method next)
+  (Do
+    (Align4)
+    (Do
+      (Label sig)
+      (Do
+        (Dword arg1)
+        (Do
+          (Dword arg2)
+          (Do
+            (Align4)
+            (Do
+              (Label payload)
+              (Do
+                (DwordLabel method)
+                (Do
+                  (DwordLabel next)
+                  (Do
+                    (Align4)
+                    (Do
+                      (Label name)
+                      (Do (DwordLabel sig) (Do (DwordLabel payload) End)))))))))))))
+
+(Rule
+  (ParseDefs (DispatchEnd name rest))
+  (AstDispatchEnd name (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchEnd name rest))
+  (DAppend (CompileDispatchEnd name) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchEnd name)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword 00) End))))
+
+(Rule
+  (ParseDefs (DispatchArgClass name value rest))
+  (AstDispatchArgClass name value (ParseDefs rest)))
+
+(Rule
+  (CompileDefs (AstDispatchArgClass name value rest))
+  (DAppend (CompileDispatchArgClass name value) (CompileDefs rest)))
+
+(Rule
+  (CompileDispatchArgClass name value)
+  (Do
+    (Align4)
+    (Do (Label name) (Do (Dword value) End))))
+
+(Rule
+  (ParseStmt (RuntimeDispatchChain))
+  RuntimeDispatchChain)
+
+(Rule
+  (ParseStmt (MethodWrongA))
+  MethodWrongA)
+
+(Rule
+  (ParseStmt (MethodWrongB))
+  MethodWrongB)
+
+(Rule
+  (ParseStmt (MethodHitChain))
+  MethodHitChain)
+
+(Rule
+  (CompileStmt RuntimeDispatchChain)
+  (Do
+    (MovEaxLabel Arg1Class)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (MovEcxEax)
+        (Do
+          (MovEaxLabel Arg2Class)
+          (Do
+            (LoadEaxCar)
+            (Do
+              (MovEdxEax)
+              (Do
+                (MovEaxLabel EntryMissArg1)
+                (Do
+                  (Label DispatchLoop)
+                  (Do
+                    (CmpEaxLabel NoEntry)
+                    (Do
+                      (Jz DispatchMiss)
+                      (Do
+                        (PushEax)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (LoadEbxCarFromEax)
+                            (Do
+                              (CmpEbxEcx)
+                              (Do
+                                (Jnz DispatchAdvance)
+                                (Do
+                                  (LoadEaxCdr)
+                                  (Do
+                                    (CmpEaxEdx)
+                                    (Do
+                                      (Jnz DispatchAdvance)
+                                      (Do
+                                        (PopEax)
+                                        (Do
+                                          (LoadEaxCdr)
+                                          (Do
+                                            (LoadEaxCar)
+                                            (Do
+                                              (CallEax)
+                                              (Do
+                                                (Jump DispatchDone)
+                                                (Do
+                                                  (Label DispatchAdvance)
+                                                  (Do
+                                                    (PopEax)
+                                                    (Do
+                                                      (LoadEaxCdr)
+                                                      (Do
+                                                        (LoadEaxCdr)
+                                                        (Do
+                                                          (Jump DispatchLoop)
+                                                          (Do
+                                                            (Label DispatchMiss)
+                                                            (Do
+                                                              (MovEbxImm32 09)
+                                                              (Do
+                                                                (MovEaxImm32 01)
+                                                                (Do
+                                                                  (Int 80)
+                                                                  (Do
+                                                                    (Label DispatchDone)
+                                                                    End))))))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt MethodWrongA)
+  (Do
+    (MovEbxImm32 07)
+    (Do
+      (Ret)
+      End)))
+
+(Rule
+  (CompileStmt MethodWrongB)
+  (Do
+    (MovEbxImm32 08)
+    (Do
+      (Ret)
+      End)))
+
+(Rule
+  (CompileStmt MethodHitChain)
+  (Do
+    (MovEbxImm32 2A)
+    (Do
+      (Ret)
+      End)))

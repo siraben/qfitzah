@@ -450,6 +450,11 @@ method, and exits with status `42`.
 exercises the same linked dispatch loop with no matching entry. It skips both
 entries, reaches the end-of-chain sentinel, and exits through the dispatch-miss
 path with status `9`.
+[bootstrap/stage5-dispatch-runtime-chain-qfc4.qf1](bootstrap/stage5-dispatch-runtime-chain-qfc4.qf1)
+then loads the dispatched argument classes from runtime data cells instead of
+comparing against immediates baked into the loop. The test runs qfc4 and qfasm
+as two Qfitzah invocations, uses runtime-only optional dispatch extensions, and
+still indirectly calls the selected method with status `42`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field
