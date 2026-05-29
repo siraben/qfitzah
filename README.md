@@ -417,6 +417,11 @@ lifts that mixed graph through qfc4 with a separate
 `qfc4-scan-forwarding-complex-ext.qf1` and a tiny tagged-constant comparison
 assembler extension, keeping the staged source readable without increasing the
 simpler qfc4 scan-forwarding test's rule load.
+[bootstrap/stage5-scan-forwarding-dynamic-atom-gc.qf1](bootstrap/stage5-scan-forwarding-dynamic-atom-gc.qf1)
+combines forwarding with runtime atom copying at the direct qfasm2 layer. A
+copied child has its self-cycle rewritten through a forwarding marker, and its
+runtime-initialized cdr atom is copied into the atom frontier before all old
+records are overwritten.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

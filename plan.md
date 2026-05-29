@@ -238,6 +238,11 @@ objects are overwritten.
 through qfc4 with a separate complex scan-forwarding extension and a local
 tagged-constant comparison assembler extension, preserving the same readable
 scan loop shape while keeping the simpler qfc4 proof's rule load small.
+`bootstrap/stage5-scan-forwarding-dynamic-atom-gc.qf1` combines forwarding with
+runtime atom copying at the direct qfasm2 layer: the copied child has a
+self-cycle rewritten through a forwarding marker, and its runtime-initialized
+cdr atom is copied into the atom frontier before all old records are
+overwritten and checked.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a
