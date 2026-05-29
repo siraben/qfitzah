@@ -350,6 +350,10 @@ generated ELF.
 tail-recursive two-element list printer. The test lowers qfc4 to qfasm3 first,
 then assembles with `qfasm-print-n272-ext.qf1`, and the generated ELF prints
 `()(a b)` from one `PrintExpr` routine.
+`bootstrap/stage5-print-nil-and-nested-list-qfc4.qf1` reuses that generated
+printer with a nested object graph. It assembles with `qfasm-print-n280-ext.qf1`
+and prints `()(a (b))`, proving nil dispatch and nested normal output now
+coexist in one compiled printer slice.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

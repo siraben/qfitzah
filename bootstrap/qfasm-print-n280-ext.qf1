@@ -1,6 +1,6 @@
-; Focused qfasm2 range extension for the merged tail normal-printer fixture.
+; Focused qfasm2 range extension for the merged nested normal-printer fixture.
 ;
-; The common qfasm2 tables stop at N220. This fixture has a 272-byte
+; The common qfasm2 tables stop at N220. This fixture has a 280-byte
 ; segment and one backward direct call at -189, so keep the extra
 ; finite arithmetic and byte facts local to this proof.
 
@@ -56,6 +56,14 @@
 (Inc N269) N270
 (Inc N270) N271
 (Inc N271) N272
+(Inc N272) N273
+(Inc N273) N274
+(Inc N274) N275
+(Inc N275) N276
+(Inc N276) N277
+(Inc N277) N278
+(Inc N278) N279
+(Inc N279) N280
 
 (Dec N221) N220
 (Dec N222) N221
@@ -109,6 +117,14 @@
 (Dec N270) N269
 (Dec N271) N270
 (Dec N272) N271
+(Dec N273) N272
+(Dec N274) N273
+(Dec N275) N274
+(Dec N276) N275
+(Dec N277) N276
+(Dec N278) N277
+(Dec N279) N278
+(Dec N280) N279
 
 (Addr N221) (Bytes 31 81 04 08)
 (Addr N222) (Bytes 32 81 04 08)
@@ -162,6 +178,14 @@
 (Addr N270) (Bytes 62 81 04 08)
 (Addr N271) (Bytes 63 81 04 08)
 (Addr N272) (Bytes 64 81 04 08)
+(Addr N273) (Bytes 65 81 04 08)
+(Addr N274) (Bytes 66 81 04 08)
+(Addr N275) (Bytes 67 81 04 08)
+(Addr N276) (Bytes 68 81 04 08)
+(Addr N277) (Bytes 69 81 04 08)
+(Addr N278) (Bytes 6A 81 04 08)
+(Addr N279) (Bytes 6B 81 04 08)
+(Addr N280) (Bytes 6C 81 04 08)
 
 (ConstAddr N221) (Bytes 32 81 04 08)
 (ConstAddr N222) (Bytes 33 81 04 08)
@@ -215,8 +239,16 @@
 (ConstAddr N270) (Bytes 63 81 04 08)
 (ConstAddr N271) (Bytes 64 81 04 08)
 (ConstAddr N272) (Bytes 65 81 04 08)
+(ConstAddr N273) (Bytes 66 81 04 08)
+(ConstAddr N274) (Bytes 67 81 04 08)
+(ConstAddr N275) (Bytes 68 81 04 08)
+(ConstAddr N276) (Bytes 69 81 04 08)
+(ConstAddr N277) (Bytes 6A 81 04 08)
+(ConstAddr N278) (Bytes 6B 81 04 08)
+(ConstAddr N279) (Bytes 6C 81 04 08)
+(ConstAddr N280) (Bytes 6D 81 04 08)
 
-(FileSize N272) (Bytes 64 01 00 00)
+(FileSize N280) (Bytes 6C 01 00 00)
 
 (Byte (Neg N101)) 9B
 (Byte (Neg N102)) 9A

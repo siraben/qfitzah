@@ -339,6 +339,7 @@ run_qfc4_print_staged_binary() {
   local name=$1
   local expected_status=$2
   local expected_runtime_hex=$3
+  local qfasm_ext=${4:-qfasm-print-n272-ext.qf1}
   local tmp
   local actual_hex
   local expected_hex
@@ -353,7 +354,7 @@ run_qfc4_print_staged_binary() {
 
   cat "$repo_root/bootstrap/qfasm2.qf1" \
       "$repo_root/bootstrap/qfasm3.qf1" \
-      "$repo_root/bootstrap/qfasm-print-n272-ext.qf1" \
+      "$repo_root/bootstrap/$qfasm_ext" \
       "$tmp/$name.m3" \
     | timeout 20s "$qfitzah" > "$tmp/$name"
 
@@ -406,6 +407,7 @@ run_qfc4_binary "stage5-print-nil-and-list1-qfc4" 0 "28 29 28 61 29" "qfc4-print
 run_qfc4_binary "stage5-print-list-tail-qfc4" 0 "28 61 20 62 29" "qfasm-n224-ext.qf1"
 run_qfc4_binary "stage5-print-nested-list-qfc4" 0 "28 61 20 28 62 29 29" "qfasm-n224-ext.qf1" "qfasm-n232-size-ext.qf1"
 run_qfc4_print_staged_binary "stage5-print-nil-and-list-tail-qfc4" 0 "28 29 28 61 20 62 29"
+run_qfc4_print_staged_binary "stage5-print-nil-and-nested-list-qfc4" 0 "28 29 28 61 20 28 62 29 29" "qfasm-print-n280-ext.qf1"
 run_qfc4_binary "stage4-is-bytes-content" 42
 run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"

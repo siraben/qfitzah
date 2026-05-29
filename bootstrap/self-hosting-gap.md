@@ -327,6 +327,10 @@ Progress so far:
   `tools/generate_stage5_print_nil_tail_qfc4.py`, lowers qfc4 to qfasm3 in a
   first Qfitzah invocation, then assembles with `qfasm-print-n272-ext.qf1`.
   The generated ELF prints `()(a b)` from one `PrintExpr` routine.
+- `stage5-print-nil-and-nested-list-qfc4.qf1` reuses that generated printer on
+  a nested static graph. It assembles with `qfasm-print-n280-ext.qf1` and
+  prints `()(a (b))`, proving the nil branch can coexist with nested normal
+  output through `PrintExpr` recursion.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout

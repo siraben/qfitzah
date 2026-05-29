@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the qfc4 normal-printer nil plus tail-list fixture."""
+"""Generate qfc4 normal-printer nil plus recursive-list fixtures."""
 
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-QFASM_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n272-ext.qf1"
-QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-print-nil-and-list-tail-qfc4.qf1"
+QFASM_TAIL_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n272-ext.qf1"
+QFASM_NESTED_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n280-ext.qf1"
+QFC4_TAIL_SRC_OUT = ROOT / "bootstrap" / "stage5-print-nil-and-list-tail-qfc4.qf1"
+QFC4_NESTED_SRC_OUT = ROOT / "bootstrap" / "stage5-print-nil-and-nested-list-qfc4.qf1"
 
 
 def form(*items):
@@ -56,7 +58,40 @@ def pair(name, car, cdr, rest):
     return form("Pair", name, car, cdr, rest)
 
 
-def write_source():
+def list_tail_defs():
+    return pair(
+        "ListA",
+        form("Const", "AtomA"),
+        form("Ptr", "ListB"),
+        pair(
+            "ListB",
+            form("Const", "AtomB"),
+            "Nil",
+            "End",
+        ),
+    )
+
+
+def nested_list_defs():
+    return pair(
+        "ListA",
+        form("Const", "AtomA"),
+        form("Ptr", "TailA"),
+        pair(
+            "TailA",
+            form("Ptr", "ListB"),
+            "Nil",
+            pair(
+                "ListB",
+                form("Const", "AtomB"),
+                "Nil",
+                "End",
+            ),
+        ),
+    )
+
+
+def common_defs(list_defs):
     defs = atom(
         "AtomA",
         "CharA",
@@ -84,17 +119,7 @@ def write_source():
                                 data(
                                     "Space",
                                     "20",
-                                    pair(
-                                        "ListA",
-                                        form("Const", "AtomA"),
-                                        form("Ptr", "ListB"),
-                                        pair(
-                                            "ListB",
-                                            form("Const", "AtomB"),
-                                            "Nil",
-                                            "End",
-                                        ),
-                                    ),
+                                    list_defs,
                                 ),
                             ),
                         ),
@@ -103,7 +128,11 @@ def write_source():
             ),
         ),
     )
+    return defs
 
+
+def write_source(path, header, list_defs):
+    defs = common_defs(list_defs)
     print_tail = defn(
         "PrintTail",
         seq(
@@ -192,61 +221,86 @@ def write_source():
     )
 
     program = form("QfcAssemble", form("Source", "Start", start))
-    header = """; qfc4 normal-printer nil-plus-tail-list fixture.
-;
-; This merges the focused nil branch with the tail-recursive list printer in
-; one PrintExpr routine. The generated ELF prints `()(a b)`, proving nil,
-; atom, pair/list dispatch, cdr traversal, separator output, and nil-tail
-; termination can coexist in one compiled normal-printer slice.
-
-"""
-    QFC4_SRC_OUT.write_text(header + render(program) + "\n")
+    path.write_text(header + render(program) + "\n")
 
 
 def bytes4(value):
     return " ".join(f"{byte:02X}" for byte in value.to_bytes(4, "little"))
 
 
-def write_qfasm_extension():
+def write_qfasm_extension(path, segment_size, max_backward, description):
     lines = [
-        "; Focused qfasm2 range extension for the merged normal-printer fixture.",
+        f"; Focused qfasm2 range extension for {description}.",
         ";",
-        "; The common qfasm2 tables stop at N220. This fixture has a 272-byte",
-        "; segment and one backward direct call at -189, so keep the extra",
+        f"; The common qfasm2 tables stop at N220. This fixture has a {segment_size}-byte",
+        f"; segment and one backward direct call at -{max_backward}, so keep the extra",
         "; finite arithmetic and byte facts local to this proof.",
         "",
     ]
 
-    for n in range(220, 272):
+    for n in range(220, segment_size):
         lines.append(f"(Inc N{n}) N{n + 1}")
     lines.append("")
 
-    for n in range(221, 273):
+    for n in range(221, segment_size + 1):
         lines.append(f"(Dec N{n}) N{n - 1}")
     lines.append("")
 
     base = 0x08048054
-    for n in range(221, 273):
+    for n in range(221, segment_size + 1):
         lines.append(f"(Addr N{n}) (Bytes {bytes4(base + n)})")
     lines.append("")
 
-    for n in range(221, 273):
+    for n in range(221, segment_size + 1):
         lines.append(f"(ConstAddr N{n}) (Bytes {bytes4(base + n + 1)})")
     lines.append("")
 
-    lines.append(f"(FileSize N272) (Bytes {bytes4(0x54 + 272)})")
+    lines.append(f"(FileSize N{segment_size}) (Bytes {bytes4(0x54 + segment_size)})")
     lines.append("")
 
-    for n in range(101, 190):
+    for n in range(101, max_backward + 1):
         lines.append(f"(Byte (Neg N{n})) {(256 - n) & 0xFF:02X}")
     lines.append("")
 
-    QFASM_EXT_OUT.write_text("\n".join(lines))
+    path.write_text("\n".join(lines))
 
 
 def main():
-    write_qfasm_extension()
-    write_source()
+    write_qfasm_extension(
+        QFASM_TAIL_EXT_OUT,
+        segment_size=272,
+        max_backward=189,
+        description="the merged tail normal-printer fixture",
+    )
+    write_qfasm_extension(
+        QFASM_NESTED_EXT_OUT,
+        segment_size=280,
+        max_backward=189,
+        description="the merged nested normal-printer fixture",
+    )
+    write_source(
+        QFC4_TAIL_SRC_OUT,
+        """; qfc4 normal-printer nil-plus-tail-list fixture.
+;
+; This merges the focused nil branch with the tail-recursive list printer in
+; one PrintExpr routine. The generated ELF prints `()(a b)`, proving nil,
+; atom, pair/list dispatch, cdr traversal, separator output, and nil-tail
+; termination can coexist in one compiled normal-printer slice.
+
+""",
+        list_tail_defs(),
+    )
+    write_source(
+        QFC4_NESTED_SRC_OUT,
+        """; qfc4 normal-printer nil-plus-nested-list fixture.
+;
+; This merges the focused nil branch with the recursive nested-list printer in
+; one PrintExpr routine. The generated ELF prints `()(a (b))`, proving nil
+; dispatch can coexist with nested normal output through PrintExpr recursion.
+
+""",
+        nested_list_defs(),
+    )
 
 
 if __name__ == "__main__":
