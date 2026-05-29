@@ -163,8 +163,15 @@ These checked fixtures fit:
   - copies one shared child once, records a temporary forwarding pointer and
     marker in the old child, rewrites both copied root fields to the same new
     child, and exits with the copied child car (`19`)
-  - proves a focused shared acyclic pair; qfc4 lifting, cycles, and a general
-    forwarding tag remain outside this fixture
+  - proves a focused shared acyclic pair; cycles and a general forwarding tag
+    remain outside this direct fixture
+- `stage5-forwarding-gc-qfc4.qf1`
+  - generated with `tools/generate_stage5_forwarding_qfc4.py` together with
+    `qfc4-forwarding-ext.qf1` and `qfasm-stage5-forwarding-ext.qf1`
+  - runs as a staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+    under Qfitzah
+  - exits through the copied shared child (`19`), proving the focused
+    forwarding-pointer shape now lowers through qfc4
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

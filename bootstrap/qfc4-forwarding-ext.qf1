@@ -1,0 +1,17 @@
+; Optional qfc4 forwarding-pointer surface.
+
+(Rule
+  (ParseStmt (ForwardSharedRoot))
+  ForwardSharedRoot)
+
+(Rule
+  (ParseStmt (CheckForwardedShared))
+  CheckForwardedShared)
+
+(Rule
+  (CompileStmt ForwardSharedRoot)
+  (Do ForwardSharedRoot End))
+
+(Rule
+  (CompileStmt CheckForwardedShared)
+  (Do CheckForwardedShared End))

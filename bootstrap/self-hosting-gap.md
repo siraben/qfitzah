@@ -181,11 +181,16 @@ Progress so far:
   `HeapNext`, and exits through the copied child (`19`). This is a focused
   shared-acyclic-pair proof, not a cycle-safe or fully general forwarding
   representation yet.
+- `stage5-forwarding-gc-qfc4.qf1` lifts that focused forwarding proof through
+  qfc4. Its first Qfitzah invocation lowers qfc4 source to qfasm3 with
+  `qfc4-forwarding-ext.qf1`; its second invocation uses
+  `qfasm-stage5-forwarding-ext.qf1` and the Stage 5 heap/scan extensions to
+  emit a runnable ELF that exits through the copied child (`19`).
 
 Still required for the byte-output path:
 
-- lifting forwarding pointers through qfc4 and extending them from the focused
-  shared-pair proof to shared objects and cycles
+- extending forwarding from the focused shared-pair proof to shared objects and
+  cycles
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget

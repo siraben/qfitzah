@@ -389,6 +389,11 @@ forwarding marker in the old pair, rewrites both copied fields to the single
 new child, and checks pointer equality plus `HeapNext` before exiting with the
 copied child car (`19`). This proves one shared acyclic pair, not cycles or a
 general Qfitzah object forwarding format yet.
+[bootstrap/qfc4-forwarding-ext.qf1](bootstrap/qfc4-forwarding-ext.qf1),
+[bootstrap/qfasm-stage5-forwarding-ext.qf1](bootstrap/qfasm-stage5-forwarding-ext.qf1),
+and [bootstrap/stage5-forwarding-gc-qfc4.qf1](bootstrap/stage5-forwarding-gc-qfc4.qf1)
+lift the same focused sharing proof through qfc4 using a two-step qfc4 to
+qfasm3, then qfasm3/qfasm2 to ELF pipeline.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

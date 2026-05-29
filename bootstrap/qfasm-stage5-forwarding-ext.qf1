@@ -1,0 +1,217 @@
+; Optional qfasm3 expansions for the qfc4 forwarding-pointer fixture.
+
+(Rule
+  (Expand (Do ForwardSharedRoot rest) scope)
+  (Append (Expand ForwardSharedRoot scope) (Expand rest scope)))
+
+(Rule
+  (Expand (Do CheckForwardedShared rest) scope)
+  (Append (Expand CheckForwardedShared scope) (Expand rest scope)))
+
+(Rule
+  (Expand ForwardSharedRoot scope)
+  (Expand
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (MovEbxLabel HeapChild)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEaxLabel Root)
+            (Do
+              (LoadEaxCar)
+              (Do
+                (LoadEbxCarFromEax)
+                (Do
+                  (LoadEcxCdrFromEax)
+                  (Do
+                    (MovEaxLabel Heap)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (StoreDwordAtEaxPlus4FromEcx)
+                        (Do
+                          (MovEaxLabel Root)
+                          (Do
+                            (MovEbxLabel Heap)
+                            (Do
+                              (StoreDwordAtEaxFromEbx)
+                              (Do
+                                (MovEaxLabel Heap)
+                                (Do
+                                  (LoadEaxCar)
+                                  (Do
+                                    (PushEax)
+                                    (Do
+                                      (LoadEbxCarFromEax)
+                                      (Do
+                                        (LoadEcxCdrFromEax)
+                                        (Do
+                                          (MovEaxLabel HeapNext)
+                                          (Do
+                                            (LoadEaxCar)
+                                            (Do
+                                              (StoreDwordAtEaxFromEbx)
+                                              (Do
+                                                (StoreDwordAtEaxPlus4FromEcx)
+                                                (Do
+                                                  (MovEbxEax)
+                                                  (Do
+                                                    (PopEax)
+                                                    (Do
+                                                      (PushEbx)
+                                                      (Do
+                                                        (StoreDwordAtEaxFromEbx)
+                                                        (Do
+                                                          (MovEcxImm32 0F)
+                                                          (Do
+                                                            (StoreDwordAtEaxPlus4FromEcx)
+                                                            (Do
+                                                              (PopEbx)
+                                                              (Do
+                                                                (MovEaxLabel Heap)
+                                                                (Do
+                                                                  (StoreDwordAtEaxFromEbx)
+                                                                  (Do
+                                                                    (AddEbxImm8 08)
+                                                                    (Do
+                                                                      (MovEaxLabel HeapNext)
+                                                                      (Do
+                                                                        (StoreDwordAtEaxFromEbx)
+                                                                        (Do
+                                                                          (MovEaxLabel Heap)
+                                                                          (Do
+                                                                            (LoadEaxCdr)
+                                                                            (Do
+                                                                              (PushEax)
+                                                                              (Do
+                                                                                (LoadEaxCdr)
+                                                                                (Do
+                                                                                  (CmpEaxImm8 0F)
+                                                                                  (Do
+                                                                                    (IfZero UseForwardedCdr ForwardSharedUseCdr ForwardSharedBadCdr)
+                                                                                    End))))))))))))))))))))))))))))))))))))))))
+    scope))
+
+(Rule
+  (Expand ForwardSharedUseCdr scope)
+  (Expand
+    (Do
+      (PopEax)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (MovEbxEax)
+          (Do
+            (MovEcxEbx)
+            (Do
+              (MovEaxLabel Heap)
+              (Do
+                (StoreDwordAtEaxPlus4FromEcx)
+                End))))))
+    scope))
+
+(Rule
+  (Expand ForwardSharedBadCdr scope)
+  (Expand
+    (Do
+      (MovEbxImm32 02)
+      (Do
+        (MovEaxImm32 01)
+        (Do
+          (Int 80)
+          End)))
+    scope))
+
+(Rule
+  (Expand CheckForwardedShared scope)
+  (Expand
+    (Do
+      (MovEaxLabel OldShared)
+      (Do
+        (MovEbxImm32 3F)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEcxImm32 4D)
+            (Do
+              (StoreDwordAtEaxPlus4FromEcx)
+              (Do
+                (MovEaxLabel Root)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (LoadEaxCar)
+                    (Do
+                      (MovEbxEax)
+                      (Do
+                        (MovEaxLabel Root)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (LoadEaxCdr)
+                            (Do
+                              (CmpEaxEbx)
+                              (Do
+                                (IfZero FieldsShared CheckHeapNext ForwardSharedBadFields)
+                                End))))))))))))))
+    scope))
+
+(Rule
+  (Expand CheckHeapNext scope)
+  (Expand
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (MovEbxLabel HeapAfterCopied)
+          (Do
+            (CmpEaxEbx)
+            (Do
+              (IfZero HeapNextOk CheckCopiedChild ForwardSharedBadHeapNext)
+              End)))))
+    scope))
+
+(Rule
+  (Expand CheckCopiedChild scope)
+  (Expand
+    (Do
+      (MovEaxLabel Root)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (LoadEaxCar)
+          (Do
+            (LoadEbxCarFromEax)
+            (Do
+              (MovEaxImm32 01)
+              (Do
+                (Int 80)
+                End))))))
+    scope))
+
+(Rule
+  (Expand ForwardSharedBadFields scope)
+  (Expand
+    (Do
+      (MovEbxImm32 01)
+      (Do
+        (MovEaxImm32 01)
+        (Do
+          (Int 80)
+          End)))
+    scope))
+
+(Rule
+  (Expand ForwardSharedBadHeapNext scope)
+  (Expand
+    (Do
+      (MovEbxImm32 02)
+      (Do
+        (MovEaxImm32 01)
+        (Do
+          (Int 80)
+          End)))
+    scope))

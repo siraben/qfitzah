@@ -212,6 +212,10 @@ qfasm2 layer. A root whose two fields share one old pair copies that child once,
 marks the old child with a temporary forwarding marker, rewrites both copied
 fields to the same new child, checks pointer equality and `HeapNext`, and exits
 through the copied child (`19`).
+`bootstrap/stage5-forwarding-gc-qfc4.qf1` lifts that focused sharing proof
+through qfc4 with `bootstrap/qfc4-forwarding-ext.qf1` and
+`bootstrap/qfasm-stage5-forwarding-ext.qf1`, again producing a runnable ELF that
+exits through the copied child (`19`).
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
