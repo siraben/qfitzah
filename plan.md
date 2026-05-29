@@ -327,6 +327,10 @@ pair chain and copied atom field after old records are overwritten.
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,
 stdout byte `41`, and exit `0`.
+`bootstrap/stage5-print-list-qfc4.qf1` starts the normal-printer path. The
+qfc4 source compiles a static pair/atom graph, checks pair-vs-atom shape,
+prints list delimiters, follows the pair car, prints the atom's first
+character through its atom character pointer, and writes stdout `(a)`.
 `bootstrap/stage5-optimization-qfc4.qf1` starts Task 5.3 with a focused
 optional optimization layer. Loaded after qfc4, `qfc4-opt-ext.qf1` overrides
 the generic compile fallbacks to fold small `Add1` constants, reduce matches

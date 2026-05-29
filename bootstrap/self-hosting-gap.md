@@ -304,6 +304,10 @@ Progress so far:
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
   stdout `41`, and exit status `0`.
+- `stage5-print-list-qfc4.qf1` starts the normal-printer path. It compiles a
+  static pair/atom graph, branches on pair-vs-atom shape, prints list
+  delimiters, follows the pair car, and prints the atom name byte through the
+  atom's character pointer, producing stdout `(a)`.
 - `stage5-optimization-qfc4.qf1` starts Task 5.3 with optional qfc4 optimizer
   rules in `qfc4-opt-ext.qf1`. The extension is loaded after qfc4 so its
   constant-folding, known-match, and straight-line dead-code rules override

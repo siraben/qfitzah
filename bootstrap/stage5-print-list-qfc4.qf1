@@ -1,0 +1,67 @@
+; qfc4 normal-printer fixture for a static Qfitzah-shaped list.
+;
+; This is not the full interpreter printer yet. It proves the next runtime
+; shape after `(Bytes ...)` flattening: inspect a pair object, print list
+; delimiters, and print a one-byte atom name through the atom's character
+; pointer. The generated ELF prints `(a)`.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax ListA)
+        (Seq
+          (CallProc PrintExpr)
+          (Exit (Literal 00))))
+      (Def
+        PrintExpr
+        NoFrame
+        (Seq
+          (TestPairEax)
+          (IfZero
+            Pair
+            (CallProc PrintList)
+            (CallProc PrintAtom)))
+        (Def
+          PrintAtom
+          NoFrame
+          (Seq
+            (LoadAtomCharsEcx)
+            (Seq
+              (LoadByteEbxFromEcx)
+              (WriteByteFromEbx)))
+          (Def
+            PrintList
+            NoFrame
+            (Seq
+              (PushEax)
+              (Seq
+                (WriteByte LParen)
+                (Seq
+                  (PopEax)
+                  (Seq
+                    (CarEax)
+                    (Seq
+                      (CallProc PrintExpr)
+                      (WriteByte RParen))))))
+            (Atom
+              AtomA
+              CharA
+              01
+              (Data
+                CharA
+                61
+                (Data
+                  LParen
+                  28
+                  (Data
+                    RParen
+                    29
+                    (Pair
+                      ListA
+                      (Const AtomA)
+                      Nil
+                      End)))))))))))

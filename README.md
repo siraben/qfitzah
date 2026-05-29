@@ -503,6 +503,11 @@ cdr atom is copied when traversal reaches that grandchild.
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
 test checks both the exact generated ELF and runtime stdout `41`.
+[bootstrap/stage5-print-list-qfc4.qf1](bootstrap/stage5-print-list-qfc4.qf1)
+starts the normal-printer path. It compiles a static pair/atom graph,
+distinguishes a pair from an atom, prints list delimiters, follows the pair
+car, prints the atom name through its character pointer, and writes stdout
+`(a)`.
 [bootstrap/stage5-optimization-qfc4.qf1](bootstrap/stage5-optimization-qfc4.qf1)
 starts the optimization path with optional qfc4 rules in
 `qfc4-opt-ext.qf1`. The fixture folds `(Add1 (Literal 29))` to a literal

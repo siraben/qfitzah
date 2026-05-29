@@ -383,6 +383,12 @@ These checked fixtures fit:
     facts only need the short forward helper calls used by the direct fixture
   - verifies runtime stdout `41` and exit status `0` through the staged qfc4 ->
     qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+- `stage5-print-list-qfc4.qf1`
+  - stays in the common qfc4/qfasm pipeline without optional extensions
+  - compiles a static pair/atom graph and a small printer split into
+    `PrintExpr`, `PrintAtom`, and `PrintList`
+  - verifies the generated ELF prints stdout hex `28 61 29` (`(a)`) and exits
+    `0`
 - `stage5-scan-forwarding-gc-qfc4.qf1`
   - generated with `tools/generate_stage5_scan_forwarding_qfc4.py` and
     `qfc4-scan-forwarding-ext.qf1`
