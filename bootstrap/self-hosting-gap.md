@@ -214,6 +214,11 @@ Progress so far:
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
   range, and the generated ELF exits through the copied child car (`19`).
+- `stage5-copy-bytes-output-gc.qf1` connects the recovery path to byte output
+  at the direct qfasm2 layer. It forces recovery, copies a static `(Bytes 41)`
+  object graph, overwrites the old pair objects, then emits from the copied
+  byte atom through `EmitByte`, `Nybble`, and `write(2)`. The generated ELF
+  writes byte `41` and exits `0`.
 
 Still required for the byte-output path:
 
@@ -222,9 +227,10 @@ Still required for the byte-output path:
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
+- lifting the direct GC-plus-byte-output proof through qfc4
 - integrating content-based `is_bytes` into the general compiled `EmitBytes`
-  fixture without exceeding the seed runtime's current source-size budget; see
-  `bootstrap/source-size-budget.md`
+  fixture after recovery without exceeding the seed runtime's current
+  source-size budget; see `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs
 - integration with evaluated expression output and the normal printer
 

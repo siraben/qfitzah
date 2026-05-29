@@ -1031,10 +1031,12 @@ run_qfasm2_stage5_scan_binary() {
   local expected_status=$2
   local extra_ext=${3:-}
   local assemble_timeout=${4:-20}
+  local expected_runtime_hex=${5:-}
   local tmp
   local actual_hex
   local expected_hex
   local flags_hex
+  local runtime_hex
   local status
 
   tmp=$(mktemp -d)
@@ -1074,7 +1076,7 @@ run_qfasm2_stage5_scan_binary() {
 
   chmod +x "$tmp/$name"
   set +e
-  "$tmp/$name"
+  "$tmp/$name" > "$tmp/runtime.out"
   status=$?
   set -e
 
@@ -1082,6 +1084,15 @@ run_qfasm2_stage5_scan_binary() {
     printf 'FAIL %s: expected exit status %s, got %s\n' "$name" "$expected_status" "$status" >&2
     rm -rf "$tmp"
     exit 1
+  fi
+
+  if [[ -n "$expected_runtime_hex" ]]; then
+    runtime_hex=$(od -An -tx1 -v "$tmp/runtime.out" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+    if [[ "$runtime_hex" != "$expected_runtime_hex" ]]; then
+      printf 'FAIL %s: expected runtime stdout hex %s, got %s\n' "$name" "$expected_runtime_hex" "$runtime_hex" >&2
+      rm -rf "$tmp"
+      exit 1
+    fi
   fi
 
   rm -rf "$tmp"
@@ -1093,3 +1104,4 @@ run_qfasm2_stage5_scan_binary "stage5-forwarding-gc" 19
 run_qfasm2_stage5_scan_binary "stage5-forwarding-cycle-gc" 23
 run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-gc" 19 "qfasm-stage5-wide-branch-ext.qf1"
 run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-complex-gc" 19 "qfasm-stage5-wide-branch-ext.qf1" 60
+run_qfasm2_stage5_scan_binary "stage5-copy-bytes-output-gc" 0 "" 30 "41"

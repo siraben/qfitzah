@@ -242,6 +242,11 @@ scan loop shape while keeping the simpler qfc4 proof's rule load small.
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a
 runnable ELF that exits through the copied child (`19`).
+`bootstrap/stage5-copy-bytes-output-gc.qf1` then reconnects recovery to the
+byte-output runtime path at the direct qfasm2 level. It forces recovery, copies
+a static `(Bytes 41)` object graph, overwrites the old pair objects, and emits
+from the copied byte atom through `EmitByte`, `Nybble`, and `write(2)`, writing
+byte `41` before exiting `0`.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

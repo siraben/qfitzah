@@ -421,6 +421,11 @@ simpler qfc4 scan-forwarding test's rule load.
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field
 handlers, then assembles with the split wide-branch qfasm extension.
+[bootstrap/stage5-copy-bytes-output-gc.qf1](bootstrap/stage5-copy-bytes-output-gc.qf1)
+connects recovery to byte output at the direct qfasm2 layer. It forces
+recovery, copies a static `(Bytes 41)` object graph, overwrites the old pair
+objects, then runs the copied byte atom through `EmitByte`, `Nybble`, and
+`write(2)`; the generated ELF writes byte `41` and exits `0`.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests
