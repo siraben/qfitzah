@@ -65,6 +65,10 @@
   RuntimeDispatchChain)
 
 (Rule
+  (ParseStmt (SetArg2Class value))
+  (SetArg2Class value))
+
+(Rule
   (ParseStmt (MethodWrongA))
   MethodWrongA)
 
@@ -169,3 +173,13 @@
     (Do
       (Ret)
       End)))
+
+(Rule
+  (CompileStmt (SetArg2Class value))
+  (Do
+    (MovEaxLabel Arg2Class)
+    (Do
+      (MovEbxImm32 value)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        End))))

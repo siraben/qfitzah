@@ -455,6 +455,11 @@ then loads the dispatched argument classes from runtime data cells instead of
 comparing against immediates baked into the loop. The test runs qfc4 and qfasm
 as two Qfitzah invocations, uses runtime-only optional dispatch extensions, and
 still indirectly calls the selected method with status `42`.
+[bootstrap/stage5-dispatch-mutable-runtime-chain-qfc4.qf1](bootstrap/stage5-dispatch-mutable-runtime-chain-qfc4.qf1)
+adds a mutable call-site proof. The generated ELF rewrites the second argument
+class cell before dispatch; the loop observes the new `(13 23)` signature and
+calls the alternate method with status `8`, while a stale hardcoded `(13 2A)`
+lookup would still exit `42`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

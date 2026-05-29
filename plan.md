@@ -282,6 +282,12 @@ method (`42`). Its test uses a staged qfc4 -> qfasm3 source, then
 qfasm3/qfasm2 -> ELF pipeline because loading the runtime dispatch extensions
 with all assembler/compiler stages at once exceeds the seed runtime's stable
 source budget.
+`bootstrap/stage5-dispatch-mutable-runtime-chain-qfc4.qf1` makes the call-site
+signature genuinely mutable: generated code rewrites the second argument class
+cell before dispatch, then the same linked-table loop observes the updated
+runtime value and selects the `(13 23)` alternate method (`8`) instead of the
+later `(13 2A)` method (`42`). The runtime dispatch qfasm extension now emits a
+writable executable segment for these mutable class-cell proofs.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

@@ -1,0 +1,39 @@
+; Stage 5 mutable runtime-argument dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles runtime argument class cells plus a linked dispatch
+; table, then rewrites the second argument class before dispatch. Runtime
+; dispatch must observe the mutated class value and call the alternate method
+; for signature `(13 23)`, exiting with status `8`; a stale hardcoded `(13 2A)`
+; lookup would call the later method and exit `42`.
+
+(QfcAssemble
+  (Source
+    Start
+    (DispatchArgClass Arg1Class 13
+    (DispatchArgClass Arg2Class 2A
+    (DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryAltArg2
+    (DispatchChainEntry EntryAltArg2 SigAltArg2 PayloadAltArg2 13 23 MethodWrongB EntryHitChain
+    (DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry
+    (DispatchEnd NoEntry
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (SetArg2Class 23)
+        (Seq
+          (RuntimeDispatchChain)
+          (ExitReg Ebx)))
+    (Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)
+    (Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)
+    (Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)
+    End))))))))))
+))

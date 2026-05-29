@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from generate_stage5_scan_forwarding_qfc4 import compile_rule, do_expr, qfc4_defs_block
+from generate_stage5_scan_forwarding_qfc4 import compile_rule, do_block, do_expr, qfc4_defs_block
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +16,9 @@ QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-table-qfc4.qf1"
 QFC4_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-qfc4.qf1"
 QFC4_CHAIN_MISS_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-chain-miss-qfc4.qf1"
 QFC4_RUNTIME_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-runtime-chain-qfc4.qf1"
+QFC4_MUTABLE_RUNTIME_CHAIN_SRC_OUT = (
+    ROOT / "bootstrap" / "stage5-dispatch-mutable-runtime-chain-qfc4.qf1"
+)
 
 
 def bad_status(value):
@@ -136,6 +139,14 @@ def runtime_dispatch_chain():
     ]
 
 
+def set_arg2_class(value):
+    return [
+        "(MovEaxLabel Arg2Class)",
+        f"(MovEbxImm32 {value})",
+        "(StoreDwordAtEaxFromEbx)",
+    ]
+
+
 def method_wrong_a():
     return [
         "(MovEbxImm32 07)",
@@ -191,6 +202,19 @@ def write_qfasm_extension():
 def write_qfasm_runtime_extension():
     QFASM_RUNTIME_EXT_OUT.write_text(
         """; Optional qfasm2/qfasm3 support for runtime-argument dispatch fixtures.
+;
+; Runtime dispatch fixtures can rewrite argument-class cells, so their ELF
+; segment is writable as well as executable.
+
+(Rule
+  (ElfHeader entry size)
+  (Bytes
+    7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00
+    02 00 03 00 01 00 00 00 (Addr entry) 34 00 00 00
+    00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00
+    00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08
+    00 80 04 08 (FileSize size) (FileSize size) 07 00 00 00
+    00 10 00 00))
 
 (Rule
   (Size (CallEax))
@@ -210,6 +234,10 @@ def write_qfasm_runtime_extension():
 
 (Rule
   (Size (CmpEaxEdx))
+  N2)
+
+(Rule
+  (Size (StoreDwordAtEaxFromEbx))
   N2)
 
 (Rule
@@ -233,6 +261,10 @@ def write_qfasm_runtime_extension():
   (Bytes 39 D0 (Pass2 rest (Add pc N2) sym)))
 
 (Rule
+  (Pass2 (Ins (StoreDwordAtEaxFromEbx) rest) pc sym)
+  (Bytes 89 18 (Pass2 rest (Add pc N2) sym)))
+
+(Rule
   (Expand (Do (CallEax) rest) scope)
   (Ins (CallEax) (Expand rest scope)))
 
@@ -251,6 +283,10 @@ def write_qfasm_runtime_extension():
 (Rule
   (Expand (Do (CmpEaxEdx) rest) scope)
   (Ins (CmpEaxEdx) (Expand rest scope)))
+
+(Rule
+  (Expand (Do (StoreDwordAtEaxFromEbx) rest) scope)
+  (Ins (StoreDwordAtEaxFromEbx) (Expand rest scope)))
 
 (Rule
   (Expand (Do (Jnz name) rest) scope)
@@ -471,6 +507,10 @@ def write_qfc4_runtime_chain_extension():
   RuntimeDispatchChain)
 
 (Rule
+  (ParseStmt (SetArg2Class value))
+  (SetArg2Class value))
+
+(Rule
   (ParseStmt (MethodWrongA))
   MethodWrongA)
 
@@ -493,6 +533,12 @@ def write_qfc4_runtime_chain_extension():
     ]:
         parts.append(compile_rule(name, instrs))
         parts.append("\n")
+
+    parts.append("""(Rule
+  (CompileStmt (SetArg2Class value))
+""")
+    parts.append(do_block(set_arg2_class("value"), "  "))
+    parts.append(")\n")
 
     QFC4_RUNTIME_CHAIN_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
 
@@ -666,6 +712,54 @@ def write_qfc4_runtime_chain_source():
     )
 
 
+def write_qfc4_mutable_runtime_chain_source():
+    defs = [
+        "(DispatchArgClass Arg1Class 13",
+        "(DispatchArgClass Arg2Class 2A",
+        "(DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryAltArg2",
+        "(DispatchChainEntry EntryAltArg2 SigAltArg2 PayloadAltArg2 13 23 MethodWrongB EntryHitChain",
+        "(DispatchChainEntry EntryHitChain SigHitChain PayloadHitChain 13 2A MethodHitChain NoEntry",
+        "(DispatchEnd NoEntry",
+        """(Def
+      Start
+      NoFrame
+      (Seq
+        (SetArg2Class 23)
+        (Seq
+          (RuntimeDispatchChain)
+          (ExitReg Ebx)))""",
+        """(Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)""",
+        """(Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)""",
+        """(Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)""",
+    ]
+
+    QFC4_MUTABLE_RUNTIME_CHAIN_SRC_OUT.write_text(
+        """; Stage 5 mutable runtime-argument dispatch chain fixture lifted through qfc4.
+;
+; The qfc4 source compiles runtime argument class cells plus a linked dispatch
+; table, then rewrites the second argument class before dispatch. Runtime
+; dispatch must observe the mutated class value and call the alternate method
+; for signature `(13 23)`, exiting with status `8`; a stale hardcoded `(13 2A)`
+; lookup would call the later method and exit `42`.
+
+(QfcAssemble
+  (Source
+    Start
+"""
+        + qfc4_defs_block(defs)
+        + "\n))\n"
+    )
+
+
 def main():
     write_qfasm_extension()
     write_qfasm_runtime_extension()
@@ -676,6 +770,7 @@ def main():
     write_qfc4_chain_source()
     write_qfc4_chain_miss_source()
     write_qfc4_runtime_chain_source()
+    write_qfc4_mutable_runtime_chain_source()
 
 
 if __name__ == "__main__":
