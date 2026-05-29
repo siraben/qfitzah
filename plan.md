@@ -339,6 +339,10 @@ stdout `()`.
 the atom printer in one `PrintExpr` routine. It prints `()a`, proving nil and
 non-nil atom dispatch coexist before the larger pair/tail printer is merged
 with the nil branch.
+`bootstrap/stage5-print-nil-and-list1-qfc4.qf1` extends that integration to
+pair/list dispatch without the tail-recursive list printer. It prints `()(a)`
+through one `PrintExpr` routine, using `qfasm-n224-ext.qf1` for the larger
+generated ELF.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

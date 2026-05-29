@@ -1,0 +1,82 @@
+; qfc4 normal-printer nil-plus-one-list fixture.
+;
+; This combines the focused nil branch with the one-element list printer in one
+; PrintExpr routine. The generated ELF prints `()(a)`, proving nil dispatch and
+; non-nil pair/list dispatch can coexist before the larger tail-recursive list
+; printer is merged with the nil branch.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadNilEax)
+        (Seq
+          (CallProc PrintExpr)
+          (Seq
+            (LoadAddrEax ListA)
+            (Seq
+              (CallProc PrintExpr)
+              (Exit (Literal 00))))))
+      (Def
+        PrintExpr
+        NoFrame
+        (Seq
+          (CmpEax 01)
+          (IfZero
+            NilExpr
+            (CallProc PrintNil)
+            (Seq
+              (TestPairEax)
+              (IfZero
+                Pair
+                (CallProc PrintList)
+                (CallProc PrintAtom)))))
+        (Def
+          PrintNil
+          NoFrame
+          (Seq
+            (WriteByte LParen)
+            (WriteByte RParen))
+          (Def
+            PrintAtom
+            NoFrame
+            (Seq
+              (LoadAtomCharsEcx)
+              (Seq
+                (LoadByteEbxFromEcx)
+                (WriteByteFromEbx)))
+            (Def
+              PrintList
+              NoFrame
+              (Seq
+                (PushEax)
+                (Seq
+                  (WriteByte LParen)
+                  (Seq
+                    (PopEax)
+                    (Seq
+                      (CarEax)
+                      (Seq
+                        (CallProc PrintExpr)
+                        (WriteByte RParen))))))
+              (Atom
+                AtomA
+                CharA
+                01
+                (Data
+                  CharA
+                  61
+                  (Data
+                    LParen
+                    28
+                    (Data
+                      RParen
+                      29
+                      (Pair
+                        ListA
+                        (Const AtomA)
+                        Nil
+                        End))))))))))))

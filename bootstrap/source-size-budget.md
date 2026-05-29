@@ -400,6 +400,11 @@ These checked fixtures fit:
     below the common qfasm2 `N220` boundary
   - proves one `PrintExpr` routine can dispatch both nil and non-nil atoms
   - verifies stdout hex `28 29 61` (`()a`) and exit status `0`
+- `stage5-print-nil-and-list1-qfc4.qf1`
+  - reuses `qfc4-print-nil-ext.qf1` and adds `qfasm-n224-ext.qf1` for the
+    larger generated ELF
+  - proves one `PrintExpr` routine can dispatch nil and a one-element list
+  - verifies stdout hex `28 29 28 61 29` (`()(a)`) and exit status `0`
 - `stage5-print-list-tail-qfc4.qf1`
   - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
     boundary narrowly

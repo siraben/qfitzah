@@ -316,6 +316,10 @@ Progress so far:
   printer in one `PrintExpr` routine. The generated ELF prints `()a`, proving
   nil dispatch and non-nil atom dispatch can coexist before the larger
   pair/tail printer is merged with the nil branch.
+- `stage5-print-nil-and-list1-qfc4.qf1` extends that integration to pair/list
+  dispatch without the tail-recursive list printer. The generated ELF prints
+  `()(a)`, proving nil and a one-element list can share one `PrintExpr`
+  routine while staying inside the current `qfasm-n224-ext.qf1` range.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout

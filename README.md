@@ -516,6 +516,10 @@ before falling through to non-nil handling, and writes stdout `()`.
 uses the same local nil extension with an atom printer in one `PrintExpr`
 routine. It writes stdout `()a`, proving nil dispatch and non-nil atom dispatch
 can coexist below the common qfasm2 range limit.
+[bootstrap/stage5-print-nil-and-list1-qfc4.qf1](bootstrap/stage5-print-nil-and-list1-qfc4.qf1)
+extends that integration to pair/list dispatch without the tail-recursive
+printer. It writes stdout `()(a)` using `qfasm-n224-ext.qf1`, proving nil and a
+one-element list can share one `PrintExpr` routine.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout

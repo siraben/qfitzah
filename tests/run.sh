@@ -349,6 +349,7 @@ run_qfc4_binary "stage4-emit-bytes-general" 0 "41"
 run_qfc4_binary "stage5-print-list-qfc4" 0 "28 61 29"
 run_qfc4_binary "stage5-print-empty-list-qfc4" 0 "28 29" "qfc4-print-nil-ext.qf1"
 run_qfc4_binary "stage5-print-nil-and-atom-qfc4" 0 "28 29 61" "qfc4-print-nil-ext.qf1"
+run_qfc4_binary "stage5-print-nil-and-list1-qfc4" 0 "28 29 28 61 29" "qfc4-print-nil-ext.qf1" "qfasm-n224-ext.qf1"
 run_qfc4_binary "stage5-print-list-tail-qfc4" 0 "28 61 20 62 29" "qfasm-n224-ext.qf1"
 run_qfc4_binary "stage5-print-nested-list-qfc4" 0 "28 61 20 28 62 29 29" "qfasm-n224-ext.qf1" "qfasm-n232-size-ext.qf1"
 run_qfc4_binary "stage4-is-bytes-content" 42
