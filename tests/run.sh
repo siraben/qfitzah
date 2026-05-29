@@ -897,6 +897,10 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfc4-copy-dynamic-atom-fields-ext.qf1" \
   "qfasm-stage5-branch-ext.qf1" \
   "41"
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-copy-dynamic-atom-nested-gc-qfc4" 0 \
+  "qfc4-copy-dynamic-atom-nested-ext.qf1" \
+  "qfasm-stage5-branch-ext.qf1"
 
 run_qfc4_heap_check_binary() {
   local name=$1

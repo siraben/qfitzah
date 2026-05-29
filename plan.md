@@ -282,6 +282,11 @@ cdr atom.
 runtime atom-copy proof through qfc4 using a focused dynamic-atom field
 extension and a small qfasm3 branch pass-through shim. The staged test checks
 the exact ELF and stdout byte `41`.
+`bootstrap/stage5-copy-dynamic-atom-nested-gc-qfc4.qf1` then exercises the same
+runtime atom frontier through one level of scan-discovered graph traversal: the
+root's car child is copied by the scan loop, and the child's runtime-initialized
+cdr atom is copied only when that child is scanned. The generated ELF verifies
+the copied child and copied atom field after overwriting all old records.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

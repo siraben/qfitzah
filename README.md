@@ -461,6 +461,11 @@ lifts that combined dynamic atom-field proof through qfc4 with
 `qfc4-copy-dynamic-atom-fields-ext.qf1`. Its staged test uses the small
 `qfasm-stage5-branch-ext.qf1` shim to pass direct short-branch scan snippets
 through qfasm3, then checks the exact ELF and stdout byte `41`.
+[bootstrap/stage5-copy-dynamic-atom-nested-gc-qfc4.qf1](bootstrap/stage5-copy-dynamic-atom-nested-gc-qfc4.qf1)
+extends that qfc4 path beyond the root object: recovery copies a root pair,
+the scan then discovers a child pair, and only when the child is scanned is its
+runtime-initialized cdr atom copied into the atom frontier and verified after
+the old records are overwritten.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
