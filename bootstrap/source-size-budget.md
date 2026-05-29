@@ -124,6 +124,17 @@ These checked fixtures fit:
   - follows and rewrites pair-valued `car` and `cdr` edges from one root object
   - overwrites both old children, verifies the copied `car` child, and exits
     with the copied `cdr` child car (`23`)
+- `stage5-copy-two-field-object-gc-qfc4.qf1`
+  - uses `qfc4-copy-ext.qf1`, `qfc4-object-copy-ext.qf1`, and
+    `qfc4-object-data-ext.qf1` for qfc4-level object-copy statements and raw
+    object layout
+  - runs as a staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF pipeline
+    under Qfitzah, with `qfasm-stage5-list-ext.qf1` supplying the local range
+    facts needed by the final assembly
+  - keeps data before code so labels used by `Mov*Label` and `DwordLabel`
+    remain in the assembler's finite address table
+  - copies and rewrites both pair-valued fields and exits with the copied `cdr`
+    child car (`23`)
 
 These larger combinations have failed in previous attempts and remain unmerged
 until the common source is smaller or the combination is re-tested:

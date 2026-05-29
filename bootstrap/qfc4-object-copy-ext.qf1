@@ -1,0 +1,39 @@
+; Optional qfc4 object-copy surface for Stage 5 two-field object recovery.
+
+(Rule
+  (ParseStmt (CopyPairFromCarOfPtrCell dst src))
+  (CopyPairFromCarOfPtrCell dst src))
+
+(Rule
+  (ParseStmt (StoreCarPtr dst ptr))
+  (StoreCarPtr dst ptr))
+
+(Rule
+  (CompileStmt (CopyPairFromCarOfPtrCell dst src))
+  (Do
+    (MovEaxLabel src)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (PushEax)
+          (Do
+            (LoadEbxCarFromEax)
+            (Do
+              (MovEaxLabel dst)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (PopEax)
+                  (Do
+                    (LoadEcxCdrFromEax)
+                    (Do
+                      (MovEaxLabel dst)
+                      (Do (StoreDwordAtEaxPlus4FromEcx) End))))))))))))
+
+(Rule
+  (CompileStmt (StoreCarPtr dst ptr))
+  (Do
+    (MovEbxLabel ptr)
+    (Do (MovEaxLabel dst) (Do (StoreDwordAtEaxFromEbx) End))))

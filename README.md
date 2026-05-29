@@ -366,6 +366,12 @@ overwrite the old child, and still exit with the copied child car (`19`).
 extends that to both fields of one object: `car` and `cdr` are live pair edges,
 both are copied and rewritten, and stale edges are observable as distinct exit
 statuses before the copied cdr child exits `23`.
+[bootstrap/qfc4-object-copy-ext.qf1](bootstrap/qfc4-object-copy-ext.qf1),
+[bootstrap/qfc4-object-data-ext.qf1](bootstrap/qfc4-object-data-ext.qf1), and
+[bootstrap/stage5-copy-two-field-object-gc-qfc4.qf1](bootstrap/stage5-copy-two-field-object-gc-qfc4.qf1)
+lift that two-field object proof through qfc4. The fixture keeps data before
+code so the finite address table remains valid, then runs as a staged qfc4 to
+qfasm3 source and qfasm3/qfasm2 to ELF pipeline.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

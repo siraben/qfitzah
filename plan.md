@@ -192,6 +192,10 @@ overwrites the old child so stale internal edges are observable.
 root whose `car` and `cdr` are both pair-valued edges. Recovery copies and
 rewrites both fields, overwrites both old children, checks the copied `car`
 child, then exits through the copied `cdr` child (`23`).
+`bootstrap/stage5-copy-two-field-object-gc-qfc4.qf1` lifts the same two-field
+object shape through qfc4 with optional object-copy and raw object-data
+extensions. Its test keeps qfc4 and qfasm as two Qfitzah invocations and places
+data before code so the assembler's finite address facts stay in range.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.

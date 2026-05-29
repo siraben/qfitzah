@@ -161,6 +161,10 @@ Progress so far:
   root pair. It copies and rewrites pair-valued `car` and `cdr` children,
   overwrites both old children, verifies the copied `car` child, and exits
   through the copied `cdr` child (`23`).
+- `stage5-copy-two-field-object-gc-qfc4.qf1` lifts the two-field object copy
+  proof through qfc4. It uses optional object-copy and raw object-data rules,
+  runs qfc4 and qfasm as two Qfitzah invocations, and keeps data before code so
+  the final assembler stays inside its finite address table.
 
 Still required for the byte-output path:
 

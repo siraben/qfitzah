@@ -1,0 +1,103 @@
+; Stage 5 two-field object copy recovery lifted through qfc4.
+;
+; Compile with qfc4-copy-ext.qf1, qfc4-object-copy-ext.qf1, and
+; qfc4-object-data-ext.qf1. The source copies a root pair whose car and cdr are
+; both pair-valued edges, rewrites both fields to copied children, overwrites
+; both old children, allocates after the copied graph, checks the copied car
+; child, and exits through the copied cdr child (`23`).
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapCar 00
+    (Data HeapCar1 00
+    (Data HeapCar2 00
+    (Data HeapCar3 00
+    (Data HeapCar4 00
+    (Data HeapCar5 00
+    (Data HeapCar6 00
+    (Data HeapCar7 00
+    (Data HeapCdr 00
+    (Data HeapCdr1 00
+    (Data HeapCdr2 00
+    (Data HeapCdr3 00
+    (Data HeapCdr4 00
+    (Data HeapCdr5 00
+    (Data HeapCdr6 00
+    (Data HeapCdr7 00
+    (Data HeapAfterCopied 00
+    (Data HeapAfterCopied1 00
+    (Data HeapAfterCopied2 00
+    (Data HeapAfterCopied3 00
+    (Data HeapAfterCopied4 00
+    (Data HeapAfterCopied5 00
+    (Data HeapAfterCopied6 00
+    (Data HeapAfterCopied7 00
+    (RawPairPtrs OldRoot OldCar OldCdr
+    (RawPair OldCar 13 01
+    (RawPair OldCdr 17 01
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (CopyPairFromPtrCell Heap Root)
+        (Seq
+          (CopyPairFromCarOfPtrCell HeapCar Root)
+          (Seq
+            (CopyPairFromCdrOfPtrCell HeapCdr Root)
+            (Seq
+              (StoreCarPtr Heap HeapCar)
+              (Seq
+                (StoreCdrPtr Heap HeapCdr)
+                (Seq
+                  (SetPtrCell Root Heap)
+                  (Seq
+                    (SetPtrCell HeapNext HeapAfterCopied)
+                    (Seq
+                      (LoadAddrEax OldCar)
+                      (Seq
+                        (SetEbx 3F)
+                        (Seq
+                          (StoreCarEbx)
+                          (Seq
+                            (LoadAddrEax OldCdr)
+                            (Seq
+                              (SetEbx 4D)
+                              (Seq
+                                (StoreCarEbx)
+                                (Seq
+                                  (AllocAtNext 2A 01)
+                                  (Seq
+                                    (LoadAddrEax Root)
+                                    (Seq
+                                      (CarEax)
+                                      (Seq
+                                        (CarEax)
+                                        (Seq
+                                          (LoadCarEbx)
+                                          (Seq
+                                            (CmpEbx 13)
+                                            (IfZero
+                                              CarOk
+                                              (Seq
+                                                (LoadAddrEax Root)
+                                                (Seq
+                                                  (CarEax)
+                                                  (Seq
+                                                    (CdrEax)
+                                                    (Seq
+                                                      (LoadCarEbx)
+                                                      (ExitReg Ebx)))))
+                                              (ExitReg Ebx)))))))))))))))))))))
+      End)))))))))))))))))))))))))))))))))))))
+)))
