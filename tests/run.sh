@@ -878,6 +878,10 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "qfc4-scan-forwarding-complex-ext.qf1" \
   "qfasm-const-compare-ext.qf1"
 run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-scan-forwarding-dynamic-atom-gc-qfc4" 0 \
+  "qfc4-scan-forwarding-dynamic-atom-ext.qf1" \
+  "qfasm-stage5-branch-ext.qf1"
+run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-bytes-output-gc-qfc4" 0 \
   "qfc4-copy-bytes-output-ext.qf1" \
   "" \

@@ -1,0 +1,55 @@
+; Stage 5 scan-forwarding plus dynamic atom-copy fixture lifted through qfc4.
+;
+; Recovery copies a root pair, then the qfc4-lowered scan loop discovers a
+; self-cyclic child through forwarding and copies the child's runtime
+; initialized tagged cdr atom into the atom frontier. The generated ELF
+; overwrites all old records, verifies the copied cycle, pair and atom
+; frontiers, and copied atom length, then exits `0`.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell AtomNext HeapAtomCdr
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapShared 00
+    (Data HeapShared1 00
+    (Data HeapShared2 00
+    (Data HeapShared3 00
+    (Data HeapShared4 00
+    (Data HeapShared5 00
+    (Data HeapShared6 00
+    (Data HeapShared7 00
+    (Data HeapAfterPairs 00
+    (RawPair HeapAtomCdr 00 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (String2 Chars41 34 31
+    (RawPair OldAtomCdr 00 00
+    (Pair OldRoot (Ptr OldShared) Nil
+    (Pair OldShared (Ptr OldShared) (Const OldAtomCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitScanForwardingDynamicAtom)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (ScanForwardDynamicAtomCar)
+            (Seq
+              (ScanForwardDynamicAtomCdr)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (FinishScanForwardingDynamicAtom))))))
+    End)))))))))))))))))))))))))))))
+))

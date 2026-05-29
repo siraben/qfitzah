@@ -216,6 +216,11 @@ Progress so far:
   into the separate atom frontier. Old root, child, and atom records are
   overwritten before the generated ELF verifies the copied cycle, frontier
   positions, and copied atom length.
+- `stage5-scan-forwarding-dynamic-atom-gc-qfc4.qf1` lifts that combined
+  forwarding-plus-runtime-atom proof through qfc4 using
+  `qfc4-scan-forwarding-dynamic-atom-ext.qf1`. The staged test uses the split
+  short-branch pass-through shim for reused scan snippets and verifies exit
+  status `0` after checking the copied cycle, frontiers, and atom length.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
@@ -284,9 +289,9 @@ Still required for the byte-output path:
 - extending scan-forwarding from focused and mixed pair graphs to arbitrary
   Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
-- generalizing runtime-initialized atom copying beyond focused field-copy and
-  linear scan-discovered child fixtures, and lifting the forwarding-plus-atom
-  combination through qfc4
+- generalizing runtime-initialized atom copying beyond focused field-copy,
+  linear scan-discovered child fixtures, and the focused forwarding-plus-atom
+  qfc4 proof
 - larger object graphs beyond the current finite layout budget
 - generalizing the recovered nested `EmitBytes` proof beyond the focused
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current

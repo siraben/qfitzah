@@ -422,6 +422,11 @@ combines forwarding with runtime atom copying at the direct qfasm2 layer. A
 copied child has its self-cycle rewritten through a forwarding marker, and its
 runtime-initialized cdr atom is copied into the atom frontier before all old
 records are overwritten.
+[bootstrap/stage5-scan-forwarding-dynamic-atom-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-dynamic-atom-gc-qfc4.qf1)
+lifts that combined forwarding-plus-atom proof through qfc4 with
+`qfc4-scan-forwarding-dynamic-atom-ext.qf1`. The staged test reuses the split
+branch pass-through shim for the short branches in the focused scan handlers
+and verifies a runnable ELF with exit status `0`.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field
