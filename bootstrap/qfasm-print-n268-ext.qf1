@@ -1,7 +1,7 @@
-; Focused qfasm2 range extension for the merged nested normal-printer fixture.
+; Focused qfasm2 range extension for the merged nested long-atom normal-printer fixture.
 ;
-; The common qfasm2 tables stop at N220. This fixture has a 280-byte
-; segment and one backward direct call at -189, so keep the extra
+; The common qfasm2 tables stop at N220. This fixture has a 268-byte
+; segment and one backward direct call at -213, so keep the extra
 ; finite arithmetic and byte facts local to this proof.
 
 (Inc N220) N221
@@ -52,18 +52,6 @@
 (Inc N265) N266
 (Inc N266) N267
 (Inc N267) N268
-(Inc N268) N269
-(Inc N269) N270
-(Inc N270) N271
-(Inc N271) N272
-(Inc N272) N273
-(Inc N273) N274
-(Inc N274) N275
-(Inc N275) N276
-(Inc N276) N277
-(Inc N277) N278
-(Inc N278) N279
-(Inc N279) N280
 
 (Dec N221) N220
 (Dec N222) N221
@@ -113,18 +101,6 @@
 (Dec N266) N265
 (Dec N267) N266
 (Dec N268) N267
-(Dec N269) N268
-(Dec N270) N269
-(Dec N271) N270
-(Dec N272) N271
-(Dec N273) N272
-(Dec N274) N273
-(Dec N275) N274
-(Dec N276) N275
-(Dec N277) N276
-(Dec N278) N277
-(Dec N279) N278
-(Dec N280) N279
 
 (Addr N221) (Bytes 31 81 04 08)
 (Addr N222) (Bytes 32 81 04 08)
@@ -174,18 +150,6 @@
 (Addr N266) (Bytes 5E 81 04 08)
 (Addr N267) (Bytes 5F 81 04 08)
 (Addr N268) (Bytes 60 81 04 08)
-(Addr N269) (Bytes 61 81 04 08)
-(Addr N270) (Bytes 62 81 04 08)
-(Addr N271) (Bytes 63 81 04 08)
-(Addr N272) (Bytes 64 81 04 08)
-(Addr N273) (Bytes 65 81 04 08)
-(Addr N274) (Bytes 66 81 04 08)
-(Addr N275) (Bytes 67 81 04 08)
-(Addr N276) (Bytes 68 81 04 08)
-(Addr N277) (Bytes 69 81 04 08)
-(Addr N278) (Bytes 6A 81 04 08)
-(Addr N279) (Bytes 6B 81 04 08)
-(Addr N280) (Bytes 6C 81 04 08)
 
 (ConstAddr N221) (Bytes 32 81 04 08)
 (ConstAddr N222) (Bytes 33 81 04 08)
@@ -235,18 +199,6 @@
 (ConstAddr N266) (Bytes 5F 81 04 08)
 (ConstAddr N267) (Bytes 60 81 04 08)
 (ConstAddr N268) (Bytes 61 81 04 08)
-(ConstAddr N269) (Bytes 62 81 04 08)
-(ConstAddr N270) (Bytes 63 81 04 08)
-(ConstAddr N271) (Bytes 64 81 04 08)
-(ConstAddr N272) (Bytes 65 81 04 08)
-(ConstAddr N273) (Bytes 66 81 04 08)
-(ConstAddr N274) (Bytes 67 81 04 08)
-(ConstAddr N275) (Bytes 68 81 04 08)
-(ConstAddr N276) (Bytes 69 81 04 08)
-(ConstAddr N277) (Bytes 6A 81 04 08)
-(ConstAddr N278) (Bytes 6B 81 04 08)
-(ConstAddr N279) (Bytes 6C 81 04 08)
-(ConstAddr N280) (Bytes 6D 81 04 08)
 
 (FileSize N221) (Bytes 31 01 00 00)
 (FileSize N222) (Bytes 32 01 00 00)
@@ -296,18 +248,6 @@
 (FileSize N266) (Bytes 5E 01 00 00)
 (FileSize N267) (Bytes 5F 01 00 00)
 (FileSize N268) (Bytes 60 01 00 00)
-(FileSize N269) (Bytes 61 01 00 00)
-(FileSize N270) (Bytes 62 01 00 00)
-(FileSize N271) (Bytes 63 01 00 00)
-(FileSize N272) (Bytes 64 01 00 00)
-(FileSize N273) (Bytes 65 01 00 00)
-(FileSize N274) (Bytes 66 01 00 00)
-(FileSize N275) (Bytes 67 01 00 00)
-(FileSize N276) (Bytes 68 01 00 00)
-(FileSize N277) (Bytes 69 01 00 00)
-(FileSize N278) (Bytes 6A 01 00 00)
-(FileSize N279) (Bytes 6B 01 00 00)
-(FileSize N280) (Bytes 6C 01 00 00)
 
 (Byte (Neg N101)) 9B
 (Byte (Neg N102)) 9A
@@ -398,3 +338,27 @@
 (Byte (Neg N187)) 45
 (Byte (Neg N188)) 44
 (Byte (Neg N189)) 43
+(Byte (Neg N190)) 42
+(Byte (Neg N191)) 41
+(Byte (Neg N192)) 40
+(Byte (Neg N193)) 3F
+(Byte (Neg N194)) 3E
+(Byte (Neg N195)) 3D
+(Byte (Neg N196)) 3C
+(Byte (Neg N197)) 3B
+(Byte (Neg N198)) 3A
+(Byte (Neg N199)) 39
+(Byte (Neg N200)) 38
+(Byte (Neg N201)) 37
+(Byte (Neg N202)) 36
+(Byte (Neg N203)) 35
+(Byte (Neg N204)) 34
+(Byte (Neg N205)) 33
+(Byte (Neg N206)) 32
+(Byte (Neg N207)) 31
+(Byte (Neg N208)) 30
+(Byte (Neg N209)) 2F
+(Byte (Neg N210)) 2E
+(Byte (Neg N211)) 2D
+(Byte (Neg N212)) 2C
+(Byte (Neg N213)) 2B

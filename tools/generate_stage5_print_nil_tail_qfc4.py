@@ -7,8 +7,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 QFASM_TAIL_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n272-ext.qf1"
 QFASM_NESTED_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n280-ext.qf1"
+QFASM_LONG_NESTED_EXT_OUT = ROOT / "bootstrap" / "qfasm-print-n268-ext.qf1"
 QFC4_TAIL_SRC_OUT = ROOT / "bootstrap" / "stage5-print-nil-and-list-tail-qfc4.qf1"
 QFC4_NESTED_SRC_OUT = ROOT / "bootstrap" / "stage5-print-nil-and-nested-list-qfc4.qf1"
+QFC4_LONG_NESTED_SRC_OUT = (
+    ROOT / "bootstrap" / "stage5-print-nil-and-nested-long-atoms-qfc4.qf1"
+)
 
 
 def form(*items):
@@ -91,48 +95,91 @@ def nested_list_defs():
     )
 
 
-def common_defs(list_defs):
-    defs = atom(
+def nested_long_atom_defs():
+    return pair(
+        "ListA",
+        form("Const", "AtomAbc"),
+        form("Ptr", "TailA"),
+        pair(
+            "TailA",
+            form("Ptr", "ListDe"),
+            "Nil",
+            pair(
+                "ListDe",
+                form("Const", "AtomDe"),
+                "Nil",
+                "End",
+            ),
+        ),
+    )
+
+
+def common_defs(list_defs, full_atoms=False):
+    atom_defs = atom(
         "AtomA",
         "CharA",
         "01",
-        atom(
-            "AtomB",
-            "CharB",
-            "01",
+        atom("AtomB", "CharB", "01", "CHAR_DATA"),
+    )
+    char_defs = data("CharA", "61", data("CharB", "62", "REST"))
+    if full_atoms:
+        atom_defs = atom(
+            "AtomAbc",
+            "CharAbc",
+            "03",
+            atom("AtomDe", "CharDe", "02", "CHAR_DATA"),
+        )
+        char_defs = data(
+            "CharAbc",
+            "61",
             data(
-                "CharA",
-                "61",
+                "CharB",
+                "62",
                 data(
-                    "CharB",
-                    "62",
-                    string2(
-                        "NilParens",
-                        "28",
-                        "29",
-                        data(
-                            "LParen",
-                            "28",
-                            data(
-                                "RParen",
-                                "29",
-                                data(
-                                    "Space",
-                                    "20",
-                                    list_defs,
-                                ),
-                            ),
-                        ),
+                    "CharC",
+                    "63",
+                    data(
+                        "CharDe",
+                        "64",
+                        data("CharE", "65", "REST"),
                     ),
+                ),
+            ),
+        )
+
+    rest = string2(
+        "NilParens",
+        "28",
+        "29",
+        data(
+            "LParen",
+            "28",
+            data(
+                "RParen",
+                "29",
+                data(
+                    "Space",
+                    "20",
+                    list_defs,
                 ),
             ),
         ),
     )
-    return defs
+    char_defs = replace_marker(char_defs, "REST", rest)
+    atom_defs = replace_marker(atom_defs, "CHAR_DATA", char_defs)
+    return atom_defs
 
 
-def write_source(path, header, list_defs):
-    defs = common_defs(list_defs)
+def replace_marker(expr, marker, value):
+    if expr == marker:
+        return value
+    if isinstance(expr, str):
+        return expr
+    return [replace_marker(item, marker, value) for item in expr]
+
+
+def write_source(path, header, list_defs, full_atoms=False):
+    defs = common_defs(list_defs, full_atoms=full_atoms)
     print_tail = defn(
         "PrintTail",
         seq(
@@ -174,15 +221,20 @@ def write_source(path, header, list_defs):
         print_tail,
     )
 
-    print_atom = defn(
-        "PrintAtom",
-        seq(
+    if full_atoms:
+        print_atom_body = seq(
+            form("LoadAtomCharsEcx"),
+            form("LoadAtomLenEdx"),
+            form("WriteBytesFromEcxEdx"),
+        )
+    else:
+        print_atom_body = seq(
             form("LoadAtomCharsEcx"),
             form("LoadByteEbxFromEcx"),
             form("WriteByteFromEbx"),
-        ),
-        print_list,
-    )
+        )
+
+    print_atom = defn("PrintAtom", print_atom_body, print_list)
 
     print_nil = defn("PrintNil", form("Write2", "NilParens"), print_atom)
 
@@ -255,7 +307,8 @@ def write_qfasm_extension(path, segment_size, max_backward, description):
         lines.append(f"(ConstAddr N{n}) (Bytes {bytes4(base + n + 1)})")
     lines.append("")
 
-    lines.append(f"(FileSize N{segment_size}) (Bytes {bytes4(0x54 + segment_size)})")
+    for n in range(221, segment_size + 1):
+        lines.append(f"(FileSize N{n}) (Bytes {bytes4(0x54 + n)})")
     lines.append("")
 
     for n in range(101, max_backward + 1):
@@ -277,6 +330,12 @@ def main():
         segment_size=280,
         max_backward=189,
         description="the merged nested normal-printer fixture",
+    )
+    write_qfasm_extension(
+        QFASM_LONG_NESTED_EXT_OUT,
+        segment_size=268,
+        max_backward=213,
+        description="the merged nested long-atom normal-printer fixture",
     )
     write_source(
         QFC4_TAIL_SRC_OUT,
@@ -300,6 +359,19 @@ def main():
 
 """,
         nested_list_defs(),
+    )
+    write_source(
+        QFC4_LONG_NESTED_SRC_OUT,
+        """; qfc4 normal-printer nil-plus-nested-long-atoms fixture.
+;
+; This extends the generated recursive normal-printer proof to multi-byte atom
+; spans. The generated ELF prints `()(abc (de))`, proving nil dispatch,
+; recursive list output, separators, and full atom-length writes coexist in one
+; compiled printer slice.
+
+""",
+        nested_long_atom_defs(),
+        full_atoms=True,
     )
 
 

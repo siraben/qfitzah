@@ -536,6 +536,12 @@ and assembled as a two-step qfc4 -> qfasm3 -> ELF pipeline with the focused
 uses the same generated printer with a nested object graph. It assembles with
 `qfasm-print-n280-ext.qf1` and writes stdout `()(a (b))`, proving the nil
 branch now coexists with recursive nested normal output.
+[bootstrap/stage5-print-nil-and-nested-long-atoms-qfc4.qf1](bootstrap/stage5-print-nil-and-nested-long-atoms-qfc4.qf1)
+uses the same Python generator with the full atom-span printer extension. It
+assembles as qfc4 -> qfasm3 -> ELF with `qfasm-print-n268-ext.qf1` plus
+`qfc4-print-atom-ext.qf1`, and writes stdout `()(abc (de))`. This proves the
+recursive normal-printer slice can combine nil, nested lists, separators, and
+multi-byte atom names in one compiled path.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout

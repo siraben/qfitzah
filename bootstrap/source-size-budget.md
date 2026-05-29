@@ -419,18 +419,30 @@ These checked fixtures fit:
   - runs as a two-step qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF
     pipeline because the all-in-one load exceeds the seed runtime's stable
     budget
-  - uses focused `qfasm-print-n272-ext.qf1` range facts for a 272-byte segment,
-    labels through `N264`, and the `-189` backward direct-call byte
+  - uses focused `qfasm-print-n272-ext.qf1` range facts for a 272-byte segment
+    and the `-189` backward direct-call byte
   - proves one `PrintExpr` routine can dispatch nil, atoms, and a
     tail-recursive two-element list
   - verifies stdout hex `28 29 28 61 20 62 29` (`()(a b)`) and exit status `0`
 - `stage5-print-nil-and-nested-list-qfc4.qf1`
   - reuses the same generated printer on a nested object graph
-  - uses focused `qfasm-print-n280-ext.qf1` range facts for a 280-byte segment,
-    labels through `N272`, and the same `-189` backward direct-call byte
+  - uses focused `qfasm-print-n280-ext.qf1` range facts for a 280-byte segment
+    and the same `-189` backward direct-call byte
   - proves nil dispatch can coexist with recursive nested normal output
   - verifies stdout hex `28 29 28 61 20 28 62 29 29` (`()(a (b))`) and exit
     status `0`
+- `stage5-print-nil-and-nested-long-atoms-qfc4.qf1`
+  - reuses the same Python generator with `full_atoms=True` so the larger
+    `.qf1` proof is deterministic instead of hand-transcribed
+  - loads `qfc4-print-atom-ext.qf1` in both staged passes, because the first
+    pass needs `LoadAtomLenEdx`/`WriteBytesFromEcxEdx` source lowering and the
+    second pass needs the qfasm instruction bytes for `LoadEdxCdrFromEax`
+  - uses focused `qfasm-print-n268-ext.qf1` range facts for a 268-byte segment
+    and the `-213` backward direct-call byte
+  - proves one `PrintExpr` routine can dispatch nil, nested lists, separators,
+    and multi-byte atom names
+  - verifies stdout hex `28 29 28 61 62 63 20 28 64 65 29 29`
+    (`()(abc (de))`) and exit status `0`
 - `stage5-print-list-tail-qfc4.qf1`
   - uses `qfasm-n224-ext.qf1` to cross the common qfasm2 `N220` code-size
     boundary narrowly

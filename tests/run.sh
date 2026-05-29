@@ -339,7 +339,10 @@ run_qfc4_print_staged_binary() {
   local name=$1
   local expected_status=$2
   local expected_runtime_hex=$3
-  local qfasm_ext=${4:-qfasm-print-n272-ext.qf1}
+  local qfasm_exts=${4:-qfasm-print-n272-ext.qf1}
+  local qfc4_exts=${5:-qfc4-print-nil-ext.qf1}
+  local qfasm_ext
+  local qfc4_ext
   local tmp
   local actual_hex
   local expected_hex
@@ -347,16 +350,21 @@ run_qfc4_print_staged_binary() {
   local status
 
   tmp=$(mktemp -d)
-  cat "$repo_root/bootstrap/qfc4.qf1" \
-      "$repo_root/bootstrap/qfc4-print-nil-ext.qf1" \
-      "$repo_root/bootstrap/$name.qf1" \
-    | timeout 20s "$qfitzah" > "$tmp/$name.m3"
+  {
+    cat "$repo_root/bootstrap/qfc4.qf1"
+    for qfc4_ext in $qfc4_exts; do
+      cat "$repo_root/bootstrap/$qfc4_ext"
+    done
+    cat "$repo_root/bootstrap/$name.qf1"
+  } | timeout 20s "$qfitzah" > "$tmp/$name.m3"
 
-  cat "$repo_root/bootstrap/qfasm2.qf1" \
-      "$repo_root/bootstrap/qfasm3.qf1" \
-      "$repo_root/bootstrap/$qfasm_ext" \
-      "$tmp/$name.m3" \
-    | timeout 20s "$qfitzah" > "$tmp/$name"
+  {
+    cat "$repo_root/bootstrap/qfasm2.qf1" "$repo_root/bootstrap/qfasm3.qf1"
+    for qfasm_ext in $qfasm_exts; do
+      cat "$repo_root/bootstrap/$qfasm_ext"
+    done
+    cat "$tmp/$name.m3"
+  } | timeout 20s "$qfitzah" > "$tmp/$name"
 
   actual_hex=$(od -An -tx1 -v "$tmp/$name" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
   expected_hex=$(tr -s '[:space:]' ' ' < "$case_dir/$name.hex" | sed 's/^ //; s/ $//')
@@ -409,6 +417,12 @@ run_qfc4_binary "stage5-print-list-tail-qfc4" 0 "28 61 20 62 29" "qfasm-n224-ext
 run_qfc4_binary "stage5-print-nested-list-qfc4" 0 "28 61 20 28 62 29 29" "qfasm-n224-ext.qf1" "qfasm-n232-size-ext.qf1"
 run_qfc4_print_staged_binary "stage5-print-nil-and-list-tail-qfc4" 0 "28 29 28 61 20 62 29"
 run_qfc4_print_staged_binary "stage5-print-nil-and-nested-list-qfc4" 0 "28 29 28 61 20 28 62 29 29" "qfasm-print-n280-ext.qf1"
+run_qfc4_print_staged_binary \
+  "stage5-print-nil-and-nested-long-atoms-qfc4" \
+  0 \
+  "28 29 28 61 62 63 20 28 64 65 29 29" \
+  "qfasm-print-n268-ext.qf1 qfc4-print-atom-ext.qf1" \
+  "qfc4-print-nil-ext.qf1 qfc4-print-atom-ext.qf1"
 run_qfc4_binary "stage4-is-bytes-content" 42
 run_qfc4_binary "stage4-is-bytes-content-reject" 1
 run_qfc4_binary "stage4-is-bytes-content-output" 0 "41"
@@ -1023,7 +1037,8 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-nested-bytes-output-gc-qfc4" 0 \
   "qfc4-copy-nested-bytes-output-ext.qf1" \
   "qfasm-byte-output-ext.qf1" \
-  "41"
+  "41" \
+  180
 run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-copy-dynamic-atom-fields-gc-qfc4" 0 \
   "qfc4-copy-dynamic-atom-fields-ext.qf1" \

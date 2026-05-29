@@ -335,6 +335,12 @@ Progress so far:
   a nested static graph. It assembles with `qfasm-print-n280-ext.qf1` and
   prints `()(a (b))`, proving the nil branch can coexist with nested normal
   output through `PrintExpr` recursion.
+- `stage5-print-nil-and-nested-long-atoms-qfc4.qf1` extends that generated
+  recursive printer to full atom spans. Its staged test loads
+  `qfc4-print-atom-ext.qf1` during both qfc4 lowering and final qfasm assembly,
+  uses `qfasm-print-n268-ext.qf1`, and prints `()(abc (de))`, proving nil,
+  nested list traversal, separators, and multi-byte atom output now coexist in
+  one compiled normal-printer slice.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout

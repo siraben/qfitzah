@@ -358,6 +358,12 @@ then assembles with `qfasm-print-n272-ext.qf1`, and the generated ELF prints
 printer with a nested object graph. It assembles with `qfasm-print-n280-ext.qf1`
 and prints `()(a (b))`, proving nil dispatch and nested normal output now
 coexist in one compiled printer slice.
+`bootstrap/stage5-print-nil-and-nested-long-atoms-qfc4.qf1` extends the same
+generated fixture family to full atom spans inside recursive output. The staged
+test loads `qfc4-print-atom-ext.qf1` in both the qfc4 and qfasm passes,
+assembles with `qfasm-print-n268-ext.qf1`, and prints `()(abc (de))`, proving
+the normal-printer slice can combine nil dispatch, nested lists, separators,
+and multi-byte atom names.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.
