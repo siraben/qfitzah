@@ -1135,3 +1135,4 @@ run_qfasm2_stage5_scan_binary "stage5-copy-bytes-isbytes-output-gc" 0 "qfasm-byt
 run_qfasm2_stage5_scan_binary "stage5-copy-nested-bytes-output-gc" 0 "qfasm-byte-output-ext.qf1" 60 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atoms-output-gc" 0 "qfasm-byte-output-ext.qf1" 90 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-cdr-gc" 0 "" 60 "41"
+run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atom-fields-gc" 0 "" 60 "41"

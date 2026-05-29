@@ -273,6 +273,11 @@ stdout byte `41` from the copied graph.
 `bootstrap/stage5-copy-dynamic-atom-cdr-gc.qf1` extends the same atom frontier
 to tagged atom fields in pair cdrs, rewriting the copied cdr to the copied atom
 record and emitting stdout byte `41` after the old atom is overwritten.
+`bootstrap/stage5-copy-dynamic-atom-fields-gc.qf1` combines both dynamic atom
+field paths in one copied pair: runtime-initialized tagged atoms in `car` and
+`cdr` are copied into the atom frontier, both copied fields are rewritten, old
+atom records are overwritten, and stdout byte `41` is emitted from the copied
+cdr atom.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

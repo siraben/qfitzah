@@ -452,6 +452,10 @@ recognizes the copied `Bytes` atom by content and emits byte `41`.
 extends the same atom frontier to a tagged atom in a pair `cdr`. It rewrites
 the copied cdr to the copied atom, overwrites the old atom record, then emits
 byte `41` from the copied cdr atom.
+[bootstrap/stage5-copy-dynamic-atom-fields-gc.qf1](bootstrap/stage5-copy-dynamic-atom-fields-gc.qf1)
+combines those paths in one scan: a copied pair has runtime-initialized tagged
+atoms in both `car` and `cdr`, both fields are rewritten to copied atom records,
+the old atoms are overwritten, and stdout still comes from the copied cdr atom.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
