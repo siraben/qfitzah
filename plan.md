@@ -251,6 +251,11 @@ byte `41` before exiting `0`.
 `IsBytes` gate after recovery at the direct qfasm2 level. The copied head atom
 is recognized by length and bytes rather than pointer identity before the
 copied byte tail is emitted.
+`bootstrap/stage5-copy-nested-bytes-output-gc.qf1` takes the same direct
+recovery/output path through a copied `(Bytes (Bytes 41))` graph. It overwrites
+all old pair cells after scan-copy, then recursive `EmitBytes` recognizes both
+`Bytes` objects by content and flattens the copied nested byte object to stdout
+byte `41`.
 `bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1` lifts that
 content-checked recovery/output path through qfc4, keeping `IsBytes`,
 `EmitByte`, and `Nybble` in readable staged source and checking stdout byte

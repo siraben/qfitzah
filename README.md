@@ -430,6 +430,11 @@ objects, then runs the copied byte atom through `EmitByte`, `Nybble`, and
 adds the runtime `IsBytes` gate after recovery. The copied head atom is named
 separately and recognized by length and character contents, then the copied
 tail is emitted as byte `41`.
+[bootstrap/stage5-copy-nested-bytes-output-gc.qf1](bootstrap/stage5-copy-nested-bytes-output-gc.qf1)
+extends that direct recovered-output path to `(Bytes (Bytes 41))`. Recovery
+copies the outer list cell, inner `Bytes` object, and inner byte tail, clobbers
+all old pairs, then recursive `EmitBytes` recognizes both `Bytes` atoms by
+content and flattens the copied nested object to stdout byte `41`.
 [bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1)
 lifts that content-checked recovery/output path through qfc4 with
 `qfc4-copy-bytes-isbytes-output-ext.qf1` and `qfasm-byte-output-ext.qf1`.

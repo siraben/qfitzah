@@ -223,6 +223,11 @@ Progress so far:
   gate after recovery at the direct qfasm2 layer. The copied head atom is not a
   shared `AtomBytes` pointer; it is recognized by length and character contents
   before the copied byte tail is emitted as stdout `41`.
+- `stage5-copy-nested-bytes-output-gc.qf1` extends the direct recovered-output
+  path to `(Bytes (Bytes 41))`. The scan copies the outer list, inner `Bytes`
+  object, and inner byte tail, all old pairs are overwritten, and recursive
+  `EmitBytes` uses content-based `IsBytes` to flatten the copied nested object
+  to stdout `41`.
 - `stage5-copy-bytes-isbytes-output-gc-qfc4.qf1` lifts the content-checked
   recovery/output path through qfc4 using
   `qfc4-copy-bytes-isbytes-output-ext.qf1` and `qfasm-byte-output-ext.qf1`.
@@ -240,9 +245,9 @@ Still required for the byte-output path:
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
-- integrating content-based `is_bytes` into the general nested `EmitBytes`
-  fixture after recovery without exceeding the seed runtime's current
-  source-size budget; see `bootstrap/source-size-budget.md`
+- lifting the recovered nested `EmitBytes` proof through qfc4 and generalizing
+  it beyond the focused `(Bytes (Bytes 41))` fixture without exceeding the seed
+  runtime's current source-size budget; see `bootstrap/source-size-budget.md`
 - enough data layout notation to express larger Qfitzah object graphs
 - integration with evaluated expression output and the normal printer
 
