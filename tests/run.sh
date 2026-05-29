@@ -1073,3 +1073,4 @@ run_qfasm2_stage5_scan_binary "stage5-copy-tree-gc" 35
 run_qfasm2_stage5_scan_binary "stage5-forwarding-gc" 19
 run_qfasm2_stage5_scan_binary "stage5-forwarding-cycle-gc" 23
 run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-gc" 19 "qfasm-stage5-wide-branch-ext.qf1"
+run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-complex-gc" 19 "qfasm-stage5-wide-branch-ext.qf1"

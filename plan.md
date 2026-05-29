@@ -228,6 +228,11 @@ rewrites both root fields and the child's self-edge to the copied child, checks
 that allocation advanced by only two cells, and exits through the copied child
 (`19`). This is the first focused proof that the scan loop and forwarding
 marker can cooperate on a cyclic shared graph.
+`bootstrap/stage5-scan-forwarding-complex-gc.qf1` applies the same direct
+qfasm2 scan-forwarding loop to a larger graph: root points to two separate
+children, both children converge on one shared self-cyclic node, and the ELF
+checks preserved sharing, the copied cycle, and the four-cell copy frontier
+after all old objects are overwritten.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

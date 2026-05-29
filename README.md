@@ -406,6 +406,11 @@ combines the scan traversal and forwarding paths at the qfasm2 layer. A root
 has two fields pointing at one child, and that child points to itself; the scan
 copies the child once, rewrites both root fields and the self-edge to the new
 cell, checks `HeapNext`, then exits through the copied child car (`19`).
+[bootstrap/stage5-scan-forwarding-complex-gc.qf1](bootstrap/stage5-scan-forwarding-complex-gc.qf1)
+uses the same scan-forwarding machinery on a larger mixed graph: root points to
+two different children, both children converge on one shared self-cyclic node,
+and the generated ELF verifies the shared identity, self-cycle, and four-cell
+copy frontier after overwriting every old object.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

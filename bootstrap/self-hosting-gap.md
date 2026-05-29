@@ -199,6 +199,11 @@ Progress so far:
   the child once, records a forwarding marker, rewrites both root fields and
   the child's self-edge to the copied child, checks `HeapNext`, and exits
   through the copied child car (`19`).
+- `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
+  scan-forwarding loop on a larger mixed graph. Root has two distinct children,
+  both children point at one shared self-cyclic node, every old object is
+  overwritten after recovery, and the generated ELF verifies preserved sharing,
+  the copied self-cycle, and the four-cell copy frontier before exiting `19`.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in
@@ -206,8 +211,8 @@ Progress so far:
 
 Still required for the byte-output path:
 
-- extending scan-forwarding from the focused shared cyclic pair graph to
-  arbitrary Qfitzah object graphs
+- extending scan-forwarding from focused and mixed pair graphs to arbitrary
+  Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget
