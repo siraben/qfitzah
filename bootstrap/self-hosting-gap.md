@@ -201,13 +201,15 @@ Progress so far:
   through the copied child car (`19`).
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
-  both children point at one shared self-cyclic node, every old object is
-  overwritten after recovery, and the generated ELF verifies preserved sharing,
-  the copied self-cycle, and the four-cell copy frontier before exiting `19`.
+  both children point at one shared self-cyclic node, and the shared node's car
+  is a tagged static atom. Every old pair object is overwritten after recovery,
+  and the generated ELF verifies preserved sharing, the copied self-cycle, the
+  copied atom field, and the four-cell copy frontier before exiting `19`.
 - `stage5-scan-forwarding-complex-gc-qfc4.qf1` lifts that mixed graph through
-  qfc4 using a separate complex scan-forwarding extension, preserving the same
-  staged two-invocation pipeline while avoiding extra rule load in the smaller
-  qfc4 scan-forwarding proof.
+  qfc4 using a separate complex scan-forwarding extension and a local
+  tagged-constant compare assembler extension, preserving the same staged
+  two-invocation pipeline while avoiding extra rule load in the smaller qfc4
+  scan-forwarding proof.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

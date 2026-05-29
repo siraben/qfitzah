@@ -1,6 +1,14 @@
 ; Optional qfc4 complex scan-forwarding surface.
 
 (Rule
+  (ParseStmt (CmpEaxConstLabel name))
+  (CmpEaxConstLabel name))
+
+(Rule
+  (CompileStmt (CmpEaxConstLabel name))
+  (Do (CmpEaxConstLabel name) End))
+
+(Rule
   (ParseStmt (InitScanForwardingComplex))
   InitScanForwardingComplex)
 
@@ -139,5 +147,5 @@
                                                     (Do
                                                       (CmpEaxEbx)
                                                       (Do
-                                                        (IfZero SharedPathsMeet (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (PushEax) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero SharedCycleOk (Do (MovEaxLabel HeapNext) (Do (LoadEaxCar) (Do (MovEbxLabel HeapAfterCopied) (Do (CmpEaxEbx) (Do (IfZero HeapNextOk (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (LoadEbxCarFromEax) (Do (MovEaxImm32 01) (Do (Int 80) End))))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))) (Do (MovEbxImm32 02) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))))))) (Do (MovEbxImm32 01) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                        (IfZero SharedPathsMeet (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (PushEax) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero SharedCycleOk (Do (MovEaxLabel HeapNext) (Do (LoadEaxCar) (Do (MovEbxLabel HeapAfterCopied) (Do (CmpEaxEbx) (Do (IfZero HeapNextOk (Do (MovEaxLabel Root) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (LoadEaxCar) (Do (CmpEaxConstLabel AtomShared) (Do (IfZero SharedAtomOk (Do (MovEbxImm32 13) (Do (MovEaxImm32 01) (Do (Int 80) End))) (Do (MovEbxImm32 04) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))) (Do (MovEbxImm32 02) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))))))) (Do (MovEbxImm32 01) (Do (MovEaxImm32 01) (Do (Int 80) End))))
                                                         End))))))))))))))))))))))))))))

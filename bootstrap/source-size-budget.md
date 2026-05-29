@@ -203,17 +203,18 @@ These checked fixtures fit:
   - reuses the same direct scan-forwarding field handlers and wide-branch
     extension
   - copies a mixed graph where two distinct child objects converge on one
-    shared self-cyclic node
+    shared self-cyclic node whose car is a tagged static atom
   - overwrites every old object, verifies the copied sharing edge, the copied
-    self-cycle, and the four-cell `HeapNext` frontier, then exits through the
-    copied shared car (`19`)
+    self-cycle, the preserved atom field, and the four-cell `HeapNext`
+    frontier, then exits `19`
 - `stage5-scan-forwarding-complex-gc-qfc4.qf1`
   - generated with `tools/generate_stage5_scan_forwarding_complex_qfc4.py` and
     `qfc4-scan-forwarding-complex-ext.qf1`
+  - uses `qfasm-const-compare-ext.qf1` for the local tagged-atom identity check
   - uses a separate qfc4 extension so the larger mixed-graph checks do not add
     rules to the simpler scan-forwarding qfc4 test
   - runs through the staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF
-    pipeline and exits through the copied shared car (`19`)
+    pipeline and exits `19`
 - `stage5-scan-forwarding-gc-qfc4.qf1`
   - generated with `tools/generate_stage5_scan_forwarding_qfc4.py` and
     `qfc4-scan-forwarding-ext.qf1`

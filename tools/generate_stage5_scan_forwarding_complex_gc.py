@@ -31,6 +31,12 @@ def main():
         "(Label HeapLimit)",
         "(Db 00)",
         "(Align4)",
+        "(Label AtomSharedChars)",
+        "(Db 53)",
+        "(Align4)",
+        "(Label AtomShared)",
+        "(DwordLabel AtomSharedChars)",
+        "(Dword 01)",
         "(Label OldRoot)",
         "(DwordLabel OldLeft)",
         "(DwordLabel OldRight)",
@@ -41,7 +47,7 @@ def main():
         "(DwordLabel OldShared)",
         "(Dword 25)",
         "(Label OldShared)",
-        "(Dword 13)",
+        "(DwordConst AtomShared)",
         "(DwordLabel OldShared)",
         "(Align4)",
         "(Label Start)",
@@ -143,16 +149,24 @@ def main():
         "(LoadEaxCar)",
         "(MovEbxLabel HeapAfterCopied)",
         "(CmpEaxEbx)",
-        "(Jz ExitCopiedShared)",
+        "(Jz CheckSharedAtom)",
         "(MovEbxImm32 03)",
         "(MovEaxImm32 01)",
         "(Int 80)",
-        "(Label ExitCopiedShared)",
+        "(Label CheckSharedAtom)",
         "(MovEaxLabel Root)",
         "(LoadEaxCar)",
         "(LoadEaxCar)",
         "(LoadEaxCdr)",
-        "(LoadEbxCarFromEax)",
+        "(LoadEaxCar)",
+        "(AndEaxNotTag)",
+        "(CmpEaxLabel AtomShared)",
+        "(Jz ExitOk)",
+        "(MovEbxImm32 04)",
+        "(MovEaxImm32 01)",
+        "(Int 80)",
+        "(Label ExitOk)",
+        "(MovEbxImm32 13)",
         "(MovEaxImm32 01)",
         "(Int 80)",
     ]
@@ -160,14 +174,16 @@ def main():
     text = """; Stage 5 complex scan-forwarding recovery fixture, direct qfasm2 source.
 ;
 ; Root points at OldLeft and OldRight. OldLeft's cdr and OldRight's car both
-; point at OldShared, and OldShared's cdr points back to itself. Recovery copies
-; Root into Heap and then scans copied pairs from Scan to HeapNext, copying
-; pair-valued fields once and using forwarding markers for later references.
+; point at OldShared, and OldShared's cdr points back to itself. OldShared's
+; car is a tagged static atom. Recovery copies Root into Heap and then scans
+; copied pairs from Scan to HeapNext, copying pair-valued fields once and using
+; forwarding markers for later references.
 ;
 ; After the scan, all old objects are overwritten. The generated ELF checks
 ; that both paths still converge on the same copied shared node, that the
 ; copied shared node keeps its self-cycle, that HeapNext advanced by exactly
-; four cells, and then exits with the copied shared car (`13`, status 19).
+; four cells, and that the tagged atom field was preserved. It exits with
+; status 19 after those checks.
 
 (Assemble
   (Program

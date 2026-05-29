@@ -409,12 +409,14 @@ cell, checks `HeapNext`, then exits through the copied child car (`19`).
 [bootstrap/stage5-scan-forwarding-complex-gc.qf1](bootstrap/stage5-scan-forwarding-complex-gc.qf1)
 uses the same scan-forwarding machinery on a larger mixed graph: root points to
 two different children, both children converge on one shared self-cyclic node,
-and the generated ELF verifies the shared identity, self-cycle, and four-cell
-copy frontier after overwriting every old object.
+and the shared node carries a tagged static atom. The generated ELF verifies
+the shared identity, self-cycle, atom preservation, and four-cell copy frontier
+after overwriting every old pair object.
 [bootstrap/stage5-scan-forwarding-complex-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-complex-gc-qfc4.qf1)
 lifts that mixed graph through qfc4 with a separate
-`qfc4-scan-forwarding-complex-ext.qf1`, keeping the staged source readable
-without increasing the simpler qfc4 scan-forwarding test's rule load.
+`qfc4-scan-forwarding-complex-ext.qf1` and a tiny tagged-constant comparison
+assembler extension, keeping the staged source readable without increasing the
+simpler qfc4 scan-forwarding test's rule load.
 [bootstrap/stage5-scan-forwarding-gc-qfc4.qf1](bootstrap/stage5-scan-forwarding-gc-qfc4.qf1)
 lifts the same scan-forwarding graph through qfc4. Its qfc4 source keeps the
 loop readable and uses `qfc4-scan-forwarding-ext.qf1` for the long field

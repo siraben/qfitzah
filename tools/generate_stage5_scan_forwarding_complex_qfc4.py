@@ -99,20 +99,32 @@ def check_heap_next():
         "(MovEbxLabel HeapAfterCopied)",
         "(CmpEaxEbx)",
         "(IfZero HeapNextOk "
-        + do_expr(exit_copied_shared())
+        + do_expr(check_shared_atom())
         + " "
         + do_expr(bad_status("03"))
         + ")",
     ]
 
 
-def exit_copied_shared():
+def check_shared_atom():
     return [
         "(MovEaxLabel Root)",
         "(LoadEaxCar)",
         "(LoadEaxCar)",
         "(LoadEaxCdr)",
-        "(LoadEbxCarFromEax)",
+        "(LoadEaxCar)",
+        "(CmpEaxConstLabel AtomShared)",
+        "(IfZero SharedAtomOk "
+        + do_expr(exit_ok())
+        + " "
+        + do_expr(bad_status("04"))
+        + ")",
+    ]
+
+
+def exit_ok():
+    return [
+        "(MovEbxImm32 13)",
         "(MovEaxImm32 01)",
         "(Int 80)",
     ]
@@ -138,7 +150,19 @@ def main():
         "CheckScanForwardingComplex",
     ]
 
-    qfc4 = ["; Optional qfc4 complex scan-forwarding surface.\n\n"]
+    qfc4 = [
+        """; Optional qfc4 complex scan-forwarding surface.
+
+(Rule
+  (ParseStmt (CmpEaxConstLabel name))
+  (CmpEaxConstLabel name))
+
+(Rule
+  (CompileStmt (CmpEaxConstLabel name))
+  (Do (CmpEaxConstLabel name) End))
+
+"""
+    ]
     for name in names:
         qfc4.append(f"""(Rule
   (ParseStmt ({name}))
@@ -165,10 +189,12 @@ def main():
         *data_cell("HeapShared"),
         "(Data HeapAfterCopied 00",
         "(Data HeapLimit 00",
+        "(Data AtomSharedChars 53",
+        "(Atom AtomShared AtomSharedChars 01",
         "(RawPairPtrs OldRoot OldLeft OldRight",
         "(RawPairValPtr OldLeft 11 OldShared",
         "(RawPairPtrVal OldRight OldShared 25",
-        "(RawPairValPtr OldShared 13 OldShared",
+        "(Pair OldShared (Const AtomShared) (Ptr OldShared)",
         """(Def
       ScanCdr
       NoFrame
@@ -194,7 +220,8 @@ def main():
 ;
 ; Compile with qfc4-scan-forwarding-complex-ext.qf1 and the Stage 5 heap/scan
 ; extensions. The source keeps the scan loop readable while the optional qfc4
-; extension owns the long forwarding field handlers and mixed-graph checks.
+; extension owns the long forwarding field handlers and mixed-graph checks,
+; including preservation of a tagged static atom field.
 
 (QfcAssemble
   (Source

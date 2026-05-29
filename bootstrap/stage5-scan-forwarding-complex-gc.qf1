@@ -1,14 +1,16 @@
 ; Stage 5 complex scan-forwarding recovery fixture, direct qfasm2 source.
 ;
 ; Root points at OldLeft and OldRight. OldLeft's cdr and OldRight's car both
-; point at OldShared, and OldShared's cdr points back to itself. Recovery copies
-; Root into Heap and then scans copied pairs from Scan to HeapNext, copying
-; pair-valued fields once and using forwarding markers for later references.
+; point at OldShared, and OldShared's cdr points back to itself. OldShared's
+; car is a tagged static atom. Recovery copies Root into Heap and then scans
+; copied pairs from Scan to HeapNext, copying pair-valued fields once and using
+; forwarding markers for later references.
 ;
 ; After the scan, all old objects are overwritten. The generated ELF checks
 ; that both paths still converge on the same copied shared node, that the
 ; copied shared node keeps its self-cycle, that HeapNext advanced by exactly
-; four cells, and then exits with the copied shared car (`13`, status 19).
+; four cells, and that the tagged atom field was preserved. It exits with
+; status 19 after those checks.
 
 (Assemble
   (Program
@@ -59,6 +61,12 @@
     (Ins (Label HeapLimit)
     (Ins (Db 00)
     (Ins (Align4)
+    (Ins (Label AtomSharedChars)
+    (Ins (Db 53)
+    (Ins (Align4)
+    (Ins (Label AtomShared)
+    (Ins (DwordLabel AtomSharedChars)
+    (Ins (Dword 01)
     (Ins (Label OldRoot)
     (Ins (DwordLabel OldLeft)
     (Ins (DwordLabel OldRight)
@@ -69,7 +77,7 @@
     (Ins (DwordLabel OldShared)
     (Ins (Dword 25)
     (Ins (Label OldShared)
-    (Ins (Dword 13)
+    (Ins (DwordConst AtomShared)
     (Ins (DwordLabel OldShared)
     (Ins (Align4)
     (Ins (Label Start)
@@ -261,17 +269,25 @@
     (Ins (LoadEaxCar)
     (Ins (MovEbxLabel HeapAfterCopied)
     (Ins (CmpEaxEbx)
-    (Ins (Jz ExitCopiedShared)
+    (Ins (Jz CheckSharedAtom)
     (Ins (MovEbxImm32 03)
     (Ins (MovEaxImm32 01)
     (Ins (Int 80)
-    (Ins (Label ExitCopiedShared)
+    (Ins (Label CheckSharedAtom)
     (Ins (MovEaxLabel Root)
     (Ins (LoadEaxCar)
     (Ins (LoadEaxCar)
     (Ins (LoadEaxCdr)
-    (Ins (LoadEbxCarFromEax)
+    (Ins (LoadEaxCar)
+    (Ins (AndEaxNotTag)
+    (Ins (CmpEaxLabel AtomShared)
+    (Ins (Jz ExitOk)
+    (Ins (MovEbxImm32 04)
     (Ins (MovEaxImm32 01)
     (Ins (Int 80)
-    End))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+    (Ins (Label ExitOk)
+    (Ins (MovEbxImm32 13)
+    (Ins (MovEaxImm32 01)
+    (Ins (Int 80)
+    End))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 ))

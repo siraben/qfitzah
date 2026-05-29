@@ -1,0 +1,13 @@
+; Optional qfasm2/qfasm3 support for comparing EAX to a tagged constant label.
+
+(Rule
+  (Size (CmpEaxConstLabel label))
+  N5)
+
+(Rule
+  (Pass2 (Ins (CmpEaxConstLabel label) rest) pc sym)
+  (Bytes 3D (ConstAddr (Lookup label sym)) (Pass2 rest (Add pc N5) sym)))
+
+(Rule
+  (Expand (Do (CmpEaxConstLabel name) rest) scope)
+  (Ins (CmpEaxConstLabel name) (Expand rest scope)))
