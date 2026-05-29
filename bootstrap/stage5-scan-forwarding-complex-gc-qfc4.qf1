@@ -1,0 +1,70 @@
+; Stage 5 complex scan-forwarding recovery lifted through qfc4.
+;
+; Compile with qfc4-scan-forwarding-complex-ext.qf1 and the Stage 5 heap/scan
+; extensions. The source keeps the scan loop readable while the optional qfc4
+; extension owns the long forwarding field handlers and mixed-graph checks.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Scan Heap
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapLeft 00
+    (Data HeapLeft1 00
+    (Data HeapLeft2 00
+    (Data HeapLeft3 00
+    (Data HeapLeft4 00
+    (Data HeapLeft5 00
+    (Data HeapLeft6 00
+    (Data HeapLeft7 00
+    (Data HeapRight 00
+    (Data HeapRight1 00
+    (Data HeapRight2 00
+    (Data HeapRight3 00
+    (Data HeapRight4 00
+    (Data HeapRight5 00
+    (Data HeapRight6 00
+    (Data HeapRight7 00
+    (Data HeapShared 00
+    (Data HeapShared1 00
+    (Data HeapShared2 00
+    (Data HeapShared3 00
+    (Data HeapShared4 00
+    (Data HeapShared5 00
+    (Data HeapShared6 00
+    (Data HeapShared7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (RawPairPtrs OldRoot OldLeft OldRight
+    (RawPairValPtr OldLeft 11 OldShared
+    (RawPairPtrVal OldRight OldShared 25
+    (RawPairValPtr OldShared 13 OldShared
+    (Def
+      ScanCdr
+      NoFrame
+      (ScanForwardCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitScanForwardingComplex)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (CallProc ScanCdr)
+            (Seq
+              (ScanForwardCarInline)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (CheckScanForwardingComplex))))))
+    End)))))))))))))))))))))))))))))))))))))))))))
+))

@@ -204,6 +204,10 @@ Progress so far:
   both children point at one shared self-cyclic node, every old object is
   overwritten after recovery, and the generated ELF verifies preserved sharing,
   the copied self-cycle, and the four-cell copy frontier before exiting `19`.
+- `stage5-scan-forwarding-complex-gc-qfc4.qf1` lifts that mixed graph through
+  qfc4 using a separate complex scan-forwarding extension, preserving the same
+  staged two-invocation pipeline while avoiding extra rule load in the smaller
+  qfc4 scan-forwarding proof.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

@@ -233,6 +233,10 @@ qfasm2 scan-forwarding loop to a larger graph: root points to two separate
 children, both children converge on one shared self-cyclic node, and the ELF
 checks preserved sharing, the copied cycle, and the four-cell copy frontier
 after all old objects are overwritten.
+`bootstrap/stage5-scan-forwarding-complex-gc-qfc4.qf1` lifts that mixed graph
+through qfc4 with a separate complex scan-forwarding extension, preserving the
+same readable scan loop shape while keeping the simpler qfc4 proof's rule load
+small.
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

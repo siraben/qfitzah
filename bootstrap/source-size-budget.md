@@ -207,6 +207,13 @@ These checked fixtures fit:
   - overwrites every old object, verifies the copied sharing edge, the copied
     self-cycle, and the four-cell `HeapNext` frontier, then exits through the
     copied shared car (`19`)
+- `stage5-scan-forwarding-complex-gc-qfc4.qf1`
+  - generated with `tools/generate_stage5_scan_forwarding_complex_qfc4.py` and
+    `qfc4-scan-forwarding-complex-ext.qf1`
+  - uses a separate qfc4 extension so the larger mixed-graph checks do not add
+    rules to the simpler scan-forwarding qfc4 test
+  - runs through the staged qfc4 -> qfasm3 source, then qfasm3/qfasm2 -> ELF
+    pipeline and exits through the copied shared car (`19`)
 - `stage5-scan-forwarding-gc-qfc4.qf1`
   - generated with `tools/generate_stage5_scan_forwarding_qfc4.py` and
     `qfc4-scan-forwarding-ext.qf1`

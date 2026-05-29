@@ -792,6 +792,7 @@ run_qfc4_heap_forwarding_staged_binary \
 run_qfc4_heap_scan_forwarding_staged_binary() {
   local name=$1
   local expected_status=$2
+  local qfc4_ext=${3:-qfc4-scan-forwarding-ext.qf1}
   local tmp
   local actual_hex
   local expected_hex
@@ -803,7 +804,7 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
       "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
       "$repo_root/bootstrap/qfc4-object-data-ext.qf1" \
       "$repo_root/bootstrap/qfc4-scan-copy-ext.qf1" \
-      "$repo_root/bootstrap/qfc4-scan-forwarding-ext.qf1" \
+      "$repo_root/bootstrap/$qfc4_ext" \
       "$repo_root/bootstrap/$name.qf1" \
     | timeout 20s "$qfitzah" > "$tmp/$name.m3"
 
@@ -848,6 +849,9 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
 }
 
 run_qfc4_heap_scan_forwarding_staged_binary "stage5-scan-forwarding-gc-qfc4" 19
+run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-scan-forwarding-complex-gc-qfc4" 19 \
+  "qfc4-scan-forwarding-complex-ext.qf1"
 
 run_qfc4_heap_check_binary() {
   local name=$1
