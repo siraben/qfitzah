@@ -331,6 +331,10 @@ stdout byte `41`, and exit `0`.
 qfc4 source compiles a static pair/atom graph, checks pair-vs-atom shape,
 prints list delimiters, follows the pair car, prints the atom's first
 character through its atom character pointer, and writes stdout `(a)`.
+`bootstrap/stage5-print-long-atom-qfc4.qf1` extends the atom-printer side with
+`qfc4-print-atom-ext.qf1`: the compiled code loads the atom length field and
+writes the whole character span, producing stdout `abc` instead of just the
+first byte.
 `bootstrap/stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil
 output slice. With local rules from `qfc4-print-nil-ext.qf1`, the fixture
 materializes nil in `EAX`, checks nil before the non-nil path, then writes

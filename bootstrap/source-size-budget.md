@@ -389,6 +389,12 @@ These checked fixtures fit:
     `PrintExpr`, `PrintAtom`, and `PrintList`
   - verifies the generated ELF prints stdout hex `28 61 29` (`(a)`) and exits
     `0`
+- `stage5-print-long-atom-qfc4.qf1`
+  - uses focused `qfc4-print-atom-ext.qf1` rules for `LoadAtomLenEdx` and
+    `WriteBytesFromEcxEdx`
+  - adds one local qfasm instruction, `LoadEdxCdrFromEax`, for loading the atom
+    length field without growing common qfasm2
+  - verifies stdout hex `61 62 63` (`abc`) and exit status `0`
 - `stage5-print-empty-list-qfc4.qf1`
   - uses local `qfc4-print-nil-ext.qf1` rules so the common qfc4 source does
     not grow for larger heap/GC fixture combinations

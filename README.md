@@ -508,6 +508,10 @@ starts the normal-printer path. It compiles a static pair/atom graph,
 distinguishes a pair from an atom, prints list delimiters, follows the pair
 car, prints the atom name through its character pointer, and writes stdout
 `(a)`.
+[bootstrap/stage5-print-long-atom-qfc4.qf1](bootstrap/stage5-print-long-atom-qfc4.qf1)
+uses `qfc4-print-atom-ext.qf1` to load the atom length field and write the
+whole atom character span. The generated ELF writes stdout `abc`, proving the
+atom-printer path is no longer limited to one-byte names.
 [bootstrap/stage5-print-empty-list-qfc4.qf1](bootstrap/stage5-print-empty-list-qfc4.qf1)
 adds the first top-level nil output slice. With the local
 `qfc4-print-nil-ext.qf1` rule file, it materializes nil in `EAX`, checks it

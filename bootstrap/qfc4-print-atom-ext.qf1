@@ -1,0 +1,37 @@
+; Focused qfc4 normal-printer atom-span extension.
+;
+; The existing printer fixtures only write the first atom byte. These local
+; rules expose the atom length field and a write(2) span call without growing
+; common qfc4 or qfasm2.
+
+(Rule
+  (Size (LoadEdxCdrFromEax))
+  N3)
+
+(Rule
+  (Pass2 (Ins (LoadEdxCdrFromEax) rest) pc sym)
+  (Bytes 8B 50 04 (Pass2 rest (Add pc N3) sym)))
+
+(Rule
+  (Expand (Do (LoadEdxCdrFromEax) rest) scope)
+  (Ins (LoadEdxCdrFromEax) (Expand rest scope)))
+
+(Rule
+  (ParseStmt (LoadAtomLenEdx))
+  LoadAtomLenEdx)
+
+(Rule
+  (ParseStmt (WriteBytesFromEcxEdx))
+  WriteBytesFromEcxEdx)
+
+(Rule
+  (CompileStmt LoadAtomLenEdx)
+  (Do (LoadEdxCdrFromEax) End))
+
+(Rule
+  (CompileStmt WriteBytesFromEcxEdx)
+  (Do
+    (MovEaxImm32 04)
+    (Do
+      (MovEbxImm32 01)
+      (Do (Int 80) End))))

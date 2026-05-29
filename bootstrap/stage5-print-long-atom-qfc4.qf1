@@ -1,0 +1,39 @@
+; qfc4 normal-printer full-atom fixture.
+;
+; The earlier printer slices emit only the first atom-name byte. This fixture
+; uses the atom character pointer plus atom length field and writes the whole
+; atom span, producing stdout `abc`.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadAddrEax AtomAbc)
+        (Seq
+          (CallProc PrintAtom)
+          (Exit (Literal 00))))
+      (Def
+        PrintAtom
+        NoFrame
+        (Seq
+          (LoadAtomCharsEcx)
+          (Seq
+            (LoadAtomLenEdx)
+            (WriteBytesFromEcxEdx)))
+        (Atom
+          AtomAbc
+          CharA
+          03
+          (Data
+            CharA
+            61
+            (Data
+              CharB
+              62
+              (Data
+                CharC
+                63
+                End))))))))
