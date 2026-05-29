@@ -239,6 +239,12 @@ Progress so far:
   The staged source keeps recursive `EmitBytes`, content-based `IsBytes`,
   `EmitByte`, and `Nybble` readable while the generated ELF still emits stdout
   `41` after old pairs are overwritten.
+- `stage5-copy-dynamic-atoms-output-gc.qf1` starts replacing static atom
+  records with runtime-initialized atom cells. The scan still keeps pairs in
+  the normal scan frontier, but tagged atom fields in pair cars are copied into
+  a separate atom frontier and rewritten to tagged copied atoms. The old atom
+  records are overwritten before the copied `Bytes` object is checked by
+  content and emitted as stdout `41`.
 - `stage5-copy-bytes-output-gc-qfc4.qf1` lifts the same GC-plus-byte-output
   proof through qfc4 using `qfc4-copy-bytes-output-ext.qf1` and the existing
   scan-copy extension. The staged test checks the exact generated ELF, runtime
@@ -249,7 +255,8 @@ Still required for the byte-output path:
 - extending scan-forwarding from focused and mixed pair graphs to arbitrary
   Qfitzah object graphs
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
-- loading or allocating non-static atom objects
+- lifting runtime-initialized atom copying through qfc4 and generalizing it
+  beyond tagged atom fields in pair cars
 - larger object graphs beyond the current finite layout budget
 - generalizing the recovered nested `EmitBytes` proof beyond the focused
   `(Bytes (Bytes 41))` fixture without exceeding the seed runtime's current

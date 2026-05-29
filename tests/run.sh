@@ -1133,3 +1133,4 @@ run_qfasm2_stage5_scan_binary "stage5-scan-forwarding-complex-gc" 19 "qfasm-stag
 run_qfasm2_stage5_scan_binary "stage5-copy-bytes-output-gc" 0 "" 30 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-bytes-isbytes-output-gc" 0 "qfasm-byte-output-ext.qf1" 45 "41"
 run_qfasm2_stage5_scan_binary "stage5-copy-nested-bytes-output-gc" 0 "qfasm-byte-output-ext.qf1" 60 "41"
+run_qfasm2_stage5_scan_binary "stage5-copy-dynamic-atoms-output-gc" 0 "qfasm-byte-output-ext.qf1" 90 "41"

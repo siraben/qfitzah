@@ -265,6 +265,11 @@ nested byte-output path through qfc4. The staged source keeps recursive
 `EmitBytes`, content-based `IsBytes`, `EmitByte`, and `Nybble` readable, then
 the generated ELF copies `(Bytes (Bytes 41))`, overwrites all old pair cells,
 and emits stdout byte `41`.
+`bootstrap/stage5-copy-dynamic-atoms-output-gc.qf1` then starts moving atom
+records out of static data. It initializes the `Bytes` and `41` atom records in
+writable cells at runtime, copies tagged atom fields into a separate atom
+frontier during recovery, overwrites the old atom records, and still emits
+stdout byte `41` from the copied graph.
 `bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
 with a focused byte-output recovery extension while keeping the scan loop and
 `EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,

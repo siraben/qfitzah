@@ -443,6 +443,11 @@ lifts the copied nested-byte proof through qfc4 with
 `qfc4-copy-nested-bytes-output-ext.qf1`. The staged source keeps recursive
 `EmitBytes`, content-based `IsBytes`, `EmitByte`, and `Nybble` readable, then
 the generated ELF prints stdout byte `41`.
+[bootstrap/stage5-copy-dynamic-atoms-output-gc.qf1](bootstrap/stage5-copy-dynamic-atoms-output-gc.qf1)
+starts moving atoms out of static data. It initializes the `Bytes` and `41`
+atom records in writable cells at runtime, copies tagged atom fields into a
+separate atom frontier during recovery, overwrites the old atom records, then
+recognizes the copied `Bytes` atom by content and emits byte `41`.
 [bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1](bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1)
 lifts the same GC-plus-byte-output proof through qfc4 using
 `qfc4-copy-bytes-output-ext.qf1` plus the existing scan-copy extension. Its
