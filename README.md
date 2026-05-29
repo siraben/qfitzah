@@ -394,6 +394,13 @@ general Qfitzah object forwarding format yet.
 and [bootstrap/stage5-forwarding-gc-qfc4.qf1](bootstrap/stage5-forwarding-gc-qfc4.qf1)
 lift the same focused sharing proof through qfc4 using a two-step qfc4 to
 qfasm3, then qfasm3/qfasm2 to ELF pipeline.
+[bootstrap/stage5-forwarding-cycle-gc.qf1](bootstrap/stage5-forwarding-cycle-gc.qf1)
+extends forwarding to a one-pair cycle: the old root's `car` points back to the
+old root, recovery copies it once, marks the old object forwarded, rewrites the
+copied `car` to the copied object itself, overwrites the old object, and exits
+through the copied self-cycle (`23`). The qfc4 lift uses separate optional
+cycle-forwarding extension files so the seed runtime does not load unrelated
+sharing rules for that staged test.
 The Stage 4 sample programs are also formatted as multi-line Qfitzah forms.
 
 ## Tests

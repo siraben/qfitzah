@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 QFASM_OUT = ROOT / "bootstrap" / "qfasm-stage5-forwarding-ext.qf1"
 QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-forwarding-ext.qf1"
-QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-forwarding-gc-qfc4.qf1"
+QFC4_SHARED_SRC_OUT = ROOT / "bootstrap" / "stage5-forwarding-gc-qfc4.qf1"
 
 
 def do_block(instrs, base_indent="    "):
@@ -194,7 +194,7 @@ def main():
 """
     )
 
-    defs = [
+    shared_defs = [
         "(PtrCell HeapNext HeapLimit",
         "(PtrCell Root OldRoot",
         "(Data Heap 00",
@@ -225,7 +225,7 @@ def main():
         (CheckForwardedShared))""",
     ]
 
-    QFC4_SRC_OUT.write_text(
+    QFC4_SHARED_SRC_OUT.write_text(
         """; Stage 5 forwarding-pointer recovery lifted through qfc4.
 ;
 ; Compile with qfc4-forwarding-ext.qf1, qfasm-stage5-forwarding-ext.qf1, and
@@ -237,10 +237,9 @@ def main():
   (Source
     Start
 """
-        + qfc4_defs_block(defs)
+        + qfc4_defs_block(shared_defs)
         + "\n))\n"
     )
-
 
 if __name__ == "__main__":
     main()

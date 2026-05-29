@@ -1,0 +1,32 @@
+; Stage 5 cycle-forwarding recovery lifted through qfc4.
+;
+; Compile with qfc4-cycle-forwarding-ext.qf1,
+; qfasm-stage5-cycle-forwarding-ext.qf1, and the Stage 5 heap/scan extensions.
+; The source copies one self-referential pair once, records a temporary
+; forwarding marker in the old pair, and rewrites the copied self-edge to the
+; copied pair.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Root OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (RawPairPtrVal OldRoot OldRoot 17
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (ForwardCycleRoot)
+        (CheckForwardedCycle))
+    End))))))))))))))
+))

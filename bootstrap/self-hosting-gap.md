@@ -186,11 +186,18 @@ Progress so far:
   `qfc4-forwarding-ext.qf1`; its second invocation uses
   `qfasm-stage5-forwarding-ext.qf1` and the Stage 5 heap/scan extensions to
   emit a runnable ELF that exits through the copied child (`19`).
+- `stage5-forwarding-cycle-gc.qf1` extends forwarding to a one-pair cycle. The
+  old root's `car` points back to the old root; recovery copies the pair once,
+  marks the old pair forwarded, rewrites the copied `car` to the copied pair
+  itself, overwrites the old pair, and exits through the copied self-cycle
+  (`23`). `stage5-forwarding-cycle-gc-qfc4.qf1` lifts the same proof through
+  qfc4 using separate cycle-forwarding extension files so it stays inside the
+  seed runtime's source budget.
 
 Still required for the byte-output path:
 
-- extending forwarding from the focused shared-pair proof to shared objects and
-  cycles
+- extending forwarding from focused pair proofs to general object graphs with
+  arbitrary sharing and cycles
 - generalizing the pair-tree traversal into arbitrary live Qfitzah objects
 - loading or allocating non-static atom objects
 - larger object graphs beyond the current finite layout budget

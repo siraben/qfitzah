@@ -724,6 +724,8 @@ run_qfc4_heap_scan_staged_binary "stage5-copy-tree-gc-qfc4" 35
 run_qfc4_heap_forwarding_staged_binary() {
   local name=$1
   local expected_status=$2
+  local qfc4_ext=$3
+  local qfasm_ext=$4
   local tmp
   local actual_hex
   local expected_hex
@@ -734,7 +736,7 @@ run_qfc4_heap_forwarding_staged_binary() {
   cat "$repo_root/bootstrap/qfc4.qf1" \
       "$repo_root/bootstrap/qfc4-heap-ext.qf1" \
       "$repo_root/bootstrap/qfc4-object-data-ext.qf1" \
-      "$repo_root/bootstrap/qfc4-forwarding-ext.qf1" \
+      "$repo_root/bootstrap/$qfc4_ext" \
       "$repo_root/bootstrap/$name.qf1" \
     | timeout 10s "$qfitzah" > "$tmp/$name.m3"
 
@@ -743,7 +745,7 @@ run_qfc4_heap_forwarding_staged_binary() {
       "$repo_root/bootstrap/qfasm-heap-ext.qf1" \
       "$repo_root/bootstrap/qfasm-stage5-list-ext.qf1" \
       "$repo_root/bootstrap/qfasm-stage5-scan-ext.qf1" \
-      "$repo_root/bootstrap/qfasm-stage5-forwarding-ext.qf1" \
+      "$repo_root/bootstrap/$qfasm_ext" \
       "$tmp/$name.m3" \
     | timeout 10s "$qfitzah" > "$tmp/$name"
 
@@ -778,7 +780,14 @@ run_qfc4_heap_forwarding_staged_binary() {
   printf 'ok - %s\n' "$name"
 }
 
-run_qfc4_heap_forwarding_staged_binary "stage5-forwarding-gc-qfc4" 19
+run_qfc4_heap_forwarding_staged_binary \
+  "stage5-forwarding-gc-qfc4" 19 \
+  "qfc4-forwarding-ext.qf1" \
+  "qfasm-stage5-forwarding-ext.qf1"
+run_qfc4_heap_forwarding_staged_binary \
+  "stage5-forwarding-cycle-gc-qfc4" 23 \
+  "qfc4-cycle-forwarding-ext.qf1" \
+  "qfasm-stage5-cycle-forwarding-ext.qf1"
 
 run_qfc4_heap_check_binary() {
   local name=$1
@@ -990,3 +999,4 @@ run_qfasm2_stage5_scan_binary() {
 
 run_qfasm2_stage5_scan_binary "stage5-copy-tree-gc" 35
 run_qfasm2_stage5_scan_binary "stage5-forwarding-gc" 19
+run_qfasm2_stage5_scan_binary "stage5-forwarding-cycle-gc" 23

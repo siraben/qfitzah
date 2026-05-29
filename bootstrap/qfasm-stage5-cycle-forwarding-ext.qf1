@@ -1,0 +1,153 @@
+; Optional qfasm3 expansions for the qfc4 cycle-forwarding fixture.
+
+(Rule
+  (Expand (Do ForwardCycleRoot rest) scope)
+  (Append (Expand ForwardCycleRoot scope) (Expand rest scope)))
+
+(Rule
+  (Expand (Do CheckForwardedCycle rest) scope)
+  (Append (Expand CheckForwardedCycle scope) (Expand rest scope)))
+
+(Rule
+  (Expand ForwardCycleRoot scope)
+  (Expand
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (MovEbxLabel HeapAfterCopied)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEaxLabel Root)
+            (Do
+              (LoadEaxCar)
+              (Do
+                (LoadEbxCarFromEax)
+                (Do
+                  (LoadEcxCdrFromEax)
+                  (Do
+                    (MovEaxLabel Heap)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (StoreDwordAtEaxPlus4FromEcx)
+                        (Do
+                          (MovEaxLabel Root)
+                          (Do
+                            (MovEbxLabel Heap)
+                            (Do
+                              (StoreDwordAtEaxFromEbx)
+                              (Do
+                                (MovEaxLabel OldRoot)
+                                (Do
+                                  (MovEbxLabel Heap)
+                                  (Do
+                                    (StoreDwordAtEaxFromEbx)
+                                    (Do
+                                      (MovEcxImm32 0F)
+                                      (Do
+                                        (StoreDwordAtEaxPlus4FromEcx)
+                                        (Do
+                                          (MovEaxLabel Heap)
+                                          (Do
+                                            (LoadEaxCar)
+                                            (Do
+                                              (PushEax)
+                                              (Do
+                                                (LoadEaxCdr)
+                                                (Do
+                                                  (CmpEaxImm8 0F)
+                                                  (Do
+                                                    (IfZero UseForwardedCycleCar ForwardCycleUseCar ForwardCycleBadForward)
+                                                    End))))))))))))))))))))))))
+    scope))
+
+(Rule
+  (Expand ForwardCycleUseCar scope)
+  (Expand
+    (Do
+      (PopEax)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (MovEbxEax)
+          (Do
+            (MovEaxLabel Heap)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              End)))))
+    scope))
+
+(Rule
+  (Expand CheckForwardedCycle scope)
+  (Expand
+    (Do
+      (MovEaxLabel OldRoot)
+      (Do
+        (MovEbxImm32 3F)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEcxImm32 4D)
+            (Do
+              (StoreDwordAtEaxPlus4FromEcx)
+              (Do
+                (MovEaxLabel Root)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (PushEax)
+                    (Do
+                      (LoadEbxCarFromEax)
+                      (Do
+                        (PopEax)
+                        (Do
+                          (CmpEaxEbx)
+                          (Do
+                            (IfZero CycleSelfEdgeOk ExitForwardedCycle ForwardCycleBadSelfEdge)
+                            End))))))))))))
+    scope))
+
+(Rule
+  (Expand ExitForwardedCycle scope)
+  (Expand
+    (Do
+      (MovEaxLabel Root)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (LoadEaxCar)
+          (Do
+            (LoadEaxCdr)
+            (Do
+              (MovEbxEax)
+              (Do
+                (MovEaxImm32 01)
+                (Do
+                  (Int 80)
+                  End)))))))
+    scope))
+
+(Rule
+  (Expand ForwardCycleBadForward scope)
+  (Expand
+    (Do
+      (MovEbxImm32 02)
+      (Do
+        (MovEaxImm32 01)
+        (Do
+          (Int 80)
+          End)))
+    scope))
+
+(Rule
+  (Expand ForwardCycleBadSelfEdge scope)
+  (Expand
+    (Do
+      (MovEbxImm32 01)
+      (Do
+        (MovEaxImm32 01)
+        (Do
+          (Int 80)
+          End)))
+    scope))

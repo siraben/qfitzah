@@ -1,0 +1,17 @@
+; Optional qfc4 cycle-forwarding surface.
+
+(Rule
+  (ParseStmt (ForwardCycleRoot))
+  ForwardCycleRoot)
+
+(Rule
+  (ParseStmt (CheckForwardedCycle))
+  CheckForwardedCycle)
+
+(Rule
+  (CompileStmt ForwardCycleRoot)
+  (Do ForwardCycleRoot End))
+
+(Rule
+  (CompileStmt CheckForwardedCycle)
+  (Do CheckForwardedCycle End))

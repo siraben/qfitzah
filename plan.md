@@ -216,6 +216,12 @@ through the copied child (`19`).
 through qfc4 with `bootstrap/qfc4-forwarding-ext.qf1` and
 `bootstrap/qfasm-stage5-forwarding-ext.qf1`, again producing a runnable ELF that
 exits through the copied child (`19`).
+`bootstrap/stage5-forwarding-cycle-gc.qf1` extends the same mechanism to a
+one-pair cycle: the copied root's `car` is rewritten from the old root to the
+copied root itself, the old object is overwritten, and the ELF exits through
+the copied cycle (`23`). `bootstrap/stage5-forwarding-cycle-gc-qfc4.qf1` lifts
+that cycle proof through qfc4 with separate cycle-forwarding extensions to stay
+within the seed runtime's source budget.
 `bootstrap/source-size-budget.md` records the current seed-runtime source-size
 boundary that prevents merging content-based `is_bytes` into the full compiled
 `EmitBytes` fixture before the common stages are shrunk or split.
