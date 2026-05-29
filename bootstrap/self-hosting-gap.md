@@ -312,6 +312,10 @@ Progress so far:
   With local rules from `qfc4-print-nil-ext.qf1`, the generated ELF
   materializes nil in `EAX`, checks nil before falling through to non-nil
   handling, and produces stdout `()`.
+- `stage5-print-nil-and-atom-qfc4.qf1` combines that nil branch with the atom
+  printer in one `PrintExpr` routine. The generated ELF prints `()a`, proving
+  nil dispatch and non-nil atom dispatch can coexist before the larger
+  pair/tail printer is merged with the nil branch.
 - `stage5-print-list-tail-qfc4.qf1` extends the normal-printer slice to a
   nil-terminated two-element list. It traverses cdr, emits the inter-element
   space, recurs through the tail printer, stops on nil, and produces stdout

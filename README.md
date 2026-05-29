@@ -512,6 +512,10 @@ car, prints the atom name through its character pointer, and writes stdout
 adds the first top-level nil output slice. With the local
 `qfc4-print-nil-ext.qf1` rule file, it materializes nil in `EAX`, checks it
 before falling through to non-nil handling, and writes stdout `()`.
+[bootstrap/stage5-print-nil-and-atom-qfc4.qf1](bootstrap/stage5-print-nil-and-atom-qfc4.qf1)
+uses the same local nil extension with an atom printer in one `PrintExpr`
+routine. It writes stdout `()a`, proving nil dispatch and non-nil atom dispatch
+can coexist below the common qfasm2 range limit.
 [bootstrap/stage5-print-list-tail-qfc4.qf1](bootstrap/stage5-print-list-tail-qfc4.qf1)
 extends that slice to a nil-terminated two-element list. It traverses cdr,
 prints a separator before the next element, stops on nil, and writes stdout

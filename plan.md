@@ -335,6 +335,10 @@ character through its atom character pointer, and writes stdout `(a)`.
 output slice. With local rules from `qfc4-print-nil-ext.qf1`, the fixture
 materializes nil in `EAX`, checks nil before the non-nil path, then writes
 stdout `()`.
+`bootstrap/stage5-print-nil-and-atom-qfc4.qf1` combines that nil branch with
+the atom printer in one `PrintExpr` routine. It prints `()a`, proving nil and
+non-nil atom dispatch coexist before the larger pair/tail printer is merged
+with the nil branch.
 `bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
 nil-terminated two-element list: it traverses cdr, inserts the space separator,
 recurs through the tail printer, stops on nil, and writes stdout `(a b)`.

@@ -1,0 +1,58 @@
+; qfc4 normal-printer nil-plus-atom fixture.
+;
+; This combines the focused nil branch with the atom printer in one PrintExpr
+; routine. The generated ELF prints `()a`, proving nil dispatch and non-nil
+; atom dispatch can coexist without growing the common qfc4 rule load.
+
+(QfcAssemble
+  (Source
+    Start
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (LoadNilEax)
+        (Seq
+          (CallProc PrintExpr)
+          (Seq
+            (LoadAddrEax AtomA)
+            (Seq
+              (CallProc PrintExpr)
+              (Exit (Literal 00))))))
+      (Def
+        PrintExpr
+        NoFrame
+        (Seq
+          (CmpEax 01)
+          (IfZero
+            NilExpr
+            (CallProc PrintNil)
+            (CallProc PrintAtom)))
+        (Def
+          PrintNil
+          NoFrame
+          (Seq
+            (WriteByte LParen)
+            (WriteByte RParen))
+          (Def
+            PrintAtom
+            NoFrame
+            (Seq
+              (LoadAtomCharsEcx)
+              (Seq
+                (LoadByteEbxFromEcx)
+                (WriteByteFromEbx)))
+            (Atom
+              AtomA
+              CharA
+              01
+              (Data
+                CharA
+                61
+                (Data
+                  LParen
+                  28
+                  (Data
+                    RParen
+                    29
+                    End))))))))))
