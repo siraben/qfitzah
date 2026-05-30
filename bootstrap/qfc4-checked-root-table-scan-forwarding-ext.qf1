@@ -1,70 +1,50 @@
 ; Optional qfc4 surface for checked root-table scan-forwarding GC.
 
 (Rule
-  (ParseStmt (RecoverRootTableAndTraceForScan))
-  RecoverRootTableAndTraceForScan)
+  (ParseStmt (TraceRootTableForScan))
+  TraceRootTableForScan)
 
 (Rule
   (ParseStmt (FinishCheckedRootTableScanForwarding))
   FinishCheckedRootTableScanForwarding)
 
 (Rule
-  (CompileStmt RecoverRootTableAndTraceForScan)
+  (CompileStmt TraceRootTableForScan)
   (Do
-    (Label Recover)
+    (Label TraceRootsLoop)
     (Do
-      (MovEaxLabel HeapNext)
+      (MovEaxLabel RootScan)
       (Do
-        (MovEbxLabel Heap)
+        (LoadEaxCar)
         (Do
-          (StoreDwordAtEaxFromEbx)
+          (CmpEaxLabel RootEnd)
           (Do
-            (MovEaxLabel Scan)
+            (Jnz TraceRootProcess)
             (Do
-              (MovEbxLabel Heap)
+              (JumpNear TraceRootsDone)
               (Do
-                (StoreDwordAtEaxFromEbx)
+                (Label TraceRootProcess)
                 (Do
-                  (MovEaxLabel RootScan)
+                  (Invoke ForwardRootSlot Empty)
                   (Do
-                    (MovEbxLabel RootSlotA)
+                    (MovEaxLabel RootScan)
                     (Do
-                      (StoreDwordAtEaxFromEbx)
+                      (LoadEaxCar)
                       (Do
-                        (Label TraceRootsLoop)
+                        (MovEbxEax)
                         (Do
-                          (MovEaxLabel RootScan)
+                          (AddEbxImm8 04)
                           (Do
-                            (LoadEaxCar)
+                            (MovEaxLabel RootScan)
                             (Do
-                              (CmpEaxLabel RootEnd)
+                              (StoreDwordAtEaxFromEbx)
                               (Do
-                                (Jnz TraceRootProcess)
+                                (JumpNear TraceRootsLoop)
                                 (Do
-                                  (JumpNear TraceRootsDone)
+                                  (Label TraceRootsDone)
                                   (Do
-                                    (Label TraceRootProcess)
-                                    (Do
-                                      (Invoke ForwardRootSlot Empty)
-                                      (Do
-                                        (MovEaxLabel RootScan)
-                                        (Do
-                                          (LoadEaxCar)
-                                          (Do
-                                            (MovEbxEax)
-                                            (Do
-                                              (AddEbxImm8 04)
-                                              (Do
-                                                (MovEaxLabel RootScan)
-                                                (Do
-                                                  (StoreDwordAtEaxFromEbx)
-                                                  (Do
-                                                    (JumpNear TraceRootsLoop)
-                                                    (Do
-                                                      (Label TraceRootsDone)
-                                                      (Do
-                                                        (JumpNear MainLoop)
-                                                        End))))))))))))))))))))))))))))
+                                    (JumpNear MainLoop)
+                                    End))))))))))))))))))
 
 (Rule
   (CompileStmt FinishCheckedRootTableScanForwarding)

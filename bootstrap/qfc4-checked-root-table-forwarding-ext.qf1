@@ -1,64 +1,8 @@
 ; Optional qfc4 surface for checked root-table forwarding GC.
 
 (Rule
-  (ParseStmt (RecoverRootTableAndTrace))
-  RecoverRootTableAndTrace)
-
-(Rule
   (ParseStmt (FinishCheckedRootTableForwarding))
   FinishCheckedRootTableForwarding)
-
-(Rule
-  (CompileStmt RecoverRootTableAndTrace)
-  (Do
-    (Label Recover)
-    (Do
-      (MovEaxLabel HeapNext)
-      (Do
-        (MovEbxLabel Heap)
-        (Do
-          (StoreDwordAtEaxFromEbx)
-          (Do
-            (MovEaxLabel RootScan)
-            (Do
-              (MovEbxLabel RootSlotA)
-              (Do
-                (StoreDwordAtEaxFromEbx)
-                (Do
-                  (Label TraceRootsLoop)
-                  (Do
-                    (MovEaxLabel RootScan)
-                    (Do
-                      (LoadEaxCar)
-                      (Do
-                        (CmpEaxLabel RootEnd)
-                        (Do
-                          (Jnz TraceRootProcess)
-                          (Do
-                            (JumpNear TraceRootsDone)
-                            (Do
-                              (Label TraceRootProcess)
-                              (Do
-                                (Invoke ForwardRootSlot Empty)
-                                (Do
-                                  (MovEaxLabel RootScan)
-                                  (Do
-                                    (LoadEaxCar)
-                                    (Do
-                                      (MovEbxEax)
-                                      (Do
-                                        (AddEbxImm8 04)
-                                        (Do
-                                          (MovEaxLabel RootScan)
-                                          (Do
-                                            (StoreDwordAtEaxFromEbx)
-                                            (Do
-                                              (JumpNear TraceRootsLoop)
-                                              (Do
-                                                (Label TraceRootsDone)
-                                                (Do
-                                                  (JumpNear AfterTrace)
-                                                  End)))))))))))))))))))))))))
 
 (Rule
   (CompileStmt FinishCheckedRootTableForwarding)

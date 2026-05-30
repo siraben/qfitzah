@@ -52,7 +52,9 @@
     (Def
       Recover
       NoFrame
-      (RecoverRootTableAndTraceForScan)
+      (Seq
+        (ResetCheckedRootTableScan)
+        (TraceRootTableForScan))
     (Def
       ForwardRootSlot
       NoFrame

@@ -15,18 +15,23 @@ QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-checked-root-table-scan-forwarding-ext
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-checked-root-table-scan-forwarding-gc-qfc4.qf1"
 
 
-def recover_root_table_and_trace():
+def overwrite_old_graph():
     return [
-        "(Label Recover)",
-        "(MovEaxLabel HeapNext)",
-        "(MovEbxLabel Heap)",
+        "(MovEaxLabel OldRoot)",
+        "(MovEbxImm32 3F)",
         "(StoreDwordAtEaxFromEbx)",
-        "(MovEaxLabel Scan)",
-        "(MovEbxLabel Heap)",
+        "(MovEcxImm32 4D)",
+        "(StoreDwordAtEaxPlus4FromEcx)",
+        "(MovEaxLabel OldChild)",
+        "(MovEbxImm32 5E)",
         "(StoreDwordAtEaxFromEbx)",
-        "(MovEaxLabel RootScan)",
-        "(MovEbxLabel RootSlotA)",
-        "(StoreDwordAtEaxFromEbx)",
+        "(MovEcxImm32 6F)",
+        "(StoreDwordAtEaxPlus4FromEcx)",
+    ]
+
+
+def trace_roots_to_main_loop():
+    return [
         "(Label TraceRootsLoop)",
         "(MovEaxLabel RootScan)",
         "(LoadEaxCar)",
@@ -44,21 +49,6 @@ def recover_root_table_and_trace():
         "(JumpNear TraceRootsLoop)",
         "(Label TraceRootsDone)",
         "(JumpNear MainLoop)",
-    ]
-
-
-def overwrite_old_graph():
-    return [
-        "(MovEaxLabel OldRoot)",
-        "(MovEbxImm32 3F)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(MovEcxImm32 4D)",
-        "(StoreDwordAtEaxPlus4FromEcx)",
-        "(MovEaxLabel OldChild)",
-        "(MovEbxImm32 5E)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(MovEcxImm32 6F)",
-        "(StoreDwordAtEaxPlus4FromEcx)",
     ]
 
 
@@ -98,7 +88,7 @@ def finish_checked_scan_forwarding():
 
 def write_qfc4_extension():
     names = [
-        "RecoverRootTableAndTraceForScan",
+        "TraceRootTableForScan",
         "FinishCheckedRootTableScanForwarding",
     ]
 
@@ -113,7 +103,7 @@ def write_qfc4_extension():
         )
 
     for name, instrs in [
-        ("RecoverRootTableAndTraceForScan", recover_root_table_and_trace()),
+        ("TraceRootTableForScan", trace_roots_to_main_loop()),
         ("FinishCheckedRootTableScanForwarding", finish_checked_scan_forwarding()),
     ]:
         qfc4.append(compile_rule(name, instrs))
@@ -167,7 +157,9 @@ def write_qfc4_source():
         """(Def
       Recover
       NoFrame
-      (RecoverRootTableAndTraceForScan)""",
+      (Seq
+        (ResetCheckedRootTableScan)
+        (TraceRootTableForScan))""",
         """(Def
       ForwardRootSlot
       NoFrame

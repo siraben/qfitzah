@@ -36,6 +36,12 @@ They exist because the seed runtime still has finite arithmetic/address tables
 and practical source-size limits. The long-term direction is to shrink, merge,
 or generate these overlays from a later compiled stage.
 
+Stage 5 files should be read with that distinction in mind: a `stage5-*`
+program is usually a checked proof of one runtime/compiler behavior, while an
+`*-ext.qf1` file is a temporary rule pack that keeps that proof inside the
+seed runtime's current budget. The cleanup goal is to promote repeated proof
+logic into shared compiled routines, then remove or generate the overlays.
+
 ## Stage 1: Annotated Seed Runtime
 
 Stage 1 keeps the trusted runtime readable and byte-auditable.
@@ -118,7 +124,10 @@ capability area:
   cycles, scan-forwarding, multi-root forwarding at direct qfasm2 and qfc4
   levels, qfc4 root-table tracing, checked root-table allocation retry, runtime
   atom copying, checked root-table scan-forwarding retry, and recovered
-  byte/normal output. This is still a family of focused proofs.
+  byte/normal output. The checked root-table fixtures now share overflow,
+  retry, and root-table reset rules; the smaller checked fixture also reuses
+  the shared `TraceRoots` routine. This is still a family of focused proofs,
+  not one collector.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atoms, and recovered dynamic atom graphs for focused cases.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,
@@ -144,10 +153,9 @@ capability area:
 
 The next meaningful Stage 5 step is to turn the root-table forwarding proof into
 a reusable collector interface. Root-set enumeration now exists as a checked
-qfc4 slice and checked allocation can now hand off to root-table scan-forwarding
-before retrying; the checked overflow/retry qfc4 surface is shared by the
-checked root-table fixtures. Object classification, pair/atom relocation,
-forwarding lookup, scan traversal, and allocation retry still need to become
-shared compiled routines instead of bespoke fixture code. Once that exists, the
-compiler/runtime source can start replacing the remaining focused proof
-programs.
+qfc4 slice; checked allocation can hand off to root-table scan-forwarding before
+retrying; and the checked root-table fixtures share overflow, retry, and reset
+setup. Object classification, pair/atom relocation, forwarding lookup, scan
+traversal, and allocation retry still need to become shared compiled routines
+instead of bespoke fixture code. Once that exists, the compiler/runtime source
+can start replacing the remaining focused proof programs.

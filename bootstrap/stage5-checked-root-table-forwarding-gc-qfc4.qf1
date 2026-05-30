@@ -42,7 +42,15 @@
     (Def
       Recover
       NoFrame
-      (RecoverRootTableAndTrace)
+      (Seq
+        (ResetCheckedRootTable)
+        (Seq
+          (CallProc TraceRoots)
+          (JumpNearProc AfterTrace)))
+    (Def
+      TraceRoots
+      NoFrame
+      (TraceRoots)
     (Def
       ForwardRootSlot
       NoFrame
@@ -53,5 +61,5 @@
       (Seq
         (RetryCheckedRootTableAllocation)
         (FinishCheckedRootTableForwarding))
-    End))))))))))))))))))))))))))))
+    End)))))))))))))))))))))))))))))
 ))

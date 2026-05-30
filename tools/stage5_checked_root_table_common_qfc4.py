@@ -51,10 +51,39 @@ def retry_checked_allocation():
     ]
 
 
+def reset_root_table():
+    return [
+        "(Label Recover)",
+        "(MovEaxLabel HeapNext)",
+        "(MovEbxLabel Heap)",
+        "(StoreDwordAtEaxFromEbx)",
+        "(MovEaxLabel RootScan)",
+        "(MovEbxLabel RootSlotA)",
+        "(StoreDwordAtEaxFromEbx)",
+    ]
+
+
+def reset_root_table_scan():
+    return [
+        "(Label Recover)",
+        "(MovEaxLabel HeapNext)",
+        "(MovEbxLabel Heap)",
+        "(StoreDwordAtEaxFromEbx)",
+        "(MovEaxLabel Scan)",
+        "(MovEbxLabel Heap)",
+        "(StoreDwordAtEaxFromEbx)",
+        "(MovEaxLabel RootScan)",
+        "(MovEbxLabel RootSlotA)",
+        "(StoreDwordAtEaxFromEbx)",
+    ]
+
+
 def write_checked_root_table_common_ext():
     names = [
         "InitialCheckedRootTableOverflow",
         "RetryCheckedRootTableAllocation",
+        "ResetCheckedRootTable",
+        "ResetCheckedRootTableScan",
     ]
 
     qfc4 = ["; Optional shared qfc4 surface for checked root-table collection.\n\n"]
@@ -70,6 +99,8 @@ def write_checked_root_table_common_ext():
     for name, instrs in [
         ("InitialCheckedRootTableOverflow", initial_checked_overflow()),
         ("RetryCheckedRootTableAllocation", retry_checked_allocation()),
+        ("ResetCheckedRootTable", reset_root_table()),
+        ("ResetCheckedRootTableScan", reset_root_table_scan()),
     ]:
         qfc4.append(compile_rule(name, instrs))
         qfc4.append("\n")

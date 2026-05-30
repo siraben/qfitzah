@@ -219,14 +219,18 @@ Progress so far:
   `HeapLimit`, the first allocation overflows, recovery traces the
   `RootScan..RootEnd` table, allocation retries after the copied root, and the
   generated ELF verifies root convergence plus the retry cell before exiting
-  through the copied root car (`19`). It shares its checked overflow/retry qfc4
-  rules with the scan-forwarding variant through
-  `qfc4-checked-root-table-common-ext.qf1`.
+  through the copied root car (`19`). It shares checked overflow, retry, and
+  root-table reset qfc4 rules with the scan-forwarding variant through
+  `qfc4-checked-root-table-common-ext.qf1`, and it reuses the shared
+  `TraceRoots` routine from the root-table forwarding extension.
 - `stage5-checked-root-table-scan-forwarding-gc-qfc4.qf1` connects the same
   checked-overflow path to root-table tracing plus the shared scan-forwarding
   loop. Recovery copies the roots, scans the copied graph to preserve the
   shared cyclic child, retries allocation after the copied graph, overwrites
-  the old graph, and exits through copied child data (`19`).
+  the old graph, and exits through copied child data (`19`). It shares the same
+  checked overflow/retry/reset qfc4 surface, but keeps a local trace-to-scan
+  trampoline because the wider final qfasm overlay still exceeds the seed
+  runtime's practical source budget for this larger fixture.
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
   both children point at one shared self-cyclic node, and the shared node's car

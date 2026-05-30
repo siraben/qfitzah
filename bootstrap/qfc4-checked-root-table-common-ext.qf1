@@ -9,6 +9,14 @@
   RetryCheckedRootTableAllocation)
 
 (Rule
+  (ParseStmt (ResetCheckedRootTable))
+  ResetCheckedRootTable)
+
+(Rule
+  (ParseStmt (ResetCheckedRootTableScan))
+  ResetCheckedRootTableScan)
+
+(Rule
   (CompileStmt InitialCheckedRootTableOverflow)
   (Do
     (MovEaxLabel HeapNext)
@@ -41,3 +49,45 @@
               (Do
                 (IfBelowEq CommitRetry (Do (MovEaxLabel HeapNext) (Do (StoreDwordAtEaxFromEbx) (Do (PopEax) (Do (MovEbxImm32 2A) (Do (StoreDwordAtEaxFromEbx) (Do (MovEcxImm32 01) (Do (StoreDwordAtEaxPlus4FromEcx) End))))))) (Do (MovEbxImm32 09) (Do (MovEaxImm32 01) (Do (Int 80) End))))
                 End))))))))
+
+(Rule
+  (CompileStmt ResetCheckedRootTable)
+  (Do
+    (Label Recover)
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (MovEbxLabel Heap)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEaxLabel RootScan)
+            (Do
+              (MovEbxLabel RootSlotA)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                End))))))))
+
+(Rule
+  (CompileStmt ResetCheckedRootTableScan)
+  (Do
+    (Label Recover)
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (MovEbxLabel Heap)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEaxLabel Scan)
+            (Do
+              (MovEbxLabel Heap)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (MovEaxLabel RootScan)
+                  (Do
+                    (MovEbxLabel RootSlotA)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      End)))))))))))

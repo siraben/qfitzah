@@ -15,41 +15,6 @@ QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-checked-root-table-forwarding-ext.qf1"
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-checked-root-table-forwarding-gc-qfc4.qf1"
 
 
-def recover_root_table():
-    return [
-        "(Label Recover)",
-        "(MovEaxLabel HeapNext)",
-        "(MovEbxLabel Heap)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(MovEaxLabel RootScan)",
-        "(MovEbxLabel RootSlotA)",
-        "(StoreDwordAtEaxFromEbx)",
-    ]
-
-
-def recover_root_table_and_trace():
-    return [
-        *recover_root_table(),
-        "(Label TraceRootsLoop)",
-        "(MovEaxLabel RootScan)",
-        "(LoadEaxCar)",
-        "(CmpEaxLabel RootEnd)",
-        "(Jnz TraceRootProcess)",
-        "(JumpNear TraceRootsDone)",
-        "(Label TraceRootProcess)",
-        "(Invoke ForwardRootSlot Empty)",
-        "(MovEaxLabel RootScan)",
-        "(LoadEaxCar)",
-        "(MovEbxEax)",
-        "(AddEbxImm8 04)",
-        "(MovEaxLabel RootScan)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(JumpNear TraceRootsLoop)",
-        "(Label TraceRootsDone)",
-        "(JumpNear AfterTrace)",
-    ]
-
-
 def overwrite_old_graph():
     return [
         "(MovEaxLabel OldRoot)",
@@ -119,7 +84,6 @@ def finish_checked_root_table():
 
 def write_qfc4_extension():
     names = [
-        "RecoverRootTableAndTrace",
         "FinishCheckedRootTableForwarding",
     ]
 
@@ -134,7 +98,6 @@ def write_qfc4_extension():
         )
 
     for name, instrs in [
-        ("RecoverRootTableAndTrace", recover_root_table_and_trace()),
         ("FinishCheckedRootTableForwarding", finish_checked_root_table()),
     ]:
         qfc4.append(compile_rule(name, instrs))
@@ -178,7 +141,15 @@ def write_qfc4_source():
         """(Def
       Recover
       NoFrame
-      (RecoverRootTableAndTrace)""",
+      (Seq
+        (ResetCheckedRootTable)
+        (Seq
+          (CallProc TraceRoots)
+          (JumpNearProc AfterTrace)))""",
+        """(Def
+      TraceRoots
+      NoFrame
+      (TraceRoots)""",
         """(Def
       ForwardRootSlot
       NoFrame
