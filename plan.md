@@ -1,455 +1,148 @@
-# Qfitzah Bootstrap Strengthening Roadmap
+# Qfitzah Bootstrap Roadmap
 
-This document outlines the sequential phases, architectural changes, and actionable tasks required to transition the Qfitzah bootstrap pipeline from a hand-maintained binary emitter to a self-hosting compiler.
+This roadmap tracks the bootstrap path from the hand-written seed runtime to a
+self-hosted Qfitzah toolchain. It is intentionally a roadmap, not a fixture
+ledger. Detailed proof notes live in:
 
----
+- [bootstrap/self-hosting-gap.md](bootstrap/self-hosting-gap.md)
+- [bootstrap/source-size-budget.md](bootstrap/source-size-budget.md)
+- [README.md](README.md)
 
-## Stage 1: Direct ELF S-Expression Generator (Current Baseline)
-The initial stage focuses on achieving absolute binary correctness relative to the GCC-compiled seed executable. All code, headers, offsets, and data layouts are maintained directly.
+## Current Goal
+
+Qfitzah is not self-hosting yet. The current goal is to turn the Stage 5
+subsystem proofs into one compiled runtime/compiler that can rebuild itself
+reproducibly. The main blockers are:
+
+- a general collector over arbitrary live Qfitzah objects
+- fewer source-budget overlays or a later stage that can generate/load them
+- a complete compiled runtime source, not only focused runtime slices
+- byte-identical self-rebuild verification
+
+## Stage Shape
+
+The intended architecture has a small number of real stages:
+
+```text
+qfitzah.s seed runtime
+  -> qfasm2.qf1   symbolic i386 ELF assembler
+  -> qfasm3.qf1   macro assembler
+  -> qfc4.qf1     small compiler slice
+  -> Stage 5      compiled runtime/compiler
+```
+
+Files named `*-ext.qf1` are local overlays. They are not independent stages.
+They exist because the seed runtime still has finite arithmetic/address tables
+and practical source-size limits. The long-term direction is to shrink, merge,
+or generate these overlays from a later compiled stage.
+
+## Stage 1: Annotated Seed Runtime
+
+Stage 1 keeps the trusted runtime readable and byte-auditable.
 
 - [x] **Task 1.1: Map Code Layout**
-  Document the exact memory boundaries and sizes of the 1340-byte seed executable.
+  Document the exact memory boundaries and sizes of the seed executable.
 - [x] **Task 1.2: Maintain Hand-Coded Macros**
-  Map individual x86 instruction structures to explicit Lisp byte-emission wrappers.
+  Map individual x86 instruction structures to explicit byte-emission forms.
 - [x] **Task 1.3: Track Offsets Manually**
-  Hand-calculate all relative branch offsets, calls, and segment-offset alignment paddings.
+  Hand-calculate relative branches, calls, and segment alignment while the seed
+  is still trusted assembly.
 - [x] **Task 1.4: Single-Line Annotation Alignment**
-  Document and maintain the exact machine-to-assembly correspondence in a flat, readable layout without raw hex columns.
+  Maintain a readable instruction-by-instruction source layout for the seed.
 
----
+## Stage 2: Symbolic Assembler
 
-## Stage 2: Symbolic Assembler (The "hex1 / M1" Level)
-The primary objective of this stage is to automate PC-relative offset and absolute memory address calculations, removing manual binary-hacking.
+Implemented as [bootstrap/qfasm2.qf1](bootstrap/qfasm2.qf1). It runs under the
+seed runtime, resolves labels, emits selected i386 instructions, and writes a
+complete static ELF.
 
 - [x] **Task 2.1: Implement a Symbol Table**
-  Create a dictionary data structure to map symbolic label names (e.g., `_start:`, `handle_line:`) to their calculated addresses.
-- [x] **Task 2.2: Implement Pass 1 (Size Estimation)**
-  Parse the S-expression list of instructions, calculate the byte size of each macro wrapper, and assign an absolute virtual address to each label.
-- [x] **Task 2.3: Implement Pass 2 (Byte Emission & Offset Resolution)**
-  Traverse the list a second time to resolve labels, calculating relative offsets via `target_address - current_instruction_pointer` and absolute global displacements from `%ebp`.
+  Map symbolic labels to calculated addresses.
+- [x] **Task 2.2: Implement Pass 1**
+  Estimate instruction sizes and assign label addresses.
+- [x] **Task 2.3: Implement Pass 2**
+  Resolve labels and emit bytes.
 - [x] **Task 2.4: Automate ELF Header Alignment**
-  Enable the assembler to dynamically calculate `e_shoff`, `p_filesz`, and segment offsets, adjusting alignment padding blocks automatically as code size changes.
+  Calculate selected ELF sizes, entry addresses, and padding.
 - [x] **Task 2.5: Unify Branch Macros**
-  Replace hand-sized jump macros with abstract operations (e.g., `(JUMP label)` and `(CALL label)`) that automatically generate the correct short (8-bit) or near (32-bit) encoding based on distance.
+  Provide symbolic branch/call forms in the bootstrap range.
 
-Implemented as `bootstrap/qfasm2.qf1`, a Qfitzah-hosted assembler rule file.
-It runs under `qfitzah`, resolves symbolic labels, emits a complete i386 ELF
-binary, and is tested with runnable output. The current arithmetic tables cover
-the small bootstrap range. Branch lowering currently covers short jumps and
-signed direct calls in that range, including backward recursive calls; widening
-to fully automatic short-vs-near jump selection remains part of making this
-stage general. The current data-layout tables also cover the static tagged
-object examples used by the Stage 4 runtime slices.
+Remaining generality gap: qfasm2 still relies on finite numeric facts and local
+range extensions for larger generated programs.
 
----
+## Stage 3: Macro Assembler
 
-## Stage 3: Macro-Assembler & Structured Code Generator (The "M2" Level)
-This stage introduces high-level control abstractions and calling conventions to reduce the complexity of writing raw assembly.
+Implemented as [bootstrap/qfasm3.qf1](bootstrap/qfasm3.qf1). It expands
+structured macro assembly into qfasm2 forms.
 
 - [x] **Task 3.1: Support Local Label Scopes**
-  Add support for scoped or anonymous local labels (e.g., `.1:`, `.2f`) so that nested conditions do not cause symbol collisions.
+  Allow generated code to use scoped labels without collisions.
 - [x] **Task 3.2: Implement Structured Flow Macros**
-  Create helper macros that expand structured conditions into basic conditional jump sequences:
-  ```lisp
-  (IF (test-condition)
-      (then-instructions)
-      (else-instructions))
-  ```
+  Lower simple conditionals to branch sequences.
 - [x] **Task 3.3: Abstract Calling Conventions**
-  Implement an `(INVOKE procedure args...)` macro that automatically loads arguments into the target registers or pushes them to the stack, standardizing function invocation.
+  Provide procedure invocation forms.
 - [x] **Task 3.4: Automate Register Clobber Preservation**
-  Include automatic saving (`push`) and restoring (`pop`) of clobbered registers at function boundaries based on the calling convention.
+  Preserve selected registers through procedure metadata.
 
-Implemented as `bootstrap/qfasm3.qf1`, a Qfitzah-hosted macro layer that expands
-to qfasm2 data. Its source rules and test program use readable multi-line
-forms. The test program uses scoped local labels, an `IfZero` block, `Invoke`,
-and `Ecx` clobber preservation, then emits and runs an ELF binary.
+## Stage 4: Compiler Slice
 
----
-
-## Stage 4: Minimal Qfitzah Compiler (The "MesCC" Level)
-Build a compiler, written in a subset of Qfitzah, that compiles Qfitzah source S-expressions down into Stage 3 Macro Assembly.
+Implemented as [bootstrap/qfc4.qf1](bootstrap/qfc4.qf1). It compiles a focused
+source language to qfasm3, then qfasm3/qfasm2 produce a runnable ELF.
 
 - [x] **Task 4.1: Develop AST Parser**
-  Write an S-expression parser that converts high-level expressions into an Abstract Syntax Tree (AST).
+  Convert source forms into explicit AST nodes.
 - [x] **Task 4.2: Match-Expression Compiler**
-  Implement a compilation path that translates high-level, declarative `match` and rewrite rules into native condition trees, removing manual pattern matching code.
-- [x] **Task 4.3: Automate Pointer Alignment & Tagging**
-  Generate instruction streams that automatically enforce pointer alignment and type tags (e.g., tagging cons cells, constants, and variables) during data generation.
+  Lower focused declarative matches to native condition trees.
+- [x] **Task 4.3: Automate Pointer Alignment and Tagging**
+  Generate aligned static data and tagged object pointers.
 - [x] **Task 4.4: Automate Stack Frame Allocation**
-  Generate appropriate function prologues and epilogues to manage stack frames, local variables, and register states dynamically.
+  Lower frame/clobber metadata to qfasm3 procedure forms.
 
-Implemented as `bootstrap/qfc4.qf1`, a Qfitzah-hosted compiler slice. It parses
-high-level source forms into explicit AST nodes, lowers declarative zero-match
-forms into qfasm3 `IfZero` trees, emits tag-setting code for aligned constant
-payloads, and turns frame preservation requests into qfasm3 procedure clobber
-metadata. The checked examples produce runnable ELF binaries through the full
-qfc4 -> qfasm3 -> qfasm2 pipeline.
+The compiler slice now covers literals, simple frames, static data, tagged
+constants, field loads/stores through extensions, byte output, normal printing,
+multiple dispatch proofs, and optimizer proofs. It does not yet express the
+whole seed interpreter.
 
----
+## Stage 5: Runtime and Self-Hosting
 
-## Stage 5: Self-Hosting Runtime & Full Qfitzah
-Develop the full language compiler compiled by the Stage 4 compiler, moving toward full self-hosting and robust execution.
+Stage 5 is the active work. It is currently a set of checked subsystem proofs,
+not a complete runtime. The useful way to read the current Stage 5 work is by
+capability area:
 
-The repository is not self-hosting yet. The current qfc4 compiler slice cannot
-express the whole `qfitzah.s` runtime. See
-`bootstrap/self-hosting-gap.md` for the concrete missing runtime mechanisms and
-the next subsystem-sized milestone.
+- **Reader**: multi-line parenthesized records, comments, EOF-balanced records,
+  and explicit `(Rule pattern replacement)` forms are implemented in the seed.
+- **Byte output**: staged code can compile byte emission and focused
+  `(Bytes ...)` flattening paths.
+- **Allocation and GC path**: tests cover checked pair allocation, overflow
+  recovery, root copying, list/tree/object copying, forwarding for sharing and
+  cycles, scan-forwarding, multi-root forwarding, runtime atom copying, and
+  recovered byte/normal output. This is still a family of focused proofs.
+- **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
+  multi-byte atoms, and recovered dynamic atom graphs for focused cases.
+- **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,
+  runtime argument class cells, mutable class cells, and mutable method
+  pointers.
+- **Optimization**: optional qfc4 rules prove constant folding, known-branch
+  reduction, dead-code elimination, and focused tail-call lowering.
 
-Current self-hosting progress: `bootstrap/stage4-nybble.qf1` compiles the
-`nybble` routine shape from `qfitzah.s` through qfc4 -> qfasm3 -> qfasm2 into a
-runnable ELF. This proves calls, static data loads, byte arithmetic, compare,
-and conditional branch lowering for one real runtime subsystem. It is not yet
-enough for `is_bytes`, Qfitzah object traversal, or the full interpreter.
-`bootstrap/stage4-emit-byte.qf1` extends this by compiling an `emit_byte`-shaped
-routine that calls `Nybble` twice, combines the nybbles, and writes byte `41`
-to stdout from the generated ELF. `bootstrap/stage4-emit-bytes.qf1` adds a
-recursive `EmitBytes`-shaped byte-span walker that writes `ABCDE` and requires a
-signed backward call displacement. `bootstrap/stage4-emit-bytes-object.qf1`
-then moves the same path onto a static tagged `(Bytes 41)` object with aligned
-pair cells, tagged atom pointers, nil, field loads, a `Bytes` head check, and
-recursive cons-tail traversal. `bootstrap/stage4-emit-bytes-nested.qf1` adds a
-focused static-object slice for nested `(Bytes ...)` flattening by compiling
-`(Bytes (Bytes 41))` and recursively emitting the nested cdr.
-`bootstrap/stage4-emit-bytes-general.qf1` combines cons-tail traversal and
-nested `Bytes` flattening in one compiled `EmitBytes` routine using tail-call
-jumps for the outer-list loop. `bootstrap/stage4-is-bytes-content.qf1` compiles
-the closer `is_bytes` head check, recognizing a static `Bytes` atom by length
-and character contents rather than by a shared pointer.
-`bootstrap/stage4-is-bytes-content-reject.qf1` covers the negative path with a
-same-shaped `Bytez` atom.
-`bootstrap/stage4-is-bytes-content-output.qf1` uses the content-based check to
-gate real byte output for static `(Bytes 41)`.
-`bootstrap/stage4-is-bytes-content-linear.qf1` recompiles that path with
-explicit local labels and fail-fast `jnz` branches, proving a smaller
-control-flow primitive for runtime predicates without adding it to the common
-compiler source.
-`bootstrap/qfc4-byte-output.qf1` and `bootstrap/qfasm-byte-output-ext.qf1`
-split that focused path into a direct byte-output compiler slice plus an
-optional assembler extension. `bootstrap/stage4-is-bytes-content-linear-direct.qf1`
-uses the split stages and produces the same byte-output ELF.
-`bootstrap/qfasm2-exit42-n221.qf1` proves the optional assembler extension can
-emit a 221-byte code segment, one byte past the common `N220` range.
-`bootstrap/qfasm2-entry-n221.qf1` then proves an ELF entry label at offset
-`N221`, covering optional address emission as well as file size.
-`bootstrap/stage5-pair-allocation.qf1` starts the mutable-runtime work needed
-before GC can be meaningful: it compiles dword stores through optional heap
-extensions, writes a pair cell into a static heap area, reads the car field
-back, and exits with status `42`.
-`bootstrap/stage5-bump-alloc.qf1` adds a checked heap-next update: it allocates
-two pair cells through a mutable `HeapNext` pointer and exits with the first
-cell's car (`19`), proving the second allocation used the advanced pointer
-rather than overwriting the first cell.
-`bootstrap/stage5-alloc-proc.qf1` then factors the same logic into a reusable
-compiled `AllocPair` procedure that accepts car/cdr in `EBX`/`ECX`, advances
-`HeapNext`, returns the allocated pair in `EAX`, and is called twice by the
-checked program.
-`bootstrap/stage5-alloc-checked.qf1` and
-`bootstrap/stage5-alloc-overflow.qf1` add a lower-level qfasm2 bounds-check
-proof: compare `HeapNext + 8` with `HeapLimit` before storing, exercise both
-the success path (`19`) and overflow path (`7`).
-`bootstrap/stage5-alloc-checked-qfc4.qf1` and
-`bootstrap/stage5-alloc-overflow-qfc4.qf1` lift that first bounds-check branch
-back through qfc4, proving the staged compiler surface can now express the
-checked commit and overflow paths.
-`bootstrap/stage5-alloc-reset-gc.qf1` adds the first lower-level recovery
-policy: the overflow path resets `HeapNext` to the heap base, retries the
-allocation, stores one pair, and exits `19`. This is a no-live-objects GC proof,
-not a tracing collector yet.
-`bootstrap/stage5-alloc-reset-gc-qfc4.qf1` lifts that no-live-objects recovery
-through qfc4, so the staged compiler surface now expresses reset, retry,
-commit, and recovered allocation output.
-`bootstrap/stage5-copy-root-gc.qf1` then preserves one live root across that
-recovery: it copies the root pair into the reset heap, updates the root slot,
-allocates another pair after it, and exits with the copied root car (`19`).
-`bootstrap/stage5-copy-root-gc-qfc4.qf1` lifts the same root-copy/update
-mechanics through qfc4, factoring the staged source into `CopyRoot` and
-`AllocAfterCopy` procedures so larger recovery logic can be expressed without a
-single deeply nested compiler input.
-`bootstrap/stage5-copy-graph-gc.qf1` extends that qfasm2-level recovery proof
-to a two-pair graph: the copied root's cdr is rewritten to the copied tail,
-allocation resumes after both copied cells, and the ELF exits with the copied
-tail car (`19`). The fixture now reuses the old tail as the retry allocation
-cell, so a missed cdr rewrite exits `42`.
-`bootstrap/stage5-copy-graph-gc-qfc4.qf1` lifts the same fixed graph-copy shape
-through qfc4 using the optional `bootstrap/qfc4-copy-ext.qf1` statement layer.
-That keeps the staged source below the seed runtime's practical rule budget
-while still lowering the copy operations through Qfitzah rules.
-`bootstrap/stage5-copy-list-gc.qf1` replaces the fixed two-cell shape with a
-loop over a nil-terminated list. It threads a `LinkSlot` through the root slot
-and copied cdr fields, copies three pairs until nil, then proves old internal
-pointers are gone by overwriting the old tail before reading the copied tail.
-`bootstrap/stage5-copy-list-gc-qfc4.qf1` and
-`bootstrap/qfc4-list-copy-ext.qf1` lift that loop shape through qfc4. The test
-uses a two-invocation Qfitzah pipeline, first lowering qfc4 to qfasm3 source
-and then assembling that source to a runnable ELF, because the all-in-one
-optional rule load still exceeds the seed runtime's stable budget.
-`bootstrap/stage5-copy-nested-pair-gc.qf1` starts replacing the list-only
-traversal proof with object traversal: it follows a pair-valued `car` edge,
-copies that child, rewrites the copied root's car to the copied child, then
-overwrites the old child so stale internal edges are observable.
-`bootstrap/stage5-copy-two-field-object-gc.qf1` extends that object proof to a
-root whose `car` and `cdr` are both pair-valued edges. Recovery copies and
-rewrites both fields, overwrites both old children, checks the copied `car`
-child, then exits through the copied `cdr` child (`23`).
-`bootstrap/stage5-copy-two-field-object-gc-qfc4.qf1` lifts the same two-field
-object shape through qfc4 with optional object-copy and raw object-data
-extensions. Its test keeps qfc4 and qfasm as two Qfitzah invocations and places
-data before code so the assembler's finite address facts stay in range.
-`bootstrap/stage5-copy-tree-gc.qf1` then replaces the fixed object shape with a
-qfasm2-level scan over copied pairs. The recovery path keeps a `Scan` cursor and
-`HeapNext`, discovers pair-valued `car` and `cdr` fields during traversal,
-copies those children, rewrites the copied fields, and exits through a copied
-nested right leaf (`35`). This proves acyclic pair-tree traversal, while sharing
-and cycles remain future forwarding-pointer work.
-`bootstrap/stage5-copy-tree-gc-qfc4.qf1` and
-`bootstrap/qfc4-scan-copy-ext.qf1` lift that scan-copy traversal through qfc4.
-The staged test runs qfc4 and qfasm separately, uses the local scan qfasm
-extension for the near loop backedge, and exits through the copied right leaf
-(`35`).
-`bootstrap/stage5-forwarding-gc.qf1` starts the forwarding-pointer path at the
-qfasm2 layer. A root whose two fields share one old pair copies that child once,
-marks the old child with a temporary forwarding marker, rewrites both copied
-fields to the same new child, checks pointer equality and `HeapNext`, and exits
-through the copied child (`19`).
-`bootstrap/stage5-forwarding-gc-qfc4.qf1` lifts that focused sharing proof
-through qfc4 with `bootstrap/qfc4-forwarding-ext.qf1` and
-`bootstrap/qfasm-stage5-forwarding-ext.qf1`, again producing a runnable ELF that
-exits through the copied child (`19`).
-`bootstrap/stage5-forwarding-cycle-gc.qf1` extends the same mechanism to a
-one-pair cycle: the copied root's `car` is rewritten from the old root to the
-copied root itself, the old object is overwritten, and the ELF exits through
-the copied cycle (`23`). `bootstrap/stage5-forwarding-cycle-gc-qfc4.qf1` lifts
-that cycle proof through qfc4 with separate cycle-forwarding extensions to stay
-within the seed runtime's source budget.
-`bootstrap/stage5-scan-forwarding-gc.qf1` then combines scan traversal with
-forwarding at the qfasm2 layer. The scan copies a shared cyclic child once,
-rewrites both root fields and the child's self-edge to the copied child, checks
-that allocation advanced by only two cells, and exits through the copied child
-(`19`). This is the first focused proof that the scan loop and forwarding
-marker can cooperate on a cyclic shared graph.
-`bootstrap/stage5-multi-root-forwarding-gc.qf1` extends the direct qfasm2
-forwarding proof to two live root slots that initially point at the same old
-root. Recovery copies that root once, updates the first root, updates the
-second root through the forwarding marker, then lets the scan loop copy the
-shared cyclic child once. The generated ELF verifies that both roots converge
-on the same copied root, that the copied root's two fields share the same copied
-child, and that `HeapNext` advanced by exactly two copied cells.
-`bootstrap/stage5-scan-forwarding-complex-gc.qf1` applies the same direct
-qfasm2 scan-forwarding loop to a larger graph: root points to two separate
-children, both children converge on one shared self-cyclic node, the shared
-node carries a tagged static atom, and the ELF checks preserved sharing, the
-copied cycle, the atom field, and the four-cell copy frontier after all old pair
-objects are overwritten.
-`bootstrap/stage5-scan-forwarding-complex-gc-qfc4.qf1` lifts that mixed graph
-through qfc4 with a separate complex scan-forwarding extension and a local
-tagged-constant comparison assembler extension, preserving the same readable
-scan loop shape while keeping the simpler qfc4 proof's rule load small.
-`bootstrap/stage5-scan-forwarding-dynamic-atom-gc.qf1` combines forwarding with
-runtime atom copying at the direct qfasm2 layer: the copied child has a
-self-cycle rewritten through a forwarding marker, and its runtime-initialized
-cdr atom is copied into the atom frontier before all old records are
-overwritten and checked.
-`bootstrap/stage5-scan-forwarding-dynamic-atom-gc-qfc4.qf1` lifts that combined
-forwarding-plus-runtime-atom proof through qfc4 with a focused optional
-extension. The staged source keeps the scan loop readable, copies the child's
-self-cycle through forwarding, copies the runtime cdr atom into the atom
-frontier, overwrites all old records, and exits `0` after checking the copied
-cycle, frontiers, and atom length.
-`bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc.qf1` connects that
-collector shape to the checked allocator path: the first pair allocation starts
-at `HeapLimit`, overflows, runs scan-forwarding recovery with runtime atom
-copying, retries the allocation after the copied graph, and verifies the copied
-cycle, atom frontier, and retry pair before exiting `0`.
-`bootstrap/stage5-checked-scan-forwarding-dynamic-atom-gc-qfc4.qf1` lifts that
-checked overflow/recovery/retry path through qfc4 with focused optional
-qfc4/qfasm extensions. The staged source now expresses the allocator boundary
-and the scan-forwarding dynamic atom recovery in the same compiled path.
-`bootstrap/stage5-dispatch-table-qfc4.qf1` starts Task 5.2 with a focused
-multiple-dispatch proof: qfc4 compiles two table entries containing
-two-argument signature records plus concrete method code pointers, runtime
-dispatch skips the first non-matching entry, loads the matching method address
-from the table, calls it indirectly, and exits with the selected method result
-(`42`).
-`bootstrap/stage5-dispatch-chain-qfc4.qf1` turns that into a linked-table
-lookup: qfc4 compiles each entry as signature, method pointer, and next-entry
-pointer records; runtime dispatch loops over the chain, skips both an arg1
-miss and an arg2 miss, follows next links, calls the first matching method
-indirectly, and exits `42`.
-`bootstrap/stage5-dispatch-chain-miss-qfc4.qf1` adds the no-match side of that
-same linked-table dispatcher. It compiles a chain with no matching method,
-reaches the `NoEntry` sentinel, and exits through the dispatch-miss path with
-status `9`.
-`bootstrap/stage5-dispatch-runtime-chain-qfc4.qf1` moves the call-site
-signature out of the dispatch loop immediates and into runtime data cells. The
-compiled dispatcher loads the two actual class values before walking the linked
-table, compares entries against those runtime values with register-register
-comparisons, skips arg1 and arg2 misses, and indirectly calls the selected
-method (`42`). Its test uses a staged qfc4 -> qfasm3 source, then
-qfasm3/qfasm2 -> ELF pipeline because loading the runtime dispatch extensions
-with all assembler/compiler stages at once exceeds the seed runtime's stable
-source budget.
-`bootstrap/stage5-dispatch-mutable-runtime-chain-qfc4.qf1` makes the call-site
-signature genuinely mutable: generated code rewrites the second argument class
-cell before dispatch, then the same linked-table loop observes the updated
-runtime value and selects the `(13 23)` alternate method (`8`) instead of the
-later `(13 2A)` method (`42`). The runtime dispatch qfasm extension now emits a
-writable executable segment for these mutable class-cell proofs.
-`bootstrap/stage5-dispatch-mutable-method-chain-qfc4.qf1` extends that to the
-table payload itself by rewriting the selected entry's method pointer before
-dispatch. The checked ELF exits `42` only if both runtime updates are observed:
-ignoring the class-cell update selects a stale `(13 2A)` entry (`7`), while
-ignoring the method-pointer update selects the old `(13 23)` method (`8`).
-`bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
-through qfc4. The staged source keeps the loop in qfc4 form, factors one field
-handler as a helper procedure to stay inside branch ranges, and emits a
-runnable ELF that exits through the copied child (`19`).
-`bootstrap/stage5-copy-bytes-output-gc.qf1` then reconnects recovery to the
-byte-output runtime path at the direct qfasm2 level. It forces recovery, copies
-a static `(Bytes 41)` object graph, overwrites the old pair objects, and emits
-from the copied byte atom through `EmitByte`, `Nybble`, and `write(2)`, writing
-byte `41` before exiting `0`.
-`bootstrap/stage5-copy-bytes-isbytes-output-gc.qf1` adds the content-based
-`IsBytes` gate after recovery at the direct qfasm2 level. The copied head atom
-is recognized by length and bytes rather than pointer identity before the
-copied byte tail is emitted.
-`bootstrap/stage5-copy-nested-bytes-output-gc.qf1` takes the same direct
-recovery/output path through a copied `(Bytes (Bytes 41))` graph. It overwrites
-all old pair cells after scan-copy, then recursive `EmitBytes` recognizes both
-`Bytes` objects by content and flattens the copied nested byte object to stdout
-byte `41`.
-`bootstrap/stage5-copy-bytes-isbytes-output-gc-qfc4.qf1` lifts that
-content-checked recovery/output path through qfc4, keeping `IsBytes`,
-`EmitByte`, and `Nybble` in readable staged source and checking stdout byte
-`41`.
-`bootstrap/stage5-copy-nested-bytes-output-gc-qfc4.qf1` lifts the recovered
-nested byte-output path through qfc4. The staged source keeps recursive
-`EmitBytes`, content-based `IsBytes`, `EmitByte`, and `Nybble` readable, then
-the generated ELF copies `(Bytes (Bytes 41))`, overwrites all old pair cells,
-and emits stdout byte `41`.
-`bootstrap/stage5-copy-dynamic-atoms-output-gc.qf1` then starts moving atom
-records out of static data. It initializes the `Bytes` and `41` atom records in
-writable cells at runtime, copies tagged atom fields into a separate atom
-frontier during recovery, overwrites the old atom records, and still emits
-stdout byte `41` from the copied graph.
-`bootstrap/stage5-copy-dynamic-atom-cdr-gc.qf1` extends the same atom frontier
-to tagged atom fields in pair cdrs, rewriting the copied cdr to the copied atom
-record and emitting stdout byte `41` after the old atom is overwritten.
-`bootstrap/stage5-copy-dynamic-atom-fields-gc.qf1` combines both dynamic atom
-field paths in one copied pair: runtime-initialized tagged atoms in `car` and
-`cdr` are copied into the atom frontier, both copied fields are rewritten, old
-atom records are overwritten, and stdout byte `41` is emitted from the copied
-cdr atom.
-`bootstrap/stage5-copy-dynamic-atom-fields-gc-qfc4.qf1` lifts that combined
-runtime atom-copy proof through qfc4 using a focused dynamic-atom field
-extension and a small qfasm3 branch pass-through shim. The staged test checks
-the exact ELF and stdout byte `41`.
-`bootstrap/stage5-copy-dynamic-atom-nested-gc-qfc4.qf1` then exercises the same
-runtime atom frontier through one level of scan-discovered graph traversal: the
-root's car child is copied by the scan loop, and the child's runtime-initialized
-cdr atom is copied only when that child is scanned. The generated ELF verifies
-the copied child and copied atom field after overwriting all old records.
-`bootstrap/stage5-copy-dynamic-atom-deep-gc-qfc4.qf1` extends that through
-multiple scan iterations: root, child, and grandchild pairs are copied in
-sequence, and the grandchild's runtime-initialized cdr atom is copied only
-after traversal reaches the grandchild. The generated ELF verifies the copied
-pair chain and copied atom field after old records are overwritten.
-`bootstrap/stage5-copy-bytes-output-gc-qfc4.qf1` lifts that proof through qfc4
-with a focused byte-output recovery extension while keeping the scan loop and
-`EmitByte`/`Nybble` source readable. The staged test checks the exact ELF,
-stdout byte `41`, and exit `0`.
-`bootstrap/stage5-print-list-qfc4.qf1` starts the normal-printer path. The
-qfc4 source compiles a static pair/atom graph, checks pair-vs-atom shape,
-prints list delimiters, follows the pair car, prints the atom's first
-character through its atom character pointer, and writes stdout `(a)`.
-`bootstrap/stage5-print-long-atom-qfc4.qf1` extends the atom-printer side with
-`qfc4-print-atom-ext.qf1`: the compiled code loads the atom length field and
-writes the whole character span, producing stdout `abc` instead of just the
-first byte.
-`bootstrap/stage5-print-empty-list-qfc4.qf1` adds a focused top-level nil
-output slice. With local rules from `qfc4-print-nil-ext.qf1`, the fixture
-materializes nil in `EAX`, checks nil before the non-nil path, then writes
-stdout `()`. The same local extension provides a focused `Write2` statement so
-the nil printer writes both paren bytes in one syscall while common qfc4 stays
-unchanged.
-`bootstrap/stage5-print-nil-and-atom-qfc4.qf1` combines that nil branch with
-the atom printer in one `PrintExpr` routine. It prints `()a`, proving nil and
-non-nil atom dispatch coexist before the larger pair/tail printer is merged
-with the nil branch.
-`bootstrap/stage5-print-nil-and-list1-qfc4.qf1` extends that integration to
-pair/list dispatch without the tail-recursive list printer. It prints `()(a)`
-through one `PrintExpr` routine, using `qfasm-n224-ext.qf1` for the larger
-generated ELF.
-`bootstrap/stage5-print-nil-and-list-tail-qfc4.qf1`, generated by
-`tools/generate_stage5_print_nil_tail_qfc4.py`, merges the nil branch with the
-tail-recursive two-element list printer. The test lowers qfc4 to qfasm3 first,
-then assembles with `qfasm-print-n272-ext.qf1`, and the generated ELF prints
-`()(a b)` from one `PrintExpr` routine.
-`bootstrap/stage5-print-nil-and-nested-list-qfc4.qf1` reuses that generated
-printer with a nested object graph. It assembles with `qfasm-print-n280-ext.qf1`
-and prints `()(a (b))`, proving nil dispatch and nested normal output now
-coexist in one compiled printer slice.
-`bootstrap/stage5-print-nil-and-nested-long-atoms-qfc4.qf1` extends the same
-generated fixture family to full atom spans inside recursive output. The staged
-test loads `qfc4-print-atom-ext.qf1` in both the qfc4 and qfasm passes,
-assembles with `qfasm-print-n268-ext.qf1`, and prints `()(abc (de))`, proving
-the normal-printer slice can combine nil dispatch, nested lists, separators,
-and multi-byte atom names.
-`bootstrap/stage5-print-copied-dynamic-atom-qfc4.qf1` connects that printer to
-the runtime recovery path: qfc4 initializes an `abc` atom record at runtime,
-copies a root list plus its tagged atom car into the pair and atom frontiers,
-overwrites the old records, then invokes `PrintExpr` on the copied root. The
-generated ELF prints `(abc)`, proving normal output no longer depends only on
-static atom records.
-`bootstrap/stage5-print-copied-nested-dynamic-atoms-qfc4.qf1` extends that
-same path to a nested recovered graph. The compiled scan loop copies cdr pair
-edges and runtime atom cars into separate frontiers, overwrites all old pair
-and atom records, then prints `(abc (de))` from the copied root.
-`bootstrap/stage5-print-list-tail-qfc4.qf1` extends that proof to a
-nil-terminated two-element list: it traverses cdr, inserts the space separator,
-recurs through the tail printer, stops on nil, and writes stdout `(a b)`.
-The fixture loads `qfasm-n224-ext.qf1`, which keeps qfasm2's common range
-small while adding the exact N221..N224 file-size/address and -101..-160
-backward-call byte facts needed by this larger generated ELF.
-`bootstrap/stage5-print-nested-list-qfc4.qf1` keeps that printer code and
-changes only the static graph to `(a (b))`, proving nested normal output through
-`PrintExpr` recursion from a tail element. It reuses `qfasm-n224-ext.qf1` and
-adds `qfasm-n232-size-ext.qf1` for the one extra ELF file-size fact needed by
-the larger data segment.
-`bootstrap/stage5-optimization-qfc4.qf1` starts Task 5.3 with a focused
-optional optimization layer. Loaded after qfc4, `qfc4-opt-ext.qf1` overrides
-the generic compile fallbacks to fold small `Add1` constants, reduce matches
-with known tests, and eliminate straight-line statements after `Exit` or
-`Return`; the fixture proves constant folding plus dead-code elimination by
-emitting a smaller ELF that exits `42`.
-`bootstrap/stage5-known-match-opt-qfc4.qf1` adds a direct known-branch
-optimization proof: a match whose test is compile-time zero is reduced to only
-the selected arm before qfasm3 expansion, producing the same compact literal
-exit path and exit status `42`.
-`bootstrap/stage5-tco-qfc4.qf1` adds the tail-call optimization part of Task
-5.3 to the same optional layer. `qfc4-opt-ext.qf1` recognizes a final
-`(CallProc name)` followed by `(Return)` and lowers it through the existing
-`TailCallProc` path; the fixture's exact ELF contains a direct jump from
-`Wrapper` to `Target` and exits `42`.
-`bootstrap/source-size-budget.md` records the current seed-runtime source-size
-boundary that prevents merging content-based `is_bytes` into the full compiled
-`EmitBytes` fixture before the common stages are shrunk or split.
-
-Reader progress: the seed runtime now accumulates parenthesized forms across
-physical lines and treats embedded newlines as whitespace, which makes staged
-rules and programs more readable. Balanced final records are handled at EOF as
-well as at newline boundaries. Rules can be written either as the traditional
-two-form logical record or as an explicit multi-line `(Rule pattern replacement)`
-directive. `bootstrap/stage1-multiline-rules.qf1` is the first
-Qfitzah-improved bootstrap fixture and tests that readable rule form directly.
-The Stage 3 macro assembler, the Stage 4 compiler source, and their sample
-inputs now use that readable multi-line style.
-
-- [ ] **Task 5.1: Implement Garbage Collection (GC)**
-  Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.
+- [ ] **Task 5.1: Implement Garbage Collection**
+  Replace the arena allocator with a general collector over arbitrary live
+  Qfitzah objects. Current proofs are strong enough to guide the design, but
+  they are not yet one reusable collector.
 - [x] **Task 5.2: Compile Multiple Dispatch Tables**
-  Implement compilation of dynamic multiple-dispatch method tables, mapping method signatures to concrete runtime addresses.
+  Compile dynamic linked dispatch tables and runtime lookup paths.
 - [x] **Task 5.3: Add Basic Optimization Passes**
-  Integrate optimization passes in the compiler, including tail-call optimization (TCO), constant folding, and dead-code elimination.
+  Prove focused constant folding, known-branch reduction, dead-code
+  elimination, and tail-call lowering.
 - [ ] **Task 5.4: Execute Reproducibility Verification**
-  Compile the Stage 5 compiler using the Stage 4 compiler, and then compile the Stage 5 compiler with itself to verify binary identity (reproducibility).
+  Compile the Stage 5 compiler with Stage 4, then rebuild it with itself and
+  verify byte-identical output.
+
+## Next Step
+
+The next meaningful Stage 5 step is to collapse the focused GC proofs into a
+single reusable collector interface: root-set enumeration, object classification,
+pair/atom relocation, forwarding lookup, scan traversal, and allocation retry
+should become shared compiled routines instead of bespoke fixtures. Once that
+exists, the compiler/runtime source can start replacing the remaining focused
+proof programs.
