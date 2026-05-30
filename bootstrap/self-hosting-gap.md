@@ -258,6 +258,11 @@ Progress so far:
   the second argument class before dispatch; the loop observes the new runtime
   value, selects the `(13 23)` method, and exits `8` instead of the later
   `(13 2A)` method's `42`.
+- `stage5-dispatch-mutable-method-chain-qfc4.qf1` extends mutability to the
+  dispatch table payload. The generated ELF rewrites the selected entry's
+  method pointer before dispatch and exits `42` only if the loop observes both
+  the updated class cell and the updated method address; the two stale paths
+  exit `7` and `8`.
 - `stage5-scan-forwarding-gc-qfc4.qf1` lifts the same shared cyclic scan graph
   through qfc4 using `qfc4-scan-forwarding-ext.qf1`. The qfc4 source keeps the
   scan loop readable, places one field handler before `Start` to keep calls in

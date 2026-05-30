@@ -530,6 +530,11 @@ run_qfc4_dispatch_staged_binary \
   8 \
   "qfasm-dispatch-runtime-ext.qf1" \
   "qfc4-dispatch-runtime-chain-ext.qf1"
+run_qfc4_dispatch_staged_binary \
+  "stage5-dispatch-mutable-method-chain-qfc4" \
+  42 \
+  "qfasm-dispatch-runtime-ext.qf1" \
+  "qfc4-dispatch-runtime-chain-ext.qf1"
 
 run_qfc4_byte_output_binary() {
   local name=$1

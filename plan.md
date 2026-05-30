@@ -288,6 +288,11 @@ cell before dispatch, then the same linked-table loop observes the updated
 runtime value and selects the `(13 23)` alternate method (`8`) instead of the
 later `(13 2A)` method (`42`). The runtime dispatch qfasm extension now emits a
 writable executable segment for these mutable class-cell proofs.
+`bootstrap/stage5-dispatch-mutable-method-chain-qfc4.qf1` extends that to the
+table payload itself by rewriting the selected entry's method pointer before
+dispatch. The checked ELF exits `42` only if both runtime updates are observed:
+ignoring the class-cell update selects a stale `(13 2A)` entry (`7`), while
+ignoring the method-pointer update selects the old `(13 23)` method (`8`).
 `bootstrap/stage5-scan-forwarding-gc-qfc4.qf1` lifts that scan-forwarding graph
 through qfc4. The staged source keeps the loop in qfc4 form, factors one field
 handler as a helper procedure to stay inside branch ranges, and emits a

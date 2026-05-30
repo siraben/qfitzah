@@ -1,0 +1,41 @@
+; Stage 5 mutable dispatch-method fixture lifted through qfc4.
+;
+; The qfc4 source rewrites both the second argument class and the selected
+; table entry's method pointer before dispatch. The generated ELF exits `42`
+; only if dispatch observes both mutations: ignoring the class-cell update
+; selects the stale `(13 2A)` entry and exits `7`, while ignoring the method
+; pointer update selects the `(13 23)` entry's old method and exits `8`.
+
+(QfcAssemble
+  (Source
+    Start
+    (DispatchArgClass Arg1Class 13
+    (DispatchArgClass Arg2Class 2A
+    (DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryAltArg2
+    (DispatchChainEntry EntryAltArg2 SigAltArg2 PayloadAltArg2 13 23 MethodWrongB EntryStaleArg2
+    (DispatchChainEntry EntryStaleArg2 SigStaleArg2 PayloadStaleArg2 13 2A MethodWrongA NoEntry
+    (DispatchEnd NoEntry
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (SetArg2Class 23)
+        (Seq
+          (SetEntryMethod PayloadAltArg2 MethodHitChain)
+          (Seq
+            (RuntimeDispatchChain)
+            (ExitReg Ebx))))
+    (Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)
+    (Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)
+    (Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)
+    End))))))))))
+))

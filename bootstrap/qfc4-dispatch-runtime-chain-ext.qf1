@@ -69,6 +69,10 @@
   (SetArg2Class value))
 
 (Rule
+  (ParseStmt (SetEntryMethod payload method))
+  (SetEntryMethod payload method))
+
+(Rule
   (ParseStmt (MethodWrongA))
   MethodWrongA)
 
@@ -180,6 +184,15 @@
     (MovEaxLabel Arg2Class)
     (Do
       (MovEbxImm32 value)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        End))))
+(Rule
+  (CompileStmt (SetEntryMethod payload method))
+  (Do
+    (MovEaxLabel payload)
+    (Do
+      (MovEbxLabel method)
       (Do
         (StoreDwordAtEaxFromEbx)
         End))))

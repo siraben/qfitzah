@@ -19,6 +19,9 @@ QFC4_RUNTIME_CHAIN_SRC_OUT = ROOT / "bootstrap" / "stage5-dispatch-runtime-chain
 QFC4_MUTABLE_RUNTIME_CHAIN_SRC_OUT = (
     ROOT / "bootstrap" / "stage5-dispatch-mutable-runtime-chain-qfc4.qf1"
 )
+QFC4_MUTABLE_METHOD_CHAIN_SRC_OUT = (
+    ROOT / "bootstrap" / "stage5-dispatch-mutable-method-chain-qfc4.qf1"
+)
 
 
 def bad_status(value):
@@ -143,6 +146,14 @@ def set_arg2_class(value):
     return [
         "(MovEaxLabel Arg2Class)",
         f"(MovEbxImm32 {value})",
+        "(StoreDwordAtEaxFromEbx)",
+    ]
+
+
+def set_entry_method(payload, method):
+    return [
+        f"(MovEaxLabel {payload})",
+        f"(MovEbxLabel {method})",
         "(StoreDwordAtEaxFromEbx)",
     ]
 
@@ -511,6 +522,10 @@ def write_qfc4_runtime_chain_extension():
   (SetArg2Class value))
 
 (Rule
+  (ParseStmt (SetEntryMethod payload method))
+  (SetEntryMethod payload method))
+
+(Rule
   (ParseStmt (MethodWrongA))
   MethodWrongA)
 
@@ -538,6 +553,12 @@ def write_qfc4_runtime_chain_extension():
   (CompileStmt (SetArg2Class value))
 """)
     parts.append(do_block(set_arg2_class("value"), "  "))
+    parts.append(")\n")
+
+    parts.append("""(Rule
+  (CompileStmt (SetEntryMethod payload method))
+""")
+    parts.append(do_block(set_entry_method("payload", "method"), "  "))
     parts.append(")\n")
 
     QFC4_RUNTIME_CHAIN_EXT_OUT.write_text("".join(parts).rstrip() + "\n")
@@ -760,6 +781,56 @@ def write_qfc4_mutable_runtime_chain_source():
     )
 
 
+def write_qfc4_mutable_method_chain_source():
+    defs = [
+        "(DispatchArgClass Arg1Class 13",
+        "(DispatchArgClass Arg2Class 2A",
+        "(DispatchChainEntry EntryMissArg1 SigMissArg1 PayloadMissArg1 12 2A MethodWrongA EntryAltArg2",
+        "(DispatchChainEntry EntryAltArg2 SigAltArg2 PayloadAltArg2 13 23 MethodWrongB EntryStaleArg2",
+        "(DispatchChainEntry EntryStaleArg2 SigStaleArg2 PayloadStaleArg2 13 2A MethodWrongA NoEntry",
+        "(DispatchEnd NoEntry",
+        """(Def
+      Start
+      NoFrame
+      (Seq
+        (SetArg2Class 23)
+        (Seq
+          (SetEntryMethod PayloadAltArg2 MethodHitChain)
+          (Seq
+            (RuntimeDispatchChain)
+            (ExitReg Ebx))))""",
+        """(Def
+      MethodWrongA
+      NoFrame
+      (MethodWrongA)""",
+        """(Def
+      MethodWrongB
+      NoFrame
+      (MethodWrongB)""",
+        """(Def
+      MethodHitChain
+      NoFrame
+      (MethodHitChain)""",
+    ]
+
+    QFC4_MUTABLE_METHOD_CHAIN_SRC_OUT.write_text(
+        """; Stage 5 mutable dispatch-method fixture lifted through qfc4.
+;
+; The qfc4 source rewrites both the second argument class and the selected
+; table entry's method pointer before dispatch. The generated ELF exits `42`
+; only if dispatch observes both mutations: ignoring the class-cell update
+; selects the stale `(13 2A)` entry and exits `7`, while ignoring the method
+; pointer update selects the `(13 23)` entry's old method and exits `8`.
+
+(QfcAssemble
+  (Source
+    Start
+"""
+        + qfc4_defs_block(defs)
+        + "\n))\n"
+    )
+
+
 def main():
     write_qfasm_extension()
     write_qfasm_runtime_extension()
@@ -771,6 +842,7 @@ def main():
     write_qfc4_chain_miss_source()
     write_qfc4_runtime_chain_source()
     write_qfc4_mutable_runtime_chain_source()
+    write_qfc4_mutable_method_chain_source()
 
 
 if __name__ == "__main__":
