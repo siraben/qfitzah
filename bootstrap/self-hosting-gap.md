@@ -204,6 +204,11 @@ Progress so far:
   copies that root once, updates the second root through the forwarding marker,
   scans the copied root, and verifies that both roots share one copied root and
   one copied cyclic child before exiting `19`.
+- `stage5-multi-root-forwarding-gc-qfc4.qf1` lifts that root-set proof through
+  qfc4 by reusing the shared scan-forwarding field handlers and adding only a
+  focused multi-root initialization/check overlay. It also documents the next
+  assembler pressure point: the longer root prologue needs a small local qfasm
+  numeric extension for the widened backward `ScanCdr` call.
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
   both children point at one shared self-cyclic node, and the shared node's car

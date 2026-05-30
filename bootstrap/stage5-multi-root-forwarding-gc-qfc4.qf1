@@ -1,0 +1,54 @@
+; Stage 5 multi-root scan-forwarding recovery lifted through qfc4.
+;
+; Compile with qfc4-scan-forwarding-ext.qf1,
+; qfc4-multi-root-forwarding-ext.qf1, and the Stage 5 heap/scan extensions.
+; The source reuses the common scan-forwarding field handlers and keeps only
+; root-set initialization/checking in the multi-root overlay.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell Scan Heap
+    (PtrCell RootA OldRoot
+    (PtrCell RootB OldRoot
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapChild 00
+    (Data HeapChild1 00
+    (Data HeapChild2 00
+    (Data HeapChild3 00
+    (Data HeapChild4 00
+    (Data HeapChild5 00
+    (Data HeapChild6 00
+    (Data HeapChild7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (RawPairPtrs OldRoot OldChild OldChild
+    (RawPairValPtr OldChild 13 OldChild
+    (Def
+      ScanCdr
+      NoFrame
+      (ScanForwardCdr)
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitMultiRootForwarding)
+        (Seq
+          (Local ScanLoop)
+          (Seq
+            (CallProc ScanCdr)
+            (Seq
+              (ScanForwardCarInline)
+              (Seq
+                (AdvanceScanOrLoop ScanLoop)
+                (CheckMultiRootForwarding))))))
+    End))))))))))))))))))))))))))
+))

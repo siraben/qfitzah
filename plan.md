@@ -115,8 +115,9 @@ capability area:
   `(Bytes ...)` flattening paths.
 - **Allocation and GC path**: tests cover checked pair allocation, overflow
   recovery, root copying, list/tree/object copying, forwarding for sharing and
-  cycles, scan-forwarding, multi-root forwarding, runtime atom copying, and
-  recovered byte/normal output. This is still a family of focused proofs.
+  cycles, scan-forwarding, multi-root forwarding at direct qfasm2 and qfc4
+  levels, runtime atom copying, and recovered byte/normal output. This is still
+  a family of focused proofs.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atoms, and recovered dynamic atom graphs for focused cases.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,

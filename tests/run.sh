@@ -1073,6 +1073,12 @@ run_qfc4_heap_scan_forwarding_staged_binary() {
 
 run_qfc4_heap_scan_forwarding_staged_binary "stage5-scan-forwarding-gc-qfc4" 19
 run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-multi-root-forwarding-gc-qfc4" 19 \
+  "qfc4-scan-forwarding-ext.qf1 qfc4-multi-root-forwarding-ext.qf1" \
+  "qfasm-multi-root-forwarding-ext.qf1" \
+  "" \
+  120
+run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-scan-forwarding-complex-gc-qfc4" 19 \
   "qfc4-scan-forwarding-complex-ext.qf1" \
   "qfasm-const-compare-ext.qf1"

@@ -1,0 +1,107 @@
+; Optional qfc4 multi-root forwarding surface.
+
+(Rule
+  (ParseStmt (InitMultiRootForwarding))
+  InitMultiRootForwarding)
+
+(Rule
+  (ParseStmt (CheckMultiRootForwarding))
+  CheckMultiRootForwarding)
+
+(Rule
+  (CompileStmt InitMultiRootForwarding)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (MovEbxLabel HeapChild)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEaxLabel Scan)
+          (Do
+            (MovEbxLabel Heap)
+            (Do
+              (StoreDwordAtEaxFromEbx)
+              (Do
+                (MovEaxLabel RootA)
+                (Do
+                  (LoadEaxCar)
+                  (Do
+                    (PushEax)
+                    (Do
+                      (LoadEbxCarFromEax)
+                      (Do
+                        (LoadEcxCdrFromEax)
+                        (Do
+                          (MovEaxLabel Heap)
+                          (Do
+                            (StoreDwordAtEaxFromEbx)
+                            (Do
+                              (StoreDwordAtEaxPlus4FromEcx)
+                              (Do
+                                (PopEax)
+                                (Do
+                                  (MovEbxLabel Heap)
+                                  (Do
+                                    (StoreDwordAtEaxFromEbx)
+                                    (Do
+                                      (MovEcxImm32 0F)
+                                      (Do
+                                        (StoreDwordAtEaxPlus4FromEcx)
+                                        (Do
+                                          (MovEaxLabel RootA)
+                                          (Do
+                                            (MovEbxLabel Heap)
+                                            (Do
+                                              (StoreDwordAtEaxFromEbx)
+                                              (Do
+                                                (MovEaxLabel RootB)
+                                                (Do
+                                                  (LoadEaxCar)
+                                                  (Do
+                                                    (PushEax)
+                                                    (Do
+                                                      (LoadEaxCdr)
+                                                      (Do
+                                                        (CmpEaxImm8 0F)
+                                                        (Do
+                                                          (IfZero UseForwardedRootB (Do (PopEax) (Do (LoadEaxCar) (Do (MovEbxEax) (Do (MovEaxLabel RootB) (Do (StoreDwordAtEaxFromEbx) End))))) (Do (MovEbxImm32 04) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                                          End)))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt CheckMultiRootForwarding)
+  (Do
+    (MovEaxLabel OldRoot)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldChild)
+              (Do
+                (MovEbxImm32 5E)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 6F)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel RootA)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (MovEbxEax)
+                            (Do
+                              (MovEaxLabel RootB)
+                              (Do
+                                (LoadEaxCar)
+                                (Do
+                                  (CmpEaxEbx)
+                                  (Do
+                                    (IfZero RootsShared (Do (MovEaxLabel RootA) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (PushEax) (Do (MovEaxLabel RootA) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero FieldsShared (Do (MovEaxLabel RootA) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (PushEax) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero ChildCycleOk (Do (MovEaxLabel HeapNext) (Do (LoadEaxCar) (Do (MovEbxLabel HeapAfterCopied) (Do (CmpEaxEbx) (Do (IfZero HeapNextOk (Do (MovEaxLabel RootB) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEbxCarFromEax) (Do (MovEaxImm32 01) (Do (Int 80) End)))))) (Do (MovEbxImm32 05) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))))))) (Do (MovEbxImm32 02) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))))))))) (Do (MovEbxImm32 01) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                    End))))))))))))))))))
