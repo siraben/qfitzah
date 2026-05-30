@@ -41,8 +41,8 @@ and ordered tree rewrite rules instead of a larger parser or object system.
 This repository is exploring whether a tiny rewrite-system seed can grow into a
 self-hosted compiler/runtime stack. The current session goal is narrower than
 full self-hosting: collapse the Stage 5 GC proofs toward one reusable collector
-shape. The newest checked step traces a root-slot table, forwards each root, and
-then reuses the shared scan-forwarding loop.
+shape. The newest checked step runs root-slot tracing after allocation overflow,
+then retries allocation after the copied live root.
 
 ## Language
 
@@ -241,8 +241,9 @@ The main Stage 5 progress so far:
   allocation, checked bump allocation, reset recovery, root copying, list and
   tree copying, forwarding for sharing/cycles, scan-forwarding, multi-root
   forwarding at direct qfasm2 and qfc4 levels, qfc4 root-table tracing,
-  runtime atom copying, and recovered byte output. These are still focused
-  fixtures, not a fully general collector over arbitrary Qfitzah objects.
+  checked root-table allocation retry, runtime atom copying, and recovered byte
+  output. These are still focused fixtures, not a fully general collector over
+  arbitrary Qfitzah objects.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atom names, and recovered runtime atoms for focused graphs.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, no-match

@@ -1,0 +1,57 @@
+; Stage 5 checked allocation plus root-table forwarding lifted through qfc4.
+;
+; HeapNext starts at HeapLimit so the first checked allocation must overflow.
+; Recovery resets the pair frontier, traces the RootScan..RootEnd table, retries
+; allocation after the copied root, overwrites the old root, and verifies both
+; copied live data and the retry pair before exiting through the copied root car
+; (`19`).
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext HeapLimit
+    (PtrCell RootScan RootSlotA
+    (PtrCell RootSlotA OldRoot
+    (PtrCell RootSlotB OldRoot
+    (Data RootEnd 00
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapAfterCopied 00
+    (Data HeapRetry1 00
+    (Data HeapRetry2 00
+    (Data HeapRetry3 00
+    (Data HeapRetry4 00
+    (Data HeapRetry5 00
+    (Data HeapRetry6 00
+    (Data HeapRetry7 00
+    (Data HeapAfterRetry 00
+    (Data HeapLimit 00
+    (RawPair OldRoot 13 17
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (InitialCheckedRootTableOverflow)
+        (JumpNearProc Recover))
+    (Def
+      Recover
+      NoFrame
+      (RecoverRootTableAndTrace)
+    (Def
+      ForwardRootSlot
+      NoFrame
+      (ForwardRootSlot)
+    (Def
+      AfterTrace
+      NoFrame
+      (Seq
+        (RetryCheckedRootTableAllocation)
+        (FinishCheckedRootTableForwarding))
+    End))))))))))))))))))))))))))))
+))
