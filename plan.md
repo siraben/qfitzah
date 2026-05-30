@@ -117,8 +117,8 @@ capability area:
   recovery, root copying, list/tree/object copying, forwarding for sharing and
   cycles, scan-forwarding, multi-root forwarding at direct qfasm2 and qfc4
   levels, qfc4 root-table tracing, checked root-table allocation retry, runtime
-  atom copying, and recovered byte/normal output. This is still a family of
-  focused proofs.
+  atom copying, checked root-table scan-forwarding retry, and recovered
+  byte/normal output. This is still a family of focused proofs.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atoms, and recovered dynamic atom graphs for focused cases.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,
@@ -144,7 +144,7 @@ capability area:
 
 The next meaningful Stage 5 step is to turn the root-table forwarding proof into
 a reusable collector interface. Root-set enumeration now exists as a checked
-qfc4 slice and checked allocation can now hand off to root-table forwarding
+qfc4 slice and checked allocation can now hand off to root-table scan-forwarding
 before retrying. Object classification, pair/atom relocation, forwarding lookup,
 scan traversal, and allocation retry still need to become shared compiled
 routines instead of bespoke fixture code. Once that exists, the compiler/runtime

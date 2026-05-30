@@ -220,6 +220,11 @@ Progress so far:
   `RootScan..RootEnd` table, allocation retries after the copied root, and the
   generated ELF verifies root convergence plus the retry cell before exiting
   through the copied root car (`19`).
+- `stage5-checked-root-table-scan-forwarding-gc-qfc4.qf1` connects the same
+  checked-overflow path to root-table tracing plus the shared scan-forwarding
+  loop. Recovery copies the roots, scans the copied graph to preserve the
+  shared cyclic child, retries allocation after the copied graph, overwrites
+  the old graph, and exits through copied child data (`19`).
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
   both children point at one shared self-cyclic node, and the shared node's car

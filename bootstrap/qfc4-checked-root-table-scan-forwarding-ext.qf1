@@ -1,0 +1,201 @@
+; Optional qfc4 surface for checked root-table scan-forwarding GC.
+
+(Rule
+  (ParseStmt (InitialCheckedRootTableScanOverflow))
+  InitialCheckedRootTableScanOverflow)
+
+(Rule
+  (ParseStmt (RecoverRootTableAndTraceForScan))
+  RecoverRootTableAndTraceForScan)
+
+(Rule
+  (ParseStmt (RetryCheckedRootTableScanAllocation))
+  RetryCheckedRootTableScanAllocation)
+
+(Rule
+  (ParseStmt (FinishCheckedRootTableScanForwarding))
+  FinishCheckedRootTableScanForwarding)
+
+(Rule
+  (CompileStmt InitialCheckedRootTableScanOverflow)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (MovEbxEax)
+        (Do
+          (AddEbxImm8 08)
+          (Do
+            (CmpEbxLabel HeapLimit)
+            (Do
+              (IfBelowEq UnexpectedInitialCommit (Do (MovEbxImm32 08) (Do (MovEaxImm32 01) (Do (Int 80) End))) (Do (JumpNear Recover) End))
+              End)))))))
+
+(Rule
+  (CompileStmt RecoverRootTableAndTraceForScan)
+  (Do
+    (Label Recover)
+    (Do
+      (MovEaxLabel HeapNext)
+      (Do
+        (MovEbxLabel Heap)
+        (Do
+          (StoreDwordAtEaxFromEbx)
+          (Do
+            (MovEaxLabel Scan)
+            (Do
+              (MovEbxLabel Heap)
+              (Do
+                (StoreDwordAtEaxFromEbx)
+                (Do
+                  (MovEaxLabel RootScan)
+                  (Do
+                    (MovEbxLabel RootSlotA)
+                    (Do
+                      (StoreDwordAtEaxFromEbx)
+                      (Do
+                        (Label TraceRootsLoop)
+                        (Do
+                          (MovEaxLabel RootScan)
+                          (Do
+                            (LoadEaxCar)
+                            (Do
+                              (CmpEaxLabel RootEnd)
+                              (Do
+                                (Jnz TraceRootProcess)
+                                (Do
+                                  (JumpNear TraceRootsDone)
+                                  (Do
+                                    (Label TraceRootProcess)
+                                    (Do
+                                      (Invoke ForwardRootSlot Empty)
+                                      (Do
+                                        (MovEaxLabel RootScan)
+                                        (Do
+                                          (LoadEaxCar)
+                                          (Do
+                                            (MovEbxEax)
+                                            (Do
+                                              (AddEbxImm8 04)
+                                              (Do
+                                                (MovEaxLabel RootScan)
+                                                (Do
+                                                  (StoreDwordAtEaxFromEbx)
+                                                  (Do
+                                                    (JumpNear TraceRootsLoop)
+                                                    (Do
+                                                      (Label TraceRootsDone)
+                                                      (Do
+                                                        (JumpNear MainLoop)
+                                                        End))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt RetryCheckedRootTableScanAllocation)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEbxEax)
+          (Do
+            (AddEbxImm8 08)
+            (Do
+              (CmpEbxLabel HeapLimit)
+              (Do
+                (IfBelowEq CommitRetry (Do (MovEaxLabel HeapNext) (Do (StoreDwordAtEaxFromEbx) (Do (PopEax) (Do (MovEbxImm32 2A) (Do (StoreDwordAtEaxFromEbx) (Do (MovEcxImm32 01) (Do (StoreDwordAtEaxPlus4FromEcx) End))))))) (Do (MovEbxImm32 09) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                End))))))))
+
+(Rule
+  (CompileStmt FinishCheckedRootTableScanForwarding)
+  (Do
+    (MovEaxLabel OldRoot)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldChild)
+              (Do
+                (MovEbxImm32 5E)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 6F)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel RootSlotA)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (MovEbxEax)
+                            (Do
+                              (MovEaxLabel RootSlotB)
+                              (Do
+                                (LoadEaxCar)
+                                (Do
+                                  (CmpEaxEbx)
+                                  (Do
+                                    (JnzNear FailRootsShared)
+                                    (Do
+                                      (MovEaxLabel HeapNext)
+                                      (Do
+                                        (LoadEaxCar)
+                                        (Do
+                                          (MovEbxLabel HeapAfterRetry)
+                                          (Do
+                                            (CmpEaxEbx)
+                                            (Do
+                                              (JnzNear FailHeapNext)
+                                              (Do
+                                                (MovEaxLabel HeapAfterCopied)
+                                                (Do
+                                                  (LoadEaxCar)
+                                                  (Do
+                                                    (CmpEaxImm8 2A)
+                                                    (Do
+                                                      (JnzNear FailRetryCar)
+                                                      (Do
+                                                        (MovEaxLabel RootSlotB)
+                                                        (Do
+                                                          (LoadEaxCar)
+                                                          (Do
+                                                            (LoadEaxCar)
+                                                            (Do
+                                                              (LoadEbxCarFromEax)
+                                                              (Do
+                                                                (MovEaxImm32 01)
+                                                                (Do
+                                                                  (Int 80)
+                                                                  (Do
+                                                                    (Label FailRootsShared)
+                                                                    (Do
+                                                                      (MovEbxImm32 01)
+                                                                      (Do
+                                                                        (MovEaxImm32 01)
+                                                                        (Do
+                                                                          (Int 80)
+                                                                          (Do
+                                                                            (Label FailHeapNext)
+                                                                            (Do
+                                                                              (MovEbxImm32 05)
+                                                                              (Do
+                                                                                (MovEaxImm32 01)
+                                                                                (Do
+                                                                                  (Int 80)
+                                                                                  (Do
+                                                                                    (Label FailRetryCar)
+                                                                                    (Do
+                                                                                      (MovEbxImm32 0A)
+                                                                                      (Do
+                                                                                        (MovEaxImm32 01)
+                                                                                        (Do
+                                                                                          (Int 80)
+                                                                                          End)))))))))))))))))))))))))))))))))))))))))))))
