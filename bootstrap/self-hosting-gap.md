@@ -209,6 +209,11 @@ Progress so far:
   focused multi-root initialization/check overlay. It also documents the next
   assembler pressure point: the longer root prologue needs a small local qfasm
   numeric extension for the widened backward `ScanCdr` call.
+- `stage5-root-table-forwarding-gc-qfc4.qf1` replaces the hard-coded two-root
+  qfc4 prologue with a root-slot table from `RootScan` to `RootEnd`.
+  `TraceRoots` forwards each slot before the shared scan-forwarding loop runs,
+  then the generated ELF verifies both root slots converge on one copied root
+  and one copied cyclic child before exiting `19`.
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
   both children point at one shared self-cyclic node, and the shared node's car

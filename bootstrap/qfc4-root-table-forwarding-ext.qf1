@@ -1,0 +1,181 @@
+; Optional qfc4 root-table forwarding collector surface.
+
+(Rule
+  (ParseStmt (JumpNearProc name))
+  (JumpNearProc name))
+
+(Rule
+  (CompileStmt (JumpNearProc name))
+  (Do (JumpNear name) End))
+
+(Rule
+  (ParseStmt (TraceRoots))
+  TraceRoots)
+
+(Rule
+  (ParseStmt (ForwardRootSlot))
+  ForwardRootSlot)
+
+(Rule
+  (ParseStmt (CheckRootTableForwarding))
+  CheckRootTableForwarding)
+
+(Rule
+  (CompileStmt TraceRoots)
+  (Do
+    (Label TraceRootsLoop)
+    (Do
+      (MovEaxLabel RootScan)
+      (Do
+        (LoadEaxCar)
+        (Do
+          (CmpEaxLabel RootEnd)
+          (Do
+            (Jnz TraceRootProcess)
+            (Do
+              (JumpNear TraceRootsDone)
+              (Do
+                (Label TraceRootProcess)
+                (Do
+                  (Invoke ForwardRootSlot Empty)
+                  (Do
+                    (MovEaxLabel RootScan)
+                    (Do
+                      (LoadEaxCar)
+                      (Do
+                        (MovEbxEax)
+                        (Do
+                          (AddEbxImm8 04)
+                          (Do
+                            (MovEaxLabel RootScan)
+                            (Do
+                              (StoreDwordAtEaxFromEbx)
+                              (Do
+                                (JumpNear TraceRootsLoop)
+                                (Do
+                                  (Label TraceRootsDone)
+                                  End)))))))))))))))))
+
+(Rule
+  (CompileStmt ForwardRootSlot)
+  (Do
+    (PushEax)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (TestAlPair)
+          (Do
+            (Jz TraceRootPair)
+            (Do
+              (PopEax)
+              (Do
+                (PopEax)
+                (Do
+                  (Ret)
+                  (Do
+                    (Label TraceRootPair)
+                    (Do
+                      (PopEax)
+                      (Do
+                        (PushEax)
+                        (Do
+                          (LoadEaxCdr)
+                          (Do
+                            (CmpEaxImm8 0F)
+                            (Do
+                              (Jnz TraceRootCopy)
+                              (Do
+                                (PopEax)
+                                (Do
+                                  (LoadEaxCar)
+                                  (Do
+                                    (MovEbxEax)
+                                    (Do
+                                      (PopEax)
+                                      (Do
+                                        (StoreDwordAtEaxFromEbx)
+                                        (Do
+                                          (Ret)
+                                          (Do
+                                            (Label TraceRootCopy)
+                                            (Do
+                                              (PopEax)
+                                              (Do
+                                                (PushEax)
+                                                (Do
+                                                  (LoadEbxCarFromEax)
+                                                  (Do
+                                                    (LoadEcxCdrFromEax)
+                                                    (Do
+                                                      (MovEaxLabel HeapNext)
+                                                      (Do
+                                                        (LoadEaxCar)
+                                                        (Do
+                                                          (StoreDwordAtEaxFromEbx)
+                                                          (Do
+                                                            (StoreDwordAtEaxPlus4FromEcx)
+                                                            (Do
+                                                              (MovEbxEax)
+                                                              (Do
+                                                                (PopEax)
+                                                                (Do
+                                                                  (PushEbx)
+                                                                  (Do
+                                                                    (StoreDwordAtEaxFromEbx)
+                                                                    (Do
+                                                                      (MovEcxImm32 0F)
+                                                                      (Do
+                                                                        (StoreDwordAtEaxPlus4FromEcx)
+                                                                        (Do
+                                                                          (PopEbx)
+                                                                          (Do
+                                                                            (PopEax)
+                                                                            (Do
+                                                                              (StoreDwordAtEaxFromEbx)
+                                                                              (Do
+                                                                                (AddEbxImm8 08)
+                                                                                (Do
+                                                                                  (MovEaxLabel HeapNext)
+                                                                                  (Do
+                                                                                    (StoreDwordAtEaxFromEbx)
+                                                                                    End))))))))))))))))))))))))))))))))))))))))))
+
+(Rule
+  (CompileStmt CheckRootTableForwarding)
+  (Do
+    (MovEaxLabel OldRoot)
+    (Do
+      (MovEbxImm32 3F)
+      (Do
+        (StoreDwordAtEaxFromEbx)
+        (Do
+          (MovEcxImm32 4D)
+          (Do
+            (StoreDwordAtEaxPlus4FromEcx)
+            (Do
+              (MovEaxLabel OldChild)
+              (Do
+                (MovEbxImm32 5E)
+                (Do
+                  (StoreDwordAtEaxFromEbx)
+                  (Do
+                    (MovEcxImm32 6F)
+                    (Do
+                      (StoreDwordAtEaxPlus4FromEcx)
+                      (Do
+                        (MovEaxLabel RootSlotA)
+                        (Do
+                          (LoadEaxCar)
+                          (Do
+                            (MovEbxEax)
+                            (Do
+                              (MovEaxLabel RootSlotB)
+                              (Do
+                                (LoadEaxCar)
+                                (Do
+                                  (CmpEaxEbx)
+                                  (Do
+                                    (IfZero RootsShared (Do (MovEaxLabel RootSlotA) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (PushEax) (Do (MovEaxLabel RootSlotA) (Do (LoadEaxCar) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero FieldsShared (Do (MovEaxLabel RootSlotA) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (PushEax) (Do (LoadEaxCdr) (Do (PopEbx) (Do (CmpEaxEbx) (Do (IfZero ChildCycleOk (Do (MovEaxLabel HeapNext) (Do (LoadEaxCar) (Do (MovEbxLabel HeapAfterCopied) (Do (CmpEaxEbx) (Do (IfZero HeapNextOk (Do (MovEaxLabel RootSlotB) (Do (LoadEaxCar) (Do (LoadEaxCar) (Do (LoadEbxCarFromEax) (Do (MovEaxImm32 01) (Do (Int 80) End)))))) (Do (MovEbxImm32 05) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End))))) (Do (MovEbxImm32 03) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))))))) (Do (MovEbxImm32 02) (Do (MovEaxImm32 01) (Do (Int 80) End)))) End)))))))))) (Do (MovEbxImm32 01) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                                    End))))))))))))))))))

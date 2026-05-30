@@ -36,6 +36,14 @@ The current build is a 32-bit static Linux executable of about 1.2 KiB. It keeps
 the runtime small by using direct syscalls, a bump allocator, pointer tagging,
 and ordered tree rewrite rules instead of a larger parser or object system.
 
+## Current Goal
+
+This repository is exploring whether a tiny rewrite-system seed can grow into a
+self-hosted compiler/runtime stack. The current session goal is narrower than
+full self-hosting: collapse the Stage 5 GC proofs toward one reusable collector
+shape. The newest checked step traces a root-slot table, forwards each root, and
+then reuses the shared scan-forwarding loop.
+
 ## Language
 
 Qfitzah reads one logical record at a time.
@@ -232,9 +240,9 @@ The main Stage 5 progress so far:
 - **Allocation and GC path**: the staged examples cover writable data, pair
   allocation, checked bump allocation, reset recovery, root copying, list and
   tree copying, forwarding for sharing/cycles, scan-forwarding, multi-root
-  forwarding at direct qfasm2 and qfc4 levels, runtime atom copying, and
-  recovered byte output. These are still focused fixtures, not a fully general
-  collector over arbitrary Qfitzah objects.
+  forwarding at direct qfasm2 and qfc4 levels, qfc4 root-table tracing,
+  runtime atom copying, and recovered byte output. These are still focused
+  fixtures, not a fully general collector over arbitrary Qfitzah objects.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atom names, and recovered runtime atoms for focused graphs.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, no-match

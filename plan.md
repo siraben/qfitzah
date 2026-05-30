@@ -116,8 +116,8 @@ capability area:
 - **Allocation and GC path**: tests cover checked pair allocation, overflow
   recovery, root copying, list/tree/object copying, forwarding for sharing and
   cycles, scan-forwarding, multi-root forwarding at direct qfasm2 and qfc4
-  levels, runtime atom copying, and recovered byte/normal output. This is still
-  a family of focused proofs.
+  levels, qfc4 root-table tracing, runtime atom copying, and recovered
+  byte/normal output. This is still a family of focused proofs.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atoms, and recovered dynamic atom graphs for focused cases.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,
@@ -141,9 +141,9 @@ capability area:
 
 ## Next Step
 
-The next meaningful Stage 5 step is to collapse the focused GC proofs into a
-single reusable collector interface: root-set enumeration, object classification,
-pair/atom relocation, forwarding lookup, scan traversal, and allocation retry
-should become shared compiled routines instead of bespoke fixtures. Once that
-exists, the compiler/runtime source can start replacing the remaining focused
-proof programs.
+The next meaningful Stage 5 step is to turn the root-table forwarding proof into
+a reusable collector interface. Root-set enumeration now exists as a checked
+qfc4 slice; object classification, pair/atom relocation, forwarding lookup, scan
+traversal, and allocation retry still need to become shared compiled routines
+instead of bespoke fixture code. Once that exists, the compiler/runtime source
+can start replacing the remaining focused proof programs.

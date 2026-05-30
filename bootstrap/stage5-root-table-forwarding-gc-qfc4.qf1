@@ -1,0 +1,68 @@
+; Stage 5 root-table scan-forwarding recovery lifted through qfc4.
+;
+; Unlike the earlier multi-root fixture, this source traces a contiguous root
+; slot table from RootScan to RootEnd. TraceRoots forwards each root slot before
+; the shared scan-forwarding loop copies children discovered from the copied
+; roots.
+
+(QfcAssemble
+  (Source
+    Start
+    (PtrCell HeapNext Heap
+    (PtrCell Scan Heap
+    (PtrCell RootScan RootSlotA
+    (PtrCell RootSlotA OldRoot
+    (PtrCell RootSlotB OldRoot
+    (Data RootEnd 00
+    (Data Heap 00
+    (Data Heap1 00
+    (Data Heap2 00
+    (Data Heap3 00
+    (Data Heap4 00
+    (Data Heap5 00
+    (Data Heap6 00
+    (Data Heap7 00
+    (Data HeapChild 00
+    (Data HeapChild1 00
+    (Data HeapChild2 00
+    (Data HeapChild3 00
+    (Data HeapChild4 00
+    (Data HeapChild5 00
+    (Data HeapChild6 00
+    (Data HeapChild7 00
+    (Data HeapAfterCopied 00
+    (Data HeapLimit 00
+    (RawPairPtrs OldRoot OldChild OldChild
+    (RawPairValPtr OldChild 13 OldChild
+    (Def
+      Start
+      NoFrame
+      (Seq
+        (CallProc TraceRoots)
+        (JumpNearProc MainLoop))
+    (Def
+      TraceRoots
+      NoFrame
+      (TraceRoots)
+    (Def
+      ForwardRootSlot
+      NoFrame
+      (ForwardRootSlot)
+    (Def
+      ScanCdr
+      NoFrame
+      (ScanForwardCdr)
+    (Def
+      MainLoop
+      NoFrame
+      (Seq
+        (Local ScanLoop)
+        (Seq
+          (CallProc ScanCdr)
+          (Seq
+            (ScanForwardCarInline)
+            (Seq
+              (AdvanceScanOrLoop ScanLoop)
+              (CheckRootTableForwarding)))))
+    End)))))))))))))))))))))))))))))))
+))

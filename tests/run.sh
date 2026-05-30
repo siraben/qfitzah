@@ -1079,6 +1079,12 @@ run_qfc4_heap_scan_forwarding_staged_binary \
   "" \
   120
 run_qfc4_heap_scan_forwarding_staged_binary \
+  "stage5-root-table-forwarding-gc-qfc4" 19 \
+  "qfc4-scan-forwarding-ext.qf1 qfc4-root-table-forwarding-ext.qf1" \
+  "qfasm-stage5-branch-ext.qf1 qfasm-root-table-forwarding-ext.qf1" \
+  "" \
+  180
+run_qfc4_heap_scan_forwarding_staged_binary \
   "stage5-scan-forwarding-complex-gc-qfc4" 19 \
   "qfc4-scan-forwarding-complex-ext.qf1" \
   "qfasm-const-compare-ext.qf1"
