@@ -145,7 +145,9 @@ capability area:
 The next meaningful Stage 5 step is to turn the root-table forwarding proof into
 a reusable collector interface. Root-set enumeration now exists as a checked
 qfc4 slice and checked allocation can now hand off to root-table scan-forwarding
-before retrying. Object classification, pair/atom relocation, forwarding lookup,
-scan traversal, and allocation retry still need to become shared compiled
-routines instead of bespoke fixture code. Once that exists, the compiler/runtime
-source can start replacing the remaining focused proof programs.
+before retrying; the checked overflow/retry qfc4 surface is shared by the
+checked root-table fixtures. Object classification, pair/atom relocation,
+forwarding lookup, scan traversal, and allocation retry still need to become
+shared compiled routines instead of bespoke fixture code. Once that exists, the
+compiler/runtime source can start replacing the remaining focused proof
+programs.

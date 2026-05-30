@@ -219,7 +219,9 @@ Progress so far:
   `HeapLimit`, the first allocation overflows, recovery traces the
   `RootScan..RootEnd` table, allocation retries after the copied root, and the
   generated ELF verifies root convergence plus the retry cell before exiting
-  through the copied root car (`19`).
+  through the copied root car (`19`). It shares its checked overflow/retry qfc4
+  rules with the scan-forwarding variant through
+  `qfc4-checked-root-table-common-ext.qf1`.
 - `stage5-checked-root-table-scan-forwarding-gc-qfc4.qf1` connects the same
   checked-overflow path to root-table tracing plus the shared scan-forwarding
   loop. Recovery copies the roots, scans the copied graph to preserve the

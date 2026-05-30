@@ -5,24 +5,14 @@ from pathlib import Path
 
 from generate_stage5_root_table_forwarding_qfc4 import bad_status
 from generate_stage5_scan_forwarding_qfc4 import compile_rule, do_expr, qfc4_defs_block
+from stage5_checked_root_table_common_qfc4 import (
+    write_checked_root_table_common_ext,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 QFC4_EXT_OUT = ROOT / "bootstrap" / "qfc4-checked-root-table-scan-forwarding-ext.qf1"
 QFC4_SRC_OUT = ROOT / "bootstrap" / "stage5-checked-root-table-scan-forwarding-gc-qfc4.qf1"
-
-
-def initial_checked_overflow():
-    return [
-        "(MovEaxLabel HeapNext)",
-        "(LoadEaxCar)",
-        "(MovEbxEax)",
-        "(AddEbxImm8 08)",
-        "(CmpEbxLabel HeapLimit)",
-        "(IfBelowEq UnexpectedInitialCommit "
-        + do_expr(bad_status("08"))
-        + " (Do (JumpNear Recover) End))",
-    ]
 
 
 def recover_root_table_and_trace():
@@ -54,34 +44,6 @@ def recover_root_table_and_trace():
         "(JumpNear TraceRootsLoop)",
         "(Label TraceRootsDone)",
         "(JumpNear MainLoop)",
-    ]
-
-
-def commit_retry_body():
-    return [
-        "(MovEaxLabel HeapNext)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(PopEax)",
-        "(MovEbxImm32 2A)",
-        "(StoreDwordAtEaxFromEbx)",
-        "(MovEcxImm32 01)",
-        "(StoreDwordAtEaxPlus4FromEcx)",
-    ]
-
-
-def retry_checked_allocation():
-    return [
-        "(MovEaxLabel HeapNext)",
-        "(LoadEaxCar)",
-        "(PushEax)",
-        "(MovEbxEax)",
-        "(AddEbxImm8 08)",
-        "(CmpEbxLabel HeapLimit)",
-        "(IfBelowEq CommitRetry "
-        + do_expr(commit_retry_body())
-        + " "
-        + do_expr(bad_status("09"))
-        + ")",
     ]
 
 
@@ -136,9 +98,7 @@ def finish_checked_scan_forwarding():
 
 def write_qfc4_extension():
     names = [
-        "InitialCheckedRootTableScanOverflow",
         "RecoverRootTableAndTraceForScan",
-        "RetryCheckedRootTableScanAllocation",
         "FinishCheckedRootTableScanForwarding",
     ]
 
@@ -153,9 +113,7 @@ def write_qfc4_extension():
         )
 
     for name, instrs in [
-        ("InitialCheckedRootTableScanOverflow", initial_checked_overflow()),
         ("RecoverRootTableAndTraceForScan", recover_root_table_and_trace()),
-        ("RetryCheckedRootTableScanAllocation", retry_checked_allocation()),
         ("FinishCheckedRootTableScanForwarding", finish_checked_scan_forwarding()),
     ]:
         qfc4.append(compile_rule(name, instrs))
@@ -204,7 +162,7 @@ def write_qfc4_source():
       Start
       NoFrame
       (Seq
-        (InitialCheckedRootTableScanOverflow)
+        (InitialCheckedRootTableOverflow)
         (JumpNearProc Recover))""",
         """(Def
       Recover
@@ -230,7 +188,7 @@ def write_qfc4_source():
             (Seq
               (AdvanceScanOrLoop ScanLoop)
               (Seq
-                (RetryCheckedRootTableScanAllocation)
+                (RetryCheckedRootTableAllocation)
                 (FinishCheckedRootTableScanForwarding))))))""",
     ]
 
@@ -253,6 +211,7 @@ def write_qfc4_source():
 
 
 def main():
+    write_checked_root_table_common_ext()
     write_qfc4_extension()
     write_qfc4_source()
 

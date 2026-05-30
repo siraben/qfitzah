@@ -1,0 +1,43 @@
+; Optional shared qfc4 surface for checked root-table collection.
+
+(Rule
+  (ParseStmt (InitialCheckedRootTableOverflow))
+  InitialCheckedRootTableOverflow)
+
+(Rule
+  (ParseStmt (RetryCheckedRootTableAllocation))
+  RetryCheckedRootTableAllocation)
+
+(Rule
+  (CompileStmt InitialCheckedRootTableOverflow)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (MovEbxEax)
+        (Do
+          (AddEbxImm8 08)
+          (Do
+            (CmpEbxLabel HeapLimit)
+            (Do
+              (IfBelowEq UnexpectedInitialCommit (Do (MovEbxImm32 08) (Do (MovEaxImm32 01) (Do (Int 80) End))) (Do (JumpNear Recover) End))
+              End)))))))
+
+(Rule
+  (CompileStmt RetryCheckedRootTableAllocation)
+  (Do
+    (MovEaxLabel HeapNext)
+    (Do
+      (LoadEaxCar)
+      (Do
+        (PushEax)
+        (Do
+          (MovEbxEax)
+          (Do
+            (AddEbxImm8 08)
+            (Do
+              (CmpEbxLabel HeapLimit)
+              (Do
+                (IfBelowEq CommitRetry (Do (MovEaxLabel HeapNext) (Do (StoreDwordAtEaxFromEbx) (Do (PopEax) (Do (MovEbxImm32 2A) (Do (StoreDwordAtEaxFromEbx) (Do (MovEcxImm32 01) (Do (StoreDwordAtEaxPlus4FromEcx) End))))))) (Do (MovEbxImm32 09) (Do (MovEaxImm32 01) (Do (Int 80) End))))
+                End))))))))

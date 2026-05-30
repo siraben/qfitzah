@@ -47,7 +47,7 @@
       Start
       NoFrame
       (Seq
-        (InitialCheckedRootTableScanOverflow)
+        (InitialCheckedRootTableOverflow)
         (JumpNearProc Recover))
     (Def
       Recover
@@ -73,7 +73,7 @@
             (Seq
               (AdvanceScanOrLoop ScanLoop)
               (Seq
-                (RetryCheckedRootTableScanAllocation)
+                (RetryCheckedRootTableAllocation)
                 (FinishCheckedRootTableScanForwarding))))))
     End)))))))))))))))))))))))))))))))))))))))
 ))
