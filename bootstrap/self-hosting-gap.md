@@ -199,6 +199,11 @@ Progress so far:
   the child once, records a forwarding marker, rewrites both root fields and
   the child's self-edge to the copied child, checks `HeapNext`, and exits
   through the copied child car (`19`).
+- `stage5-multi-root-forwarding-gc.qf1` extends that direct proof to a small
+  root set. Two root slots initially point at the same old root; recovery
+  copies that root once, updates the second root through the forwarding marker,
+  scans the copied root, and verifies that both roots share one copied root and
+  one copied cyclic child before exiting `19`.
 - `stage5-scan-forwarding-complex-gc.qf1` exercises the same qfasm2-level
   scan-forwarding loop on a larger mixed graph. Root has two distinct children,
   both children point at one shared self-cyclic node, and the shared node's car

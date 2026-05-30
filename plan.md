@@ -228,6 +228,13 @@ rewrites both root fields and the child's self-edge to the copied child, checks
 that allocation advanced by only two cells, and exits through the copied child
 (`19`). This is the first focused proof that the scan loop and forwarding
 marker can cooperate on a cyclic shared graph.
+`bootstrap/stage5-multi-root-forwarding-gc.qf1` extends the direct qfasm2
+forwarding proof to two live root slots that initially point at the same old
+root. Recovery copies that root once, updates the first root, updates the
+second root through the forwarding marker, then lets the scan loop copy the
+shared cyclic child once. The generated ELF verifies that both roots converge
+on the same copied root, that the copied root's two fields share the same copied
+child, and that `HeapNext` advanced by exactly two copied cells.
 `bootstrap/stage5-scan-forwarding-complex-gc.qf1` applies the same direct
 qfasm2 scan-forwarding loop to a larger graph: root points to two separate
 children, both children converge on one shared self-cyclic node, the shared

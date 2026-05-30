@@ -231,9 +231,10 @@ The main Stage 5 progress so far:
   checks for focused static and recovered-object fixtures.
 - **Allocation and GC path**: the staged examples cover writable data, pair
   allocation, checked bump allocation, reset recovery, root copying, list and
-  tree copying, forwarding for sharing/cycles, scan-forwarding, runtime atom
-  copying, and recovered byte output. These are still focused fixtures, not a
-  fully general collector over arbitrary Qfitzah objects.
+  tree copying, forwarding for sharing/cycles, scan-forwarding, multi-root
+  forwarding, runtime atom copying, and recovered byte output. These are still
+  focused fixtures, not a fully general collector over arbitrary Qfitzah
+  objects.
 - **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
   multi-byte atom names, and recovered runtime atoms for focused graphs.
 - **Multiple dispatch**: qfc4 can compile linked dispatch tables, no-match
