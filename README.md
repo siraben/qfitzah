@@ -246,6 +246,13 @@ The main Stage 5 progress so far:
   known-branch reduction, dead-code elimination after exits/returns, and a
   focused tail-call lowering.
 
+Roadmap status: Stage 5 Task 5.2 (multiple dispatch) and Task 5.3
+(optimization passes) are implemented as checked staged proofs. Task 5.1
+remains open because the GC work is still a family of focused collector proofs,
+not a general collector over arbitrary Qfitzah live objects. Task 5.4 remains
+open because no Stage 5 compiler/runtime has rebuilt itself with byte-identical
+output yet.
+
 What remains before this can honestly be called self-hosting:
 
 - replace finite arithmetic/layout tables with general generated or compiled

@@ -397,6 +397,14 @@ Progress so far:
   `TailCallProc`, so the generated wrapper jumps directly to its target and
   exits through the target's code.
 
+Task 5.2 is now covered by the dispatch-table, linked-chain, miss-path,
+runtime-argument, mutable-argument, and mutable-method fixtures. Task 5.3 is
+covered by the qfc4 optimizer fixtures for constant folding, known-branch
+reduction, dead-code elimination, and tail-call lowering. These are still
+implemented as optional overlays where needed to respect the seed runtime's
+source-size budget; collapsing those overlays into the common compiler remains
+a cleanup target, not a blocker for the task-level proofs.
+
 Still required for the byte-output path:
 
 - extending scan-forwarding from focused and mixed pair graphs to arbitrary

@@ -440,9 +440,9 @@ inputs now use that readable multi-line style.
 
 - [ ] **Task 5.1: Implement Garbage Collection (GC)**
   Implement a basic allocator and garbage collector (such as a stop-and-copy or mark-and-sweep collector) to replace the non-reclaimed arena allocator.
-- [ ] **Task 5.2: Compile Multiple Dispatch Tables**
+- [x] **Task 5.2: Compile Multiple Dispatch Tables**
   Implement compilation of dynamic multiple-dispatch method tables, mapping method signatures to concrete runtime addresses.
-- [ ] **Task 5.3: Add Basic Optimization Passes**
+- [x] **Task 5.3: Add Basic Optimization Passes**
   Integrate optimization passes in the compiler, including tail-call optimization (TCO), constant folding, and dead-code elimination.
 - [ ] **Task 5.4: Execute Reproducibility Verification**
   Compile the Stage 5 compiler using the Stage 4 compiler, and then compile the Stage 5 compiler with itself to verify binary identity (reproducibility).
