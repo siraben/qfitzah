@@ -215,8 +215,12 @@ for name, ext in [("ShlI8", 4), ("ShrI8", 5), ("SarI8", 7)]:
 for name, ext in [("NotR", 2), ("NegR", 3), ("MulR", 4), ("DivR", 6),
                   ("IDivR", 7)]:
     ins(name, ["r"], 2, f"F7 (RMX {ext} r)")
+ins("TestRI8", ["r", "b"], 3, "F6 (RMX 0 r) b")   # test low8(r), imm8
+ins("IMulRR", ["d", "s"], 3, "0F AF (RM11 d s)")
 ins("CallR", ["r"], 2, "FF (RMX 2 r)")
 ins("JmpR", ["r"], 2, "FF (RMX 4 r)")
+ins("PushI32", ["x"], 5, "68 (LEB x)")
+ins("PushI8", ["b"], 2, "6A b")
 
 # imm32 ALU via 0x81 /ext; mov reg, imm32
 for name, ext in [("AddI32", 0), ("AndI32", 4), ("SubI32", 5),
@@ -233,6 +237,7 @@ ins("MovMR", ["b", "r"], 2, "89 (RM00 b r)")          # [b] = r
 ins("MovRMD", ["r", "b", "d"], 3, "8B (RM01 b r) d")  # r = [b+d8]
 ins("MovMDR", ["b", "d", "r"], 3, "89 (RM01 b r) d")  # [b+d8] = r
 ins("MovzxRMb", ["r", "b"], 3, "0F B6 (RM00 b r)")    # r = zx byte [b]
+ins("MovzxRMDb", ["r", "b", "d"], 4, "0F B6 (RM01 b r) d")
 ins("MovbMR", ["b", "r"], 2, "88 (RM00 b r)")         # byte [b] = low8(r)
 ins("LeaRMD", ["r", "b", "d"], 3, "8D (RM01 b r) d")  # r = b + disp8
 
@@ -267,9 +272,9 @@ rule("(Lookup name (Bind other pc rest))", "(Lookup name rest)")
 rule("(Lookup name (Bind name pc rest))", "pc")
 
 section("Virtual addresses and ELF layout arithmetic.")
-rule("(VBase)", "(X8 0 8 0 4 8 0 5 4)")
+rule("(VBase)", "(X8 0 8 0 4 8 0 5 8)")
 rule("(VAddr off)", "(Add32 (VBase) off)")
-rule("(HdrSize)", "(X8 0 0 0 0 0 0 5 4)")
+rule("(HdrSize)", "(X8 0 0 0 0 0 0 5 8)")
 rule("(FileSz size)", "(Add32 (HdrSize) size)")
 
 section("Instruction sizes.")
@@ -339,7 +344,8 @@ rule("(ElfHeader entryoff codesize bss)",
      " 00 80 04 08 00 80 04 08"
      " (LEB (FileSz codesize))"
      " (LEB (Add32 (FileSz codesize) bss))"
-     " 07 00 00 00 00 10 00 00)")
+     " 07 00 00 00 00 10 00 00"
+     " 00 00 00 00)")
 
 section("Top level.")
 rule("(Assemble (Program entry code))",

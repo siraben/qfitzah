@@ -28,7 +28,7 @@ RN = {r: i for i, r in enumerate(REGS)}
 GP = ["EAX", "ECX", "EDX", "EBX", "ESI", "EDI"]
 BASE01 = ["EAX", "ECX", "EDX", "EBX", "EBP", "ESI", "EDI"]
 BASE00 = ["EAX", "ECX", "EDX", "EBX", "ESI", "EDI"]
-VBASE = 0x08048054
+VBASE = 0x08048058
 
 
 def x8(v):
@@ -58,9 +58,9 @@ def elf(entryoff, code, bss=0):
     hdr += struct.pack("<III", 0x34, 0, 0)
     hdr += struct.pack("<HHHHHH", 0x34, 0x20, 1, 0, 0, 0)
     hdr += struct.pack("<IIII", 1, 0, 0x08048000, 0x08048000)
-    hdr += struct.pack("<III", 0x54 + len(code), 0x54 + len(code) + bss, 7)
+    hdr += struct.pack("<III", 0x58 + len(code), 0x58 + len(code) + bss, 7)
     hdr += struct.pack("<I", 0x1000)
-    return hdr + code
+    return hdr + b"\x00" * 4 + code
 
 
 def program(items, bss=0):

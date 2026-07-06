@@ -1205,9 +1205,9 @@
 (Lookup name (Bind name pc rest)) pc
 
 ; Virtual addresses and ELF layout arithmetic.
-(VBase) (X8 0 8 0 4 8 0 5 4)
+(VBase) (X8 0 8 0 4 8 0 5 8)
 (VAddr off) (Add32 (VBase) off)
-(HdrSize) (X8 0 0 0 0 0 0 5 4)
+(HdrSize) (X8 0 0 0 0 0 0 5 8)
 (FileSz size) (Add32 (HdrSize) size)
 
 ; Instruction sizes.
@@ -1257,8 +1257,12 @@
 (Size (MulR r)) (Small 2)
 (Size (DivR r)) (Small 2)
 (Size (IDivR r)) (Small 2)
+(Size (TestRI8 r b)) (Small 3)
+(Size (IMulRR d s)) (Small 3)
 (Size (CallR r)) (Small 2)
 (Size (JmpR r)) (Small 2)
+(Size (PushI32 x)) (Small 5)
+(Size (PushI8 b)) (Small 2)
 (Size (AddI32 r x)) (Small 6)
 (Size (AndI32 r x)) (Small 6)
 (Size (SubI32 r x)) (Small 6)
@@ -1271,6 +1275,7 @@
 (Size (MovRMD r b d)) (Small 3)
 (Size (MovMDR b d r)) (Small 3)
 (Size (MovzxRMb r b)) (Small 3)
+(Size (MovzxRMDb r b d)) (Small 4)
 (Size (MovbMR b r)) (Small 2)
 (Size (LeaRMD r b d)) (Small 3)
 (Size (MovRMemL r l)) (Small 6)
@@ -1371,8 +1376,12 @@
 (Pass2 (Ins (MulR r) rest) pc sym) (Bytes F7 (RMX 4 r) (Pass2 rest (Add32 pc (Small 2)) sym))
 (Pass2 (Ins (DivR r) rest) pc sym) (Bytes F7 (RMX 6 r) (Pass2 rest (Add32 pc (Small 2)) sym))
 (Pass2 (Ins (IDivR r) rest) pc sym) (Bytes F7 (RMX 7 r) (Pass2 rest (Add32 pc (Small 2)) sym))
+(Pass2 (Ins (TestRI8 r b) rest) pc sym) (Bytes F6 (RMX 0 r) b (Pass2 rest (Add32 pc (Small 3)) sym))
+(Pass2 (Ins (IMulRR d s) rest) pc sym) (Bytes 0F AF (RM11 d s) (Pass2 rest (Add32 pc (Small 3)) sym))
 (Pass2 (Ins (CallR r) rest) pc sym) (Bytes FF (RMX 2 r) (Pass2 rest (Add32 pc (Small 2)) sym))
 (Pass2 (Ins (JmpR r) rest) pc sym) (Bytes FF (RMX 4 r) (Pass2 rest (Add32 pc (Small 2)) sym))
+(Pass2 (Ins (PushI32 x) rest) pc sym) (Bytes 68 (LEB x) (Pass2 rest (Add32 pc (Small 5)) sym))
+(Pass2 (Ins (PushI8 b) rest) pc sym) (Bytes 6A b (Pass2 rest (Add32 pc (Small 2)) sym))
 (Pass2 (Ins (AddI32 r x) rest) pc sym) (Bytes 81 (RMX 0 r) (LEB x) (Pass2 rest (Add32 pc (Small 6)) sym))
 (Pass2 (Ins (AndI32 r x) rest) pc sym) (Bytes 81 (RMX 4 r) (LEB x) (Pass2 rest (Add32 pc (Small 6)) sym))
 (Pass2 (Ins (SubI32 r x) rest) pc sym) (Bytes 81 (RMX 5 r) (LEB x) (Pass2 rest (Add32 pc (Small 6)) sym))
@@ -1385,6 +1394,7 @@
 (Pass2 (Ins (MovRMD r b d) rest) pc sym) (Bytes 8B (RM01 b r) d (Pass2 rest (Add32 pc (Small 3)) sym))
 (Pass2 (Ins (MovMDR b d r) rest) pc sym) (Bytes 89 (RM01 b r) d (Pass2 rest (Add32 pc (Small 3)) sym))
 (Pass2 (Ins (MovzxRMb r b) rest) pc sym) (Bytes 0F B6 (RM00 b r) (Pass2 rest (Add32 pc (Small 3)) sym))
+(Pass2 (Ins (MovzxRMDb r b d) rest) pc sym) (Bytes 0F B6 (RM01 b r) d (Pass2 rest (Add32 pc (Small 4)) sym))
 (Pass2 (Ins (MovbMR b r) rest) pc sym) (Bytes 88 (RM00 b r) (Pass2 rest (Add32 pc (Small 2)) sym))
 (Pass2 (Ins (LeaRMD r b d) rest) pc sym) (Bytes 8D (RM01 b r) d (Pass2 rest (Add32 pc (Small 3)) sym))
 (Pass2 (Ins (MovRMemL r l) rest) pc sym) (Bytes 8B (RM05 r) (LEB (VAddr (Lookup l sym))) (Pass2 rest (Add32 pc (Small 6)) sym))
@@ -1423,7 +1433,7 @@
 (Pass2 (Ins (Jg32 l) rest) pc sym) (Bytes 0F 8F (LEB (Sub32 (Lookup l sym) (Add32 pc (Small 6)))) (Pass2 rest (Add32 pc (Small 6)) sym))
 
 ; ELF emission: one RWE LOAD segment, optional extra bss memory.
-(ElfHeader entryoff codesize bss) (Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (LEB (VAddr entryoff)) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (LEB (FileSz codesize)) (LEB (Add32 (FileSz codesize) bss)) 07 00 00 00 00 10 00 00)
+(ElfHeader entryoff codesize bss) (Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (LEB (VAddr entryoff)) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (LEB (FileSz codesize)) (LEB (Add32 (FileSz codesize) bss)) 07 00 00 00 00 10 00 00 00 00 00 00)
 
 ; Top level.
 (Assemble (Program entry code)) (Assemble (Program entry (Small 0) code))
