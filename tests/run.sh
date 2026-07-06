@@ -293,6 +293,76 @@ run_sc1_fixpoint() {
 
 run_sc1_fixpoint
 
+## Stage 4: the rsc R5RS-subset compiler. rsc.scm is written in the sc1 subset,
+## so sc1.elf (built above, reused here) compiles it to rscA.elf. rsc then
+## self-hosts: rscA compiles rsc.scm -> rscB.qfasm, rscB compiles rsc.scm ->
+## rscC.qfasm, and rscB must equal rscC byte-for-byte. Finally an R5RS corpus
+## (macros, quasiquote, vectors, apply, library) is compiled by rscA, assembled,
+## run, and diffed. The seed assemblies of the ~25k-instruction compiler are
+## slow, hence the wide timeouts.
+rsc_scm="$repo_root/bootstrap/rsc.scm"
+rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
+RSC_ELF=""
+# R5RS corpus cases, filled in as Stage 4 features land.
+RSC_CASES=""
+
+run_rsc_fixpoint() {
+  local sc1elf rscAqf rscBqf rscBelf rscCqf
+  sc1elf=$scheme0_dir/sc1.elf            # built by run_sc1_fixpoint, reused
+  # sc1.elf compiles rsc.scm -> rscA.elf.
+  rscAqf=$scheme0_dir/rscA.qfasm
+  cat "$sc1_reader" "$rsc_scm" | timeout 120s "$sc1elf" > "$rscAqf"
+  RSC_ELF=$scheme0_dir/rscA.elf
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscAqf" \
+    | timeout 900s "$qfitzah" > "$RSC_ELF"
+  chmod +x "$RSC_ELF"
+  # Fixpoint: rscA -> rscB.qfasm, rscB -> rscC.qfasm, require rscB == rscC.
+  rscBqf=$scheme0_dir/rscB.qfasm
+  rscBelf=$scheme0_dir/rscB.elf
+  rscCqf=$scheme0_dir/rscC.qfasm
+  cat "$sc1_reader" "$rsc_scm" | timeout 120s "$RSC_ELF" > "$rscBqf"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscBqf" \
+    | timeout 900s "$qfitzah" > "$rscBelf"
+  chmod +x "$rscBelf"
+  cat "$sc1_reader" "$rsc_scm" | timeout 120s "$rscBelf" > "$rscCqf"
+  if ! cmp "$rscBqf" "$rscCqf"; then
+    printf 'FAIL rsc-fixpoint: rscB.qfasm not byte-identical to rscC.qfasm\n' >&2
+    exit 1
+  fi
+  printf 'ok - rsc-fixpoint (self-compile byte-identical)\n'
+}
+
+run_rsc_case() {
+  local name=$1
+  local qfasm elf actual
+  qfasm=$scheme0_dir/$name.qfasm
+  elf=$scheme0_dir/$name.elf
+  actual=$scheme0_dir/$name.out
+  cat "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+    | timeout 300s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  set +e
+  timeout 60s "$elf" > "$actual"
+  local status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    printf 'FAIL %s: compiled program exited %s\n' "$name" "$status" >&2
+    cat "$actual" >&2
+    exit 1
+  fi
+  if ! diff -u "$case_dir/$name.expected" "$actual" >&2; then
+    printf 'FAIL %s: output differs\n' "$name" >&2
+    exit 1
+  fi
+  printf 'ok - %s\n' "$name"
+}
+
+run_rsc_fixpoint
+for rsc_case in $RSC_CASES; do
+  run_rsc_case "$rsc_case"
+done
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'
