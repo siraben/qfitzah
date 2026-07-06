@@ -1,0 +1,8 @@
+apply1: 10
+apply2: 15
+apply-cons: (1 . 2)
+apply-list: (1 2 3 4)
+apply-empty: 0
+varargs: 15
+multi-map: (11 22 33)
+tail-apply: done

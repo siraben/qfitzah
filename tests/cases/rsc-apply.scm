@@ -1,0 +1,17 @@
+; Stage 4 corpus: apply and varargs, including tail-position apply.
+(display "apply1: ") (display (apply + '(1 2 3 4))) (newline)
+(display "apply2: ") (display (apply + 1 2 '(3 4 5))) (newline)
+(display "apply-cons: ") (write (apply cons '(1 2))) (newline)
+(display "apply-list: ") (write (apply list 1 2 '(3 4))) (newline)
+(display "apply-empty: ") (display (apply + '())) (newline)
+(define (sum . xs) (apply + xs))
+(display "varargs: ") (display (sum 1 2 3 4 5)) (newline)
+(define (my-map f . lss)
+  (if (null? (car lss))
+      '()
+      (cons (apply f (map car lss))
+            (apply my-map f (map cdr lss)))))
+(display "multi-map: ") (write (my-map + '(1 2 3) '(10 20 30))) (newline)
+; apply in tail position, deeply -> must run in constant machine stack
+(define (loop n) (if (= n 0) 'done (apply loop (list (- n 1)))))
+(display "tail-apply: ") (display (loop 200000)) (newline)

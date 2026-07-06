@@ -32,6 +32,7 @@
   (cond ((and (pair? a) (pair? b))
          (and (equal? (car a) (car b)) (equal? (cdr a) (cdr b))))
         ((and (string? a) (string? b)) (string=? a b))
+        ((and (vector? a) (vector? b)) (equal? (vector->list a) (vector->list b)))
         (else (eqv? a b))))
 (define (memq x l) (cond ((null? l) #f) ((eq? x (car l)) l) (else (memq x (cdr l)))))
 (define (memv x l) (cond ((null? l) #f) ((eqv? x (car l)) l) (else (memv x (cdr l)))))
@@ -91,3 +92,5 @@
         ((char>? (string-ref a i) (string-ref b i)) #f)
         (else (str-lt a b (+ i 1) na nb))))
 (define (string<? a b) (str-lt a b 0 (string-length a) (string-length b)))
+(define (vfill v x i n) (if (< i n) (begin (vector-set! v i x) (vfill v x (+ i 1) n)) #f))
+(define (vector-fill! v x) (vfill v x 0 (vector-length v)))

@@ -109,7 +109,9 @@
     string? char? procedure? boolean? not + - * quotient remainder = < > <= >=
     display write newline read-char peek-char eof-object? char->integer
     integer->char string-length string-ref string->symbol symbol->string
-    list->string error exit))
+    list->string make-string string-set! apply
+    make-vector vector vector-ref vector-set! vector-length vector?
+    vector->list list->vector error exit))
 (define (is-prim? name) (if (memq name prim-names) #t #f))
 
 (define (register-global name)

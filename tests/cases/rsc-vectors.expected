@@ -1,0 +1,12 @@
+vec: #(a b c)
+ref: b
+len: 3
+vector: #(1 2 3 4)
+v->l: (x y z)
+l->v: #(10 20 30)
+vec?: (#t #f #f)
+nested: #(1 #(2 3) (4 5))
+make0: #()
+fill: #(9 9 9)
+equal?: #t
+mstr: "xYxZ"

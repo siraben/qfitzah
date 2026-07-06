@@ -66,6 +66,12 @@ PRIMS = [("cons", "PrCons"), ("car", "PrCar"), ("cdr", "PrCdr"),
          ("string-length", "PrStrLen"), ("string-ref", "PrStrRef"),
          ("string->symbol", "PrStrSym"), ("symbol->string", "PrSymStr"),
          ("list->string", "PrListStr"),
+         ("make-string", "PrMakeStr"), ("string-set!", "PrStrSet"),
+         ("apply", "PrApply"),
+         ("make-vector", "PrMakeVec"), ("vector", "PrVector"),
+         ("vector-ref", "PrVecRef"), ("vector-set!", "PrVecSet"),
+         ("vector-length", "PrVecLen"), ("vector?", "PrVecQ"),
+         ("vector->list", "PrVecList"), ("list->vector", "PrListVec"),
          ("error", "PrError"), ("exit", "PrExit")]
 
 C = []   # code instructions
@@ -684,6 +690,257 @@ I("(SubRR ECX EAX)")
 MOVRI("EDX", 1)
 I("(Jmp32 AllocObj)")
 
+# --- make-string / string-set! (mutable byte buffers) -----------------------
+PL("PrMakeStr")
+I("(MovRM ECX EAX)")               # ECX = k fixnum
+I("(SarI8 ECX 02)")                # k int
+I("(MovRMD EDX EAX 04)")           # EDX = cdr (fill?)
+I("(TestRI8 EDX 03)")
+I("(Jz (MS 0))")
+MOVRI("EBX", 0x20)                 # default fill = space
+I("(JmpS (MS 1))")
+L("(MS 0)")
+I("(MovRM EBX EDX)")               # EBX = fill char immediate
+I("(ShrI8 EBX 08)")                # byte
+L("(MS 1)")
+I("(MovRMemL EDI GByteFree)")
+I("(PushR EDI)")
+I("(PushR ECX)")
+L("(MS 2)")
+I("(TestRR ECX ECX)")
+I("(Jz (MS 3))")
+I("(MovbMR EDI EBX)")
+I("(IncR EDI)")
+I("(DecR ECX)")
+I("(JmpS (MS 2))")
+L("(MS 3)")
+I("(MovRR EAX EDI)")
+I("(AddI8 EAX 07)")
+I("(AndI8 EAX F8)")
+I("(MovMemLR GByteFree EAX)")
+I("(PopR ECX)")
+I("(PopR EAX)")
+I("(OrI8 EAX 01)")                 # subtype 1 = string
+I("(PushR EAX)")
+I("(MovRR EAX ECX)")
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(MovRR ECX EAX)")
+I("(PopR EAX)")
+call("Cons")
+I("(OrI8 EAX 02)")
+I("(Ret)")
+
+PL("PrStrSet")
+I("(MovRM ECX EAX)")               # ECX = s obj
+I("(MovRMD EAX EAX 04)")           # EAX = (i ch)
+I("(MovRM EDX EAX)")               # EDX = i fixnum
+I("(SarI8 EDX 02)")                # i (byte offset)
+I("(MovRMD EAX EAX 04)")           # EAX = (ch)
+I("(MovRM EAX EAX)")               # EAX = ch immediate
+I("(ShrI8 EAX 08)")                # byte in AL
+I("(SubI8 ECX 02)")
+I("(MovRM ECX ECX)")               # car = buffer|1
+I("(AndI8 ECX F8)")                # buffer
+I("(AddRR ECX EDX)")               # buffer + i
+I("(MovbMR ECX EAX)")              # [buffer+i] = AL
+MOVRI("EAX", UNSPEC)
+I("(Ret)")
+
+# --- apply: (apply f a b ... lst). Splices the fixed args onto lst and
+# --- tail-jumps into f, so tail apply does not grow the machine stack. -------
+L("AppendArgs")                    # EAX = (a1 ... lastlist), >=1 elt -> spliced
+I("(MovRMD ECX EAX 04)")           # ECX = cdr
+I("(TestRI8 ECX 03)")
+I("(Jnz (APA 1))")                 # cdr not a pair -> car is the final list
+I("(PushR EAX)")
+I("(MovRR EAX ECX)")
+call("AppendArgs")                 # EAX = spliced rest
+I("(PopR ECX)")                    # ECX = saved node
+I("(MovRR EDX EAX)")               # EDX = spliced rest
+I("(MovRM EAX ECX)")               # EAX = car
+I("(MovRR ECX EDX)")               # ECX = cdr = spliced rest
+I("(Jmp32 Cons)")
+L("(APA 1)")
+I("(MovRM EAX EAX)")               # EAX = car = final list
+I("(Ret)")
+
+PL("PrApply")
+I("(MovRM EBX EAX)")               # EBX = f
+I("(MovRMD EAX EAX 04)")           # EAX = (a1 ... lastlist)
+I("(TestRI8 EAX 03)")
+I("(Jz (APL 1))")
+MOVRI("EAX", NIL)                  # (apply f) -> empty arglist
+I("(JmpS (APL 2))")
+L("(APL 1)")
+call("AppendArgs")
+L("(APL 2)")
+I("(MovRR ESI EBX)")               # invoke closure EBX with arglist EAX
+I("(SubI8 ESI 02)")
+I("(MovRM ESI ESI)")
+I("(AndI8 ESI F8)")
+I("(MovRMD EDI ESI 04)")           # EDI = captured env
+I("(MovRM ESI ESI)")               # ESI = code
+I("(JmpR ESI)")                    # tail-jump
+
+# --- vectors (object subtype 4: car = eltbuf|4, cdr = length fixnum) --------
+PL("PrMakeVec")
+I("(MovRM ECX EAX)")               # ECX = k fixnum
+I("(SarI8 ECX 02)")                # k int
+I("(MovRMD EDX EAX 04)")           # EDX = cdr (fill?)
+I("(TestRI8 EDX 03)")
+I("(Jz (MV 0))")
+MOVRI("EBX", FALSE)                # default fill = #f
+I("(JmpS (MV 1))")
+L("(MV 0)")
+I("(MovRM EBX EDX)")               # EBX = fill value
+L("(MV 1)")
+I("(MovRMemL EDI GByteFree)")
+I("(PushR EDI)")
+I("(PushR ECX)")
+L("(MV 2)")
+I("(TestRR ECX ECX)")
+I("(Jz (MV 3))")
+I("(MovMR EDI EBX)")               # store fill word
+I("(AddI8 EDI 04)")
+I("(DecR ECX)")
+I("(JmpS (MV 2))")
+L("(MV 3)")
+I("(MovRR EAX EDI)")
+I("(AddI8 EAX 07)")
+I("(AndI8 EAX F8)")
+I("(MovMemLR GByteFree EAX)")
+I("(PopR ECX)")
+I("(PopR EAX)")
+I("(OrI8 EAX 04)")                 # subtype 4 = vector
+I("(PushR EAX)")
+I("(MovRR EAX ECX)")
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(MovRR ECX EAX)")
+I("(PopR EAX)")
+call("Cons")
+I("(OrI8 EAX 02)")
+I("(Ret)")
+
+PL("PrVector")
+I("(MovRR EDX EAX)")               # element list = arglist
+I("(Jmp32 VecFromList)")
+
+PL("PrListVec")
+I("(MovRM EDX EAX)")               # EDX = the list argument
+I("(Jmp32 VecFromList)")
+
+L("VecFromList")                   # EDX = list -> vector in EAX
+I("(XorRR ECX ECX)")
+I("(MovRR EBX EDX)")
+L("(LV 1)")
+I("(TestRI8 EBX 03)")
+I("(Jnz (LV 2))")
+I("(IncR ECX)")
+I("(MovRMD EBX EBX 04)")
+I("(JmpS (LV 1))")
+L("(LV 2)")
+I("(MovRMemL EDI GByteFree)")
+I("(PushR EDI)")
+I("(PushR ECX)")
+I("(MovRR EBX EDX)")
+L("(LV 3)")
+I("(TestRI8 EBX 03)")
+I("(Jnz (LV 4))")
+I("(MovRM EAX EBX)")
+I("(MovMR EDI EAX)")
+I("(AddI8 EDI 04)")
+I("(MovRMD EBX EBX 04)")
+I("(JmpS (LV 3))")
+L("(LV 4)")
+I("(MovRR EAX EDI)")
+I("(AddI8 EAX 07)")
+I("(AndI8 EAX F8)")
+I("(MovMemLR GByteFree EAX)")
+I("(PopR ECX)")
+I("(PopR EAX)")
+I("(OrI8 EAX 04)")
+I("(PushR EAX)")
+I("(MovRR EAX ECX)")
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(MovRR ECX EAX)")
+I("(PopR EAX)")
+call("Cons")
+I("(OrI8 EAX 02)")
+I("(Ret)")
+
+PL("PrVecRef")
+I("(MovRM ECX EAX)")               # ECX = v obj
+I("(MovRMD EAX EAX 04)")           # EAX = (i)
+I("(MovRM EAX EAX)")               # EAX = i fixnum
+I("(AndI8 EAX FC)")                # i*4 (clear tag)
+I("(SubI8 ECX 02)")
+I("(MovRM ECX ECX)")               # car = buffer|4
+I("(AndI8 ECX F8)")                # buffer
+I("(AddRR ECX EAX)")
+I("(MovRM EAX ECX)")               # element
+I("(Ret)")
+
+PL("PrVecSet")
+I("(MovRM ECX EAX)")               # ECX = v obj
+I("(MovRMD EAX EAX 04)")           # EAX = (i x)
+I("(MovRM EDX EAX)")               # EDX = i fixnum
+I("(AndI8 EDX FC)")                # i*4
+I("(MovRMD EAX EAX 04)")           # EAX = (x)
+I("(MovRM EAX EAX)")               # EAX = x
+I("(SubI8 ECX 02)")
+I("(MovRM ECX ECX)")               # car
+I("(AndI8 ECX F8)")                # buffer
+I("(AddRR ECX EDX)")
+I("(MovMR ECX EAX)")               # buffer[i] = x
+MOVRI("EAX", UNSPEC)
+I("(Ret)")
+
+PL("PrVecLen")
+I("(MovRM EAX EAX)")
+I("(SubI8 EAX 02)")
+I("(MovRMD EAX EAX 04)")           # cdr = length fixnum
+I("(Ret)")
+
+PL("PrVecQ")
+I("(MovRM EAX EAX)")
+I("(MovRR ECX EAX)")
+I("(AndI8 ECX 03)")
+I("(CmpI8 ECX 02)")
+I("(Jnz (VQ F))")
+I("(SubI8 EAX 02)")
+I("(MovRM EAX EAX)")
+I("(AndI8 EAX 07)")
+I("(CmpI8 EAX 04)")
+I("(Jz (VQ T))")
+I("(JmpS (VQ F))")
+ret_bool("VQ")
+
+PL("PrVecList")
+I("(MovRM EAX EAX)")               # EAX = v obj
+I("(SubI8 EAX 02)")
+I("(MovRMD EDX EAX 04)")           # EDX = length fixnum
+I("(SarI8 EDX 02)")                # count int
+I("(MovRM EAX EAX)")               # car = buffer|4
+I("(AndI8 EAX F8)")                # buffer
+I("(MovRR EBX EAX)")               # EBX = base
+MOVRI("EAX", NIL)                  # acc = nil
+L("(VL2 1)")
+I("(TestRR EDX EDX)")
+I("(Jz (VL2 2))")
+I("(DecR EDX)")
+I("(MovRR ECX EDX)")
+I("(ShlI8 ECX 02)")
+I("(AddRR ECX EBX)")
+I("(MovRM ECX ECX)")               # ECX = element
+I("(XchgRR EAX ECX)")              # EAX=element, ECX=acc
+call("Cons")                       # preserves EBX,EDX
+I("(JmpS (VL2 1))")
+L("(VL2 2)")
+I("(Ret)")
+
 PL("PrError")
 L("(ER 1)")
 I("(TestRI8 EAX 03)")
@@ -809,6 +1066,8 @@ I("(Jmp32 PrintRaw)")
 L("(PO 1)")
 I("(CmpI8 EBX 01)")
 I("(Jz (PO 2))")
+I("(CmpI8 EBX 04)")
+I("(Jz (PO 3))")
 MOVRI("EAX", 0x3F)
 I("(Jmp32 Emit)")
 L("(PO 2)")
@@ -817,6 +1076,39 @@ call("Emit")
 I("(AndI8 ECX F8)")
 call("PrintRaw")
 MOVRI("EAX", 0x22)
+I("(Jmp32 Emit)")
+# Vector: #(elt elt ...). ECX = car (buffer|4), EDX = element count.
+L("(PO 3)")
+I("(AndI8 ECX F8)")                # buffer
+I("(PushR ECX)")
+I("(PushR EDX)")
+MOVRI("EAX", 0x23)                 # '#'
+call("Emit")
+MOVRI("EAX", 0x28)                 # '('
+call("Emit")
+I("(PopR EDX)")
+I("(PopR ECX)")
+I("(TestRR EDX EDX)")
+I("(Jz32 (PO 6))")                 # empty vector -> ')'
+L("(PO 4)")
+I("(MovRM EAX ECX)")               # element
+I("(PushR ECX)")
+I("(PushR EDX)")
+call("Print")
+I("(PopR EDX)")
+I("(PopR ECX)")
+I("(AddI8 ECX 04)")
+I("(DecR EDX)")
+I("(Jz32 (PO 6))")                 # no more -> ')'
+I("(PushR ECX)")
+I("(PushR EDX)")
+MOVRI("EAX", 0x20)                 # ' '
+call("Emit")
+I("(PopR EDX)")
+I("(PopR ECX)")
+I("(Jmp32 (PO 4))")
+L("(PO 6)")
+MOVRI("EAX", 0x29)                 # ')'
 I("(Jmp32 Emit)")
 
 L("PrintImm")

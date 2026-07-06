@@ -304,7 +304,7 @@ rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
 # R5RS corpus cases, filled in as Stage 4 features land.
-RSC_CASES="rsc-macros rsc-derived rsc-library"
+RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply"
 
 run_rsc_fixpoint() {
   local sc1elf rscAqf rscBqf rscBelf rscCqf
