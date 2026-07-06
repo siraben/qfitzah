@@ -304,7 +304,7 @@ rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
 # R5RS corpus cases, filled in as Stage 4 features land.
-RSC_CASES="rsc-macros"
+RSC_CASES="rsc-macros rsc-derived rsc-library"
 
 run_rsc_fixpoint() {
   local sc1elf rscAqf rscBqf rscBelf rscCqf
@@ -338,7 +338,7 @@ run_rsc_case() {
   qfasm=$scheme0_dir/$name.qfasm
   elf=$scheme0_dir/$name.elf
   actual=$scheme0_dir/$name.out
-  cat "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
   cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
     | timeout 300s "$qfitzah" > "$elf"
   chmod +x "$elf"

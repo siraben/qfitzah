@@ -1,0 +1,11 @@
+let*: (1 2 3)
+letrec: (#t #f)
+named-let: (0 1 4 9 16)
+when: yes
+unless: ran
+case: (odd even big)
+cond=>: b
+do: 10
+qq1: (a b 3 1 2 3 z)
+qq2: (1 (quasiquote (2 (unquote (3 9)))))
+qq3: (head 10 20 30 tail)

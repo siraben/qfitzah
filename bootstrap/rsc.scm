@@ -733,7 +733,51 @@
          (cons 'cond (map1 expand-clause (cdr form)))))
     ((eq? (car form) 'and) (cons 'and (map1 expand (cdr form))))
     ((eq? (car form) 'or) (cons 'or (map1 expand (cdr form))))
+    ; Derived special forms, expanded to core by direct transform. (The
+    ; syntax-rules engine above is exercised by user macros; these built-ins
+    ; are transforms so rsc.scm's source stays free of literal ellipsis.)
+    ((eq? (car form) 'when)
+     (expand (list 'if (cadr form) (cons 'begin (cddr form)) #f)))
+    ((eq? (car form) 'unless)
+     (expand (list 'if (cadr form) #f (cons 'begin (cddr form)))))
+    ((eq? (car form) 'let*) (expand (let*->core (cadr form) (cddr form))))
+    ((eq? (car form) 'letrec) (expand (letrec->core form)))
+    ((eq? (car form) 'letrec*) (expand (letrec->core form)))
+    ((eq? (car form) 'case) (expand (case->core form)))
+    ((eq? (car form) 'do) (expand (do->core form)))
     (else (map1 expand form))))
+
+(define (let*->core binds body)
+  (if (null? binds)
+      (cons 'let (cons '() body))
+      (list 'let (list (car binds)) (let*->core (cdr binds) body))))
+
+(define (letrec->core form)
+  (let ((binds (cadr form)) (body (cddr form)))
+    (cons 'let
+          (cons (map1 (lambda (b) (list (car b) #f)) binds)
+                (append2 (map1 (lambda (b) (list 'set! (car b) (cadr b))) binds)
+                         body)))))
+
+(define (case->core form)
+  (let ((g (gensym)))
+    (list 'let (list (list g (cadr form)))
+          (cons 'cond (map1 (lambda (cl) (case-clause g cl)) (cddr form))))))
+(define (case-clause g cl)
+  (if (eq? (car cl) 'else)
+      (cons 'else (cdr cl))
+      (cons (list 'memv g (list 'quote (car cl))) (cdr cl))))
+
+(define (do->core form)
+  (let ((specs (cadr form)) (exit (caddr form)) (cmds (cdddr form)) (loop (gensym)))
+    (list 'let loop
+          (map1 (lambda (s) (list (car s) (cadr s))) specs)
+          (list 'if (car exit)
+                (cons 'begin (if (null? (cdr exit)) (list #f) (cdr exit)))
+                (cons 'begin
+                      (append2 cmds
+                               (list (cons loop (map1 do-step specs)))))))))
+(define (do-step s) (if (null? (cddr s)) (car s) (caddr s)))
 
 (define (expand-define form)
   (let ((target (cadr form)))
@@ -796,13 +840,6 @@
       (set! macro-env saved)
       r)))
 
-; ---------------------------------------------------------------------------
-; Derived special forms (registered as macros in the initial syntactic
-; environment) and the standard-library prelude prepended to every program.
-; Both are filled in as Stage 4 lands; rsc.scm itself references neither.
-; ---------------------------------------------------------------------------
-(define prelude-forms '())
-(define (install-derived-macros) #f)
 
 ; ---------------------------------------------------------------------------
 ; Top-level driver: expand each form to core, note its globals, then compile.
@@ -830,9 +867,6 @@
     (note-globals e)
     (emit-top e)))
 
-(define (compile-prelude l)
-  (if (null? l) #f (begin (compile-top (car l)) (compile-prelude (cdr l)))))
-
 (define (compile-toplevel-loop)
   (let ((form (rd)))
     (if (eof-object? form)
@@ -849,8 +883,6 @@
   (ins "(Call InitPrims)")
   (ins "(Call InternStatics)")
   (ins "(MovRI EBP (Small 3))")
-  (install-derived-macros)
-  (compile-prelude prelude-forms)
   (compile-toplevel-loop)
   (ins "(MovRI EAX (Small 1))")
   (ins "(XorRR EBX EBX)")
