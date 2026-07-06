@@ -1,0 +1,6 @@
+(define (echo-loop)
+  (let ((x (rd)))
+    (if (eof-object? x)
+        (exit 0)
+        (begin (write x) (newline) (echo-loop)))))
+(echo-loop)

@@ -181,13 +181,16 @@ run_qfasm_case "qfasm-big"
 ## Stage 2: the scheme0 interpreter. Assemble it under the seed, then run
 ## the Scheme corpus and require exact output.
 
+scheme0_dir=$(mktemp -d)
+scheme0_elf=$scheme0_dir/scheme0.elf
+cat "$repo_root/bootstrap/qfasm.qf1" "$repo_root/bootstrap/scheme0.qfasm" \
+  | timeout 120s "$qfitzah" > "$scheme0_elf"
+chmod +x "$scheme0_elf"
+
 run_scheme0_corpus() {
   local tmp elf actual
   tmp=$(mktemp -d)
-  elf=$tmp/scheme0.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$repo_root/bootstrap/scheme0.qfasm" \
-    | timeout 120s "$qfitzah" > "$elf"
-  chmod +x "$elf"
+  elf=$scheme0_elf
   actual=$tmp/corpus.out
   set +e
   timeout 30s "$elf" < "$case_dir/scheme0-corpus.scm" > "$actual"
@@ -209,5 +212,24 @@ run_scheme0_corpus() {
 }
 
 run_scheme0_corpus
+
+## Stage 3 (in progress): the sc1 reader, Scheme running on scheme0.
+run_sc1_reader() {
+  local actual
+  actual=$(mktemp)
+  cat "$repo_root/bootstrap/sc1-reader.scm" "$case_dir/sc1-reader-echo.scm" \
+      "$case_dir/sc1-reader-input.scm" \
+    | timeout 30s "$scheme0_elf" > "$actual"
+  if ! diff -u "$case_dir/sc1-reader.out" "$actual" >&2; then
+    printf 'FAIL sc1-reader: output differs\n' >&2
+    rm -f "$actual"
+    exit 1
+  fi
+  rm -f "$actual"
+  printf 'ok - sc1-reader\n'
+}
+
+run_sc1_reader
+rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'
