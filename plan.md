@@ -1,161 +1,170 @@
 # Qfitzah Bootstrap Roadmap
 
-This roadmap tracks the bootstrap path from the hand-written seed runtime to a
-self-hosted Qfitzah toolchain. It is intentionally a roadmap, not a fixture
-ledger. Detailed proof notes live in:
-
-- [bootstrap/self-hosting-gap.md](bootstrap/self-hosting-gap.md)
-- [bootstrap/source-size-budget.md](bootstrap/source-size-budget.md)
-- [README.md](README.md)
-
-## Current Goal
-
-Qfitzah is not self-hosting yet. The current goal is to turn the Stage 5
-subsystem proofs into one compiled runtime/compiler that can rebuild itself
-reproducibly. The main blockers are:
-
-- a general collector over arbitrary live Qfitzah objects
-- fewer source-budget overlays or a later stage that can generate/load them
-- a complete compiled runtime source, not only focused runtime slices
-- byte-identical self-rebuild verification
-
-## Stage Shape
-
-The intended architecture has a small number of real stages:
+Goal: a real bootstrap ladder from a minimal pattern-matching seed to an
+R5RS-to-i386-assembly Scheme compiler that recompiles itself to a byte-identical
+fixpoint. Every stage is a real language processor that adds capabilities; no
+stage is a proof fixture. Each stage is only as large as it needs to be to make
+the next stage comfortable to write — minimal, but correct.
 
 ```text
-qfitzah.s seed runtime
-  -> qfasm2.qf1   symbolic i386 ELF assembler
-  -> qfasm3.qf1   macro assembler
-  -> qfc4.qf1     small compiler slice
-  -> Stage 5      compiled runtime/compiler
+Stage 0  qfitzah.s      seed: pattern-matching term rewriter (hand-audited i386 ELF)
+Stage 1  qfasm.qf1      general symbolic/macro assembler (rewrite rules + fact tables)
+Stage 2  scheme0.qfasm  minimal Scheme interpreter (macro asm -> native ELF)
+Stage 3  sc1.scm        Scheme-subset compiler, written in the scheme0 subset
+Stage 4  rsc.scm        R5RS-subset-to-asm compiler, written in the sc1 subset
+Fixpoint rsc compiles rsc.scm -> rsc'; rsc' compiles rsc.scm -> rsc''; rsc' == rsc''
 ```
 
-Files named `*-ext.qf1` are local overlays. They are not independent stages.
-They exist because the seed runtime still has finite arithmetic/address tables
-and practical source-size limits. The long-term direction is to shrink, merge,
-or generate these overlays from a later compiled stage.
+The prior roadmap grew a swamp of proof fixtures and per-fixture rule overlays
+because of two accidental limits, both now understood and removed:
 
-Stage 5 files should be read with that distinction in mind: a `stage5-*`
-program is usually a checked proof of one runtime/compiler behavior, while an
-`*-ext.qf1` file is a temporary rule pack that keeps that proof inside the
-seed runtime's current budget. The cleanup goal is to promote repeated proof
-logic into shared compiled routines, then remove or generate the overlays.
+- The seed's input buffer (64 KiB) and atom intern table (1024 entries) capped
+  total source size. That was capacity, not capability: the fix is larger
+  `.bss` reservations, which cost zero bytes of executable.
+- Seed atoms are opaque, so the old assembler could not compute addresses; it
+  used finite lookup tables (`N220`, `Addr N221`, ...) that had to be extended
+  per fixture. The fix is to represent numbers as nybble lists and do real
+  arithmetic with generated fact-table rules, the same move hex0-style
+  bootstraps make with opcode tables.
 
-## Stage 1: Annotated Seed Runtime
+With those two fixes the ladder becomes straight: each stage is general within
+its declared subset, so later stages never need per-program overlays.
 
-Stage 1 keeps the trusted runtime readable and byte-auditable.
+## Stage 0: Seed (`qfitzah.s`)
 
-- [x] **Task 1.1: Map Code Layout**
-  Document the exact memory boundaries and sizes of the seed executable.
-- [x] **Task 1.2: Maintain Hand-Coded Macros**
-  Map individual x86 instruction structures to explicit byte-emission forms.
-- [x] **Task 1.3: Track Offsets Manually**
-  Hand-calculate relative branches, calls, and segment alignment while the seed
-  is still trusted assembly.
-- [x] **Task 1.4: Single-Line Annotation Alignment**
-  Maintain a readable instruction-by-instruction source layout for the seed.
+A ~1.2 KiB static i386 ELF: S-expression reader, atom interning, newest-first
+rewrite rules, structural matching with repeated-variable equality, substitution
+preserving unmatched template variables, `(Bytes ...)` byte output, normal
+printing. This is the trusted root; it stays hand-audited.
 
-## Stage 2: Symbolic Assembler
+- [x] Correct matching semantics (repeated-variable equality; unmatched
+      template variables preserved, not crashing).
+- [x] Capacity: input buffer 64 KiB -> 16 MiB, atom table 1024 -> 65536
+      entries, larger output buffer. `.bss` only; executable size unchanged.
+- [x] Keep the whole existing test suite green after the capacity change.
+- [x] Evaluation at scale, measured and fixed twice while keeping semantics:
+      `evlis` reuses a pair when neither field changed (sharing instead of
+      quadratic copying), and rules are indexed by pattern-head atom in the
+      widened intern table (16-byte entries) so inert data no longer scans
+      every rule. An 8 KiB / 2868-instruction assembly dropped from 112 s +
+      arena exhaustion to 2.5 s. One documented precedence refinement: rules
+      whose pattern head is not a constant atom rank below head-indexed ones.
+- [ ] (Only if measurement demands it) buffered reads instead of 1-byte
+      `read(2)` calls. Semantics must not change.
 
-Implemented as [bootstrap/qfasm2.qf1](bootstrap/qfasm2.qf1). It runs under the
-seed runtime, resolves labels, emits selected i386 instructions, and writes a
-complete static ELF.
+Philosophy line: the seed gains no new evaluation semantics. Arithmetic,
+assembly, and compilation all live above it.
 
-- [x] **Task 2.1: Implement a Symbol Table**
-  Map symbolic labels to calculated addresses.
-- [x] **Task 2.2: Implement Pass 1**
-  Estimate instruction sizes and assign label addresses.
-- [x] **Task 2.3: Implement Pass 2**
-  Resolve labels and emit bytes.
-- [x] **Task 2.4: Automate ELF Header Alignment**
-  Calculate selected ELF sizes, entry addresses, and padding.
-- [x] **Task 2.5: Unify Branch Macros**
-  Provide symbolic branch/call forms in the bootstrap range.
+## Stage 1: General Assembler (`bootstrap/qfasm.qf1`)
 
-Remaining generality gap: qfasm2 still relies on finite numeric facts and local
-range extensions for larger generated programs.
+One assembler written in rewrite rules that replaced the two earlier
+finite-table assembler stages and every numeric range overlay. Capability
+added: symbolic labels, macros, and real 32-bit arithmetic over programs of
+arbitrary size.
 
-## Stage 3: Macro Assembler
+- [ ] Number representation: little-endian nybble lists, e.g.
+      `(N 4 2 0 1)` for 0x0124. Generated fact tables (committed, produced by
+      `tools/generate_qfasm_tables.py`): nybble add/carry, nybble compare, and
+      nybble-pair -> byte atom (`(HexByte 4 1)` -> `41`), the latter because
+      the seed cannot synthesize new atoms at runtime.
+- [ ] 32-bit add/sub/negate/compare over nybble lists; byte-splitting for
+      little-endian dword emission.
+- [ ] Pass 1: instruction sizes -> label addresses (symbol table as rule
+      definitions). Pass 2: emit bytes with resolved rel8/rel32 operands and
+      full ELF header arithmetic (entry, segment sizes, padding).
+- [x] Scoped labels for free: label names are arbitrary terms (e.g.
+      `(Local Reader 1)`) compared structurally in the symbol table. Further
+      macro forms (structured conditionals, procedure call forms) get added
+      as Stage 2 demands them.
+- [ ] Instruction coverage driven by Stage 2's needs (mov/lea/push/pop/alu/
+      shifts/cmp/test/jcc/jmp/call/ret/lods/stos/int 0x80), extensible by
+      adding rules, never by adding number facts.
+- [ ] Tests: assemble exit42; assemble a >4 KiB program (impossible under the
+      old N-tables); byte-compare selected outputs against known-good
+      binaries.
 
-Implemented as [bootstrap/qfasm3.qf1](bootstrap/qfasm3.qf1). It expands
-structured macro assembly into qfasm2 forms.
+## Stage 2: Minimal Scheme (`bootstrap/scheme0.qfasm`)
 
-- [x] **Task 3.1: Support Local Label Scopes**
-  Allow generated code to use scoped labels without collisions.
-- [x] **Task 3.2: Implement Structured Flow Macros**
-  Lower simple conditionals to branch sequences.
-- [x] **Task 3.3: Abstract Calling Conventions**
-  Provide procedure invocation forms.
-- [x] **Task 3.4: Automate Register Clobber Preservation**
-  Preserve selected registers through procedure metadata.
+A minimal Scheme interpreter written in Stage 1 macro assembly, assembled under
+the seed into a native ELF. Capability added: a real functional programming
+language with unbounded arithmetic and data, escaping the rewrite-rule
+substrate entirely.
 
-## Stage 4: Compiler Slice
+Scope (the scheme0 subset — just enough to write a compiler in):
 
-Implemented as [bootstrap/qfc4.qf1](bootstrap/qfc4.qf1). It compiles a focused
-source language to qfasm3, then qfasm3/qfasm2 produce a runnable ELF.
+- [ ] Reader: fixnums, symbols, pairs/lists, `'quote`, strings, characters,
+      booleans, comments.
+- [ ] Evaluator: `lambda` (proper closures), `define`, `set!`, `if`, `quote`,
+      `begin`, `let` (sugar), tail calls that do not grow the stack.
+- [ ] Data: pairs, symbols, fixnums, strings, characters, booleans, the empty
+      list; vectors optional until Stage 3 needs them.
+- [ ] Primitives: `cons car cdr set-car! set-cdr! pair? null? symbol? number?
+      string? char? eq? eqv? = < + - * quotient remainder read-char peek-char
+      write-char display newline error exit` (list finalized by what sc1
+      needs).
+- [ ] Memory: bump allocator over a large arena first; a simple two-space
+      collector is a follow-up, not a blocker (the compiler runs are
+      short-lived, same argument the seed makes).
+- [ ] Tests: run small Scheme programs (append, map, assoc, recursion depth via
+      tail calls) under the assembled interpreter.
 
-- [x] **Task 4.1: Develop AST Parser**
-  Convert source forms into explicit AST nodes.
-- [x] **Task 4.2: Match-Expression Compiler**
-  Lower focused declarative matches to native condition trees.
-- [x] **Task 4.3: Automate Pointer Alignment and Tagging**
-  Generate aligned static data and tagged object pointers.
-- [x] **Task 4.4: Automate Stack Frame Allocation**
-  Lower frame/clobber metadata to qfasm3 procedure forms.
+## Stage 3: Scheme Compiler in Scheme (`bootstrap/sc1.scm`)
 
-The compiler slice now covers literals, simple frames, static data, tagged
-constants, field loads/stores through extensions, byte output, normal printing,
-multiple dispatch proofs, and optimizer proofs. It does not yet express the
-whole seed interpreter.
+A compiler written strictly in the scheme0 subset. It compiles the larger sc1
+subset to Stage 1 assembler source; the seed assembles that to a native ELF.
+Capability added: compiled (fast, native) Scheme, plus the language extensions
+a serious compiler wants.
 
-## Stage 5: Runtime and Self-Hosting
+- [ ] Language of its input (sc1 subset): scheme0 subset plus `letrec`, named
+      `let`, `cond`, `case`, `and`, `or`, `when`/`unless`, multi-body lambdas,
+      vectors, `string->symbol`/`symbol->string`, `char->integer`/
+      `integer->char`, proper `write`.
+- [ ] Compilation model: closure conversion, flat environments, tagged
+      immediates (fixnum/char/bool/nil), heap-allocated pairs/strings/vectors/
+      closures, direct-style code generation with proper tail calls.
+- [ ] Emits qfasm source (Stage 1 is the system assembler for every later
+      stage).
+- [ ] Bootstrap step: scheme0 interprets sc1.scm compiling sc1.scm ->
+      sc1.elf. From then on the interpreter leaves the hot path.
+- [ ] Tests: sc1.elf output equals interpreted-sc1 output on a program corpus;
+      sc1.elf compiles sc1.scm again to a byte-identical sc1'.
 
-Stage 5 is the active work. It is currently a set of checked subsystem proofs,
-not a complete runtime. The useful way to read the current Stage 5 work is by
-capability area:
+## Stage 4: R5RS Compiler (`bootstrap/rsc.scm`)
 
-- **Reader**: multi-line parenthesized records, comments, EOF-balanced records,
-  and explicit `(Rule pattern replacement)` forms are implemented in the seed.
-- **Byte output**: staged code can compile byte emission and focused
-  `(Bytes ...)` flattening paths.
-- **Allocation and GC path**: tests cover checked pair allocation, overflow
-  recovery, root copying, list/tree/object copying, forwarding for sharing and
-  cycles, scan-forwarding, multi-root forwarding at direct qfasm2 and qfc4
-  levels, qfc4 root-table tracing, checked root-table allocation retry, runtime
-  atom copying, checked root-table scan-forwarding retry, and recovered
-  byte/normal output. The checked root-table fixtures now share overflow,
-  retry, and root-table reset rules; the smaller checked fixture also reuses
-  the shared `TraceRoots` routine. This is still a family of focused proofs,
-  not one collector.
-- **Normal printer**: qfc4 can print nil, atoms, lists, nested lists,
-  multi-byte atoms, and recovered dynamic atom graphs for focused cases.
-- **Multiple dispatch**: qfc4 can compile linked dispatch tables, miss paths,
-  runtime argument class cells, mutable class cells, and mutable method
-  pointers.
-- **Optimization**: optional qfc4 rules prove constant folding, known-branch
-  reduction, dead-code elimination, and focused tail-call lowering.
+The target: an R5RS-to-asm compiler written in the sc1 subset, compiled by
+sc1.elf, then self-hosted. Capability added: the R5RS surface language —
+`define-syntax`/`syntax-rules`, `quasiquote`, full numeric tower for exact
+integers (bignums), floats optional/documented-out, `call/cc` (escape-only
+acceptable if documented), dynamic-wind, ports, `apply`, varargs, `values`,
+proper `equal?`/`assoc`/`member` family, string/vector/char library, `eval`
+over the compiled subset.
 
-- [ ] **Task 5.1: Implement Garbage Collection**
-  Replace the arena allocator with a general collector over arbitrary live
-  Qfitzah objects. Current proofs are strong enough to guide the design, but
-  they are not yet one reusable collector.
-- [x] **Task 5.2: Compile Multiple Dispatch Tables**
-  Compile dynamic linked dispatch tables and runtime lookup paths.
-- [x] **Task 5.3: Add Basic Optimization Passes**
-  Prove focused constant folding, known-branch reduction, dead-code
-  elimination, and tail-call lowering.
-- [ ] **Task 5.4: Execute Reproducibility Verification**
-  Compile the Stage 5 compiler with Stage 4, then rebuild it with itself and
-  verify byte-identical output.
+- [ ] Front end: `syntax-rules` macro expander lowering R5RS to a small core.
+- [ ] Middle: CPS or ANF core with assignment conversion and closure
+      conversion.
+- [ ] Back end: i386 asm through qfasm, Linux `int $0x80` I/O runtime, precise
+      or conservative GC (a real collector lands here, where the language can
+      afford to express one).
+- [ ] Bootstrap: sc1.elf compiles rsc.scm -> rsc.elf.
+- [ ] Fixpoint: rsc.elf compiles rsc.scm -> rsc2.elf; rsc2.elf compiles
+      rsc.scm -> rsc3.elf; `cmp rsc2.elf rsc3.elf` byte-identical.
+- [ ] Tests: an R5RS conformance corpus (subset documented), plus the fixpoint
+      check wired into `tests/run.sh`.
 
-## Next Step
+## Retirement of the Old Proof Fixtures
 
-The next meaningful Stage 5 step is to turn the root-table forwarding proof into
-a reusable collector interface. Root-set enumeration now exists as a checked
-qfc4 slice; checked allocation can hand off to root-table scan-forwarding before
-retrying; and the checked root-table fixtures share overflow, retry, and reset
-setup. Object classification, pair/atom relocation, forwarding lookup, scan
-traversal, and allocation retry still need to become shared compiled routines
-instead of bespoke fixture code. Once that exists, the compiler/runtime source
-can start replacing the remaining focused proof programs.
+The old proof fixtures and overlays demonstrated subsystem mechanics (GC
+copying, forwarding, dispatch, printing) under the old limits. They, their
+generators, and their test plumbing have been deleted; git history holds
+them. Their lessons live on as requirements in Stages 2-4 (GC -> Stage 4
+runtime; dispatch/printing -> Stages 2-3; byte output -> Stage 1, done).
+
+## Verification Discipline
+
+- Every stage's artifact is produced by running the previous stage, never by a
+  host toolchain. Host tools (python3) may generate *source* fact tables and
+  test fixtures, but never object bytes.
+- Byte-identical checks at every boundary that has one: seed binary vs
+  `new.s`-style self-description, sc1 self-compilation, rsc fixpoint.
+- `tests/run.sh` stays the single entry point; each stage adds its ladder test
+  the moment it can run end to end.
