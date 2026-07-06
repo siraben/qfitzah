@@ -161,35 +161,58 @@ every program (including rsc.scm itself — deterministic, so the fixpoint
 holds). rsc.scm stays self-contained in the sc1 subset and does not depend on
 that prelude.
 
-- [ ] Macro expander: `define-syntax`/`let-syntax`/`letrec-syntax` +
+- [x] Macro expander: `define-syntax`/`let-syntax`/`letrec-syntax` +
       `syntax-rules` with ellipsis, literals, and nested patterns; a fresh
       hygiene rename for introduced bindings. Expands the whole program to the
-      sc1 core (`quote if lambda define set! begin`) before codegen.
-- [ ] `quasiquote`/`unquote`/`unquote-splicing`, nested.
-- [ ] Derived forms (as macros): `let*` `letrec` `letrec*` named `let`
-      `case` `when` `unless` `do` `cond` (with `=>`) `and` `or` `delay`.
-- [ ] Vectors: a new object subtype + `make-vector vector vector-ref
-      vector-set! vector-length vector->list list->vector vector-fill?`.
-- [ ] `apply` and varargs; tail-proper.
-- [ ] Standard library (prelude + primitives): `equal?`,
-      `assoc/assq/assv`, `member/memq/memv`, `list append reverse length
-      list-ref list-tail map for-each`, `abs modulo min max gcd even? odd?
-      zero? positive? negative? number->string string->number`, the char
-      predicate/compare/case library, and the string library
-      (`string substring string-append string=? string<? string->list
-      make-string`).
-- [ ] Bootstrap: sc1.elf compiles rsc.scm -> rscA.elf.
-- [ ] Fixpoint: rscA.elf compiles rsc.scm -> rscB.qfasm; rscB.elf compiles
+      sc1 core (`quote if lambda define set! begin`) before codegen. Hygiene
+      heuristic: a template identifier that is not a pattern variable, literal,
+      or "known" name (special-form keyword, primitive, already-defined global,
+      or macro keyword) is gensym-renamed consistently per expansion. This
+      fixes capture of a caller's *local* bindings (the classic `(or a b)`
+      case); a macro temp whose name collides with a user *global* is treated
+      as a reference (documented limitation of this simplified hygiene).
+- [x] `quasiquote`/`unquote`/`unquote-splicing`, nested with correct depth
+      (backtick/comma sugar added to the shared reader, additively).
+- [x] Derived forms: `let*` `letrec` `letrec*` named `let` `case` `when`
+      `unless` `do` `cond` (with `=>`); `and`/`or` stay sc1 core sugar.
+      Implemented as direct core transforms rather than `syntax-rules` data (so
+      rsc.scm's source stays free of literal ellipsis); the `syntax-rules`
+      engine itself is exercised by the `rsc-macros` corpus. `delay`/`force`
+      out of scope.
+- [x] Vectors: object subtype 4 (car = element-buffer | 4, cdr = length
+      fixnum) + `make-vector vector vector-ref vector-set! vector-length
+      vector? vector->list list->vector vector-fill!`; printer writes `#(...)`.
+      `#(...)` read syntax is out of scope (use the constructors).
+- [x] `apply` and varargs; tail-proper (tail `apply` runs in constant stack).
+- [x] Standard library (prelude + primitives): `equal?`, `assoc/assq/assv`,
+      `member/memq/memv`, `list append reverse length list-ref list-tail map
+      for-each`, `abs modulo min max gcd even? odd? zero? positive? negative?
+      number->string`, the char predicate/compare/case library, and the string
+      library (`string substring string-append string=? string<? string->list
+      make-string string-set! string-copy`). Prelude is a separate source file
+      (`bootstrap/rsc-prelude.scm`) prepended to each program, not embedded in
+      rsc.scm (embedding bloated the self-hosted compiler's static data and
+      seed time). `string->number`, single-`map`-over-many-lists, and variadic
+      `for-each` are out of scope (map/for-each are single-list).
+- [x] Bootstrap: sc1.elf compiles rsc.scm -> rscA.elf.
+- [x] Fixpoint: rscA.elf compiles rsc.scm -> rscB.qfasm; rscB.elf compiles
       rsc.scm -> rscC.qfasm; `cmp rscB.qfasm rscC.qfasm` byte-identical.
-- [ ] Tests: an R5RS corpus (macros, quasiquote, vectors, library, tail
-      apply) compiled/assembled/run/diffed, plus the fixpoint check, wired
-      into `tests/run.sh`.
+- [x] Tests: an R5RS corpus (macros, quasiquote, derived forms, library,
+      vectors, tail apply) compiled/assembled/run/diffed, plus the fixpoint
+      check, wired into `tests/run.sh`.
 
 Documented as out of scope (fixnum-only, minimal but correct): bignums and the
 numeric tower beyond 30-bit exact integers, floats/rationals, full
-`call/cc`/`dynamic-wind`, first-class `eval`, ports beyond stdin/stdout,
-`exact->inexact`. These are omissions of breadth, not correctness: what is
-implemented follows R5RS semantics.
+`call/cc`/`dynamic-wind`, first-class `eval`, `delay`/`force`, ports beyond
+stdin/stdout, `exact->inexact`, `string->number`, and `#(...)` vector read
+syntax. These are omissions of breadth, not correctness: what is implemented
+follows R5RS semantics.
+
+Note on the seed: rsc's compiled output (~42k instructions) outgrew the seed's
+original 512 MiB bump-arena, so `qfitzah.s`'s arena was enlarged to 1.5 GiB.
+This is a `.bss` capacity change only — zero executable bytes, no semantics
+change — the same class of fix the roadmap already applied to the input buffer
+and atom table.
 
 ## Retirement of the Old Proof Fixtures
 
