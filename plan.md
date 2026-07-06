@@ -145,25 +145,51 @@ a serious compiler wants.
 
 ## Stage 4: R5RS Compiler (`bootstrap/rsc.scm`)
 
-The target: an R5RS-to-asm compiler written in the sc1 subset, compiled by
-sc1.elf, then self-hosted. Capability added: the R5RS surface language —
-`define-syntax`/`syntax-rules`, `quasiquote`, full numeric tower for exact
-integers (bignums), floats optional/documented-out, `call/cc` (escape-only
-acceptable if documented), dynamic-wind, ports, `apply`, varargs, `values`,
-proper `equal?`/`assoc`/`member` family, string/vector/char library, `eval`
-over the compiled subset.
+An R5RS-subset compiler, written strictly in the sc1 subset (so sc1.elf
+compiles it), that adds the R5RS surface language on top of sc1 and then
+self-hosts to a byte-identical fixpoint. The capability added over sc1 is the
+part of R5RS that makes it R5RS rather than "a lambda language": hygienic
+`syntax-rules` macros, `quasiquote`, the full derived-form set, vectors,
+`apply`/varargs, and the standard procedure library.
 
-- [ ] Front end: `syntax-rules` macro expander lowering R5RS to a small core.
-- [ ] Middle: CPS or ANF core with assignment conversion and closure
-      conversion.
-- [ ] Back end: i386 asm through qfasm, Linux `int $0x80` I/O runtime, precise
-      or conservative GC (a real collector lands here, where the language can
-      afford to express one).
-- [ ] Bootstrap: sc1.elf compiles rsc.scm -> rsc.elf.
-- [ ] Fixpoint: rsc.elf compiles rsc.scm -> rsc2.elf; rsc2.elf compiles
-      rsc.scm -> rsc3.elf; `cmp rsc2.elf rsc3.elf` byte-identical.
-- [ ] Tests: an R5RS conformance corpus (subset documented), plus the fixpoint
-      check wired into `tests/run.sh`.
+Design: rsc is sc1's direct-style codegen plus (a) a macro expansion pass in
+front of the compiler and (b) a wider runtime. Derived special forms are
+macros in the initial syntactic environment (compile-time only); library
+procedures that need the machine are runtime primitives in `rsc-runtime.qf1`;
+the rest of the library is a fixed Scheme prelude the compiler prepends to
+every program (including rsc.scm itself — deterministic, so the fixpoint
+holds). rsc.scm stays self-contained in the sc1 subset and does not depend on
+that prelude.
+
+- [ ] Macro expander: `define-syntax`/`let-syntax`/`letrec-syntax` +
+      `syntax-rules` with ellipsis, literals, and nested patterns; a fresh
+      hygiene rename for introduced bindings. Expands the whole program to the
+      sc1 core (`quote if lambda define set! begin`) before codegen.
+- [ ] `quasiquote`/`unquote`/`unquote-splicing`, nested.
+- [ ] Derived forms (as macros): `let*` `letrec` `letrec*` named `let`
+      `case` `when` `unless` `do` `cond` (with `=>`) `and` `or` `delay`.
+- [ ] Vectors: a new object subtype + `make-vector vector vector-ref
+      vector-set! vector-length vector->list list->vector vector-fill?`.
+- [ ] `apply` and varargs; tail-proper.
+- [ ] Standard library (prelude + primitives): `equal?`,
+      `assoc/assq/assv`, `member/memq/memv`, `list append reverse length
+      list-ref list-tail map for-each`, `abs modulo min max gcd even? odd?
+      zero? positive? negative? number->string string->number`, the char
+      predicate/compare/case library, and the string library
+      (`string substring string-append string=? string<? string->list
+      make-string`).
+- [ ] Bootstrap: sc1.elf compiles rsc.scm -> rscA.elf.
+- [ ] Fixpoint: rscA.elf compiles rsc.scm -> rscB.qfasm; rscB.elf compiles
+      rsc.scm -> rscC.qfasm; `cmp rscB.qfasm rscC.qfasm` byte-identical.
+- [ ] Tests: an R5RS corpus (macros, quasiquote, vectors, library, tail
+      apply) compiled/assembled/run/diffed, plus the fixpoint check, wired
+      into `tests/run.sh`.
+
+Documented as out of scope (fixnum-only, minimal but correct): bignums and the
+numeric tower beyond 30-bit exact integers, floats/rationals, full
+`call/cc`/`dynamic-wind`, first-class `eval`, ports beyond stdin/stdout,
+`exact->inexact`. These are omissions of breadth, not correctness: what is
+implemented follows R5RS semantics.
 
 ## Retirement of the Old Proof Fixtures
 
