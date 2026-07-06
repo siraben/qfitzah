@@ -178,4 +178,36 @@ run_qfasm_arith
 run_qfasm_case "qfasm-exit42"
 run_qfasm_case "qfasm-big"
 
+## Stage 2: the scheme0 interpreter. Assemble it under the seed, then run
+## the Scheme corpus and require exact output.
+
+run_scheme0_corpus() {
+  local tmp elf actual
+  tmp=$(mktemp -d)
+  elf=$tmp/scheme0.elf
+  cat "$repo_root/bootstrap/qfasm.qf1" "$repo_root/bootstrap/scheme0.qfasm" \
+    | timeout 120s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  actual=$tmp/corpus.out
+  set +e
+  timeout 30s "$elf" < "$case_dir/scheme0-corpus.scm" > "$actual"
+  local status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    printf 'FAIL scheme0-corpus: interpreter exited %s\n' "$status" >&2
+    cat "$actual" >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+  if ! diff -u "$case_dir/scheme0-corpus.out" "$actual" >&2; then
+    printf 'FAIL scheme0-corpus: output differs\n' >&2
+    rm -rf "$tmp"
+    exit 1
+  fi
+  rm -rf "$tmp"
+  printf 'ok - scheme0-corpus\n'
+}
+
+run_scheme0_corpus
+
 printf 'all tests passed\n'
