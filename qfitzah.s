@@ -459,22 +459,55 @@ proc evlis
 1:      push %eax               # save original t
         cdr %eax
         do evlis
-        pop %ecx                # restore original t
-        push %eax               # save return value
-        xchg %ecx, %eax         # 1 byte — shorter than mov %ecx, %eax
-        car %eax
+        pop %edx                # restore original t
+        push %edx               # keep t for the sharing check below
+        push %eax               # save evaluated cdr
+        mov (%edx), %eax        # fetch (car t)
         do ev
-        pop %ecx                # pass evlis return value as cdr arg to cons
-        # FALL THROUGH into cons (tail call)
+        pop %ecx                # evaluated cdr
+        pop %edx                # original t
+        ## If neither field changed, reuse t instead of allocating a
+        ## copy.  Rewriting is pure, so sharing structure is safe, and
+        ## this keeps re-evaluation of already-normal data from
+        ## consuming arena space proportional to its size.
+        cmp (%edx), %eax
+        jne 2f
+        cmp 4(%edx), %ecx
+        jne 2f
+        xchg %edx, %eax         # both unchanged: return t itself
+        ret
+2:      # FALL THROUGH into cons (tail call)
         cons_here
 
-        my rules, -1            # global set of rules, initially nil
+        ## Rules are indexed by the head atom of their pattern: each
+        ## interned atom carries a bucket of the rules whose pattern
+        ## starts with it, so evaluating a term only scans candidates
+        ## that could possibly match.  Rules whose pattern head is not
+        ## a constant atom (a variable or nested pattern) live on this
+        ## generic list, which is consulted after the head's bucket;
+        ## such rules therefore rank below all head-indexed ones.
+        my rules, -1            # generic (non-head-indexed) rules
 proc ev
         jpair %al, 1f
         ret                     # atoms always evaluate to themselves
 1:      do evlis
-        mov rules-globals(%ebp), %ecx # initial rules argument to ap: the global
-        # FALL THROUGH to ap
+        push %eax               # save evaluated term t
+        mov (%eax), %edx        # head of t
+        test $1, %dl
+        jz 2f                   # head not a constant: generic rules only
+        cmp $1, %edx
+        je 2f                   # nil head: likewise
+        and $~3, %edx           # head's atom-table entry
+        mov 8(%edx), %ecx       # this head's rule bucket
+        do ap
+        pop %ecx                # original t
+        cmp %ecx, %eax
+        jne 3f                  # a bucket rule fired; result is final
+        push %eax
+2:      pop %eax
+        mov rules-globals(%ebp), %ecx # fall back to the generic rules
+        jmp ap
+3:      ret
 
 
         ## (define (ap t rules)
@@ -567,9 +600,11 @@ proc ap
         ## need someplace to put the atom base+length pairs.
         .bss
 input_buffer:
-        .fill 65536
+        .fill 16*1024*1024
         .balign 8   # atoms need to be 8-byte aligned to free tag bits
-atoms:  .fill 8192
+        ## Each entry is 16 bytes: string pointer, length, rule
+        ## bucket, and one spare word.
+atoms:  .fill 16*65536
         my inptr, input_buffer
         my lineptr, input_buffer
         my paren_depth, 0
@@ -577,7 +612,7 @@ atoms:  .fill 8192
         ## Output is handled by setting %edi to point into this output
         ## buffer, then using stosb to add stuff to it.
         .bss
-outbuf: .fill 131072
+outbuf: .fill 4*1024*1024
 
 init
         mov $outbuf, %edi
@@ -829,14 +864,26 @@ proc try_rule_directive          # Add (Rule pattern template); ZF says success.
         ret
 
 proc add_rule
-        mov rules-globals(%ebp), %ecx # cons onto the existing set of rules
+        ## %eax is (pattern . template).  Patterns headed by a
+        ## constant atom go on that atom's rule bucket; anything else
+        ## goes on the generic list.
+        mov (%eax), %edx        # pattern
+        jnpair %dl, 1f
+        mov (%edx), %edx        # head of pattern
+        test $1, %dl
+        jz 1f
+        cmp $1, %edx
+        je 1f
+        and $~3, %edx           # head's atom-table entry
+        push %edx
+        mov 8(%edx), %ecx       # cons onto its existing bucket
+        do cons
+        pop %edx
+        mov %eax, 8(%edx)
+        ret
+1:      mov rules-globals(%ebp), %ecx # cons onto the generic rules
         do cons
         mov %eax, rules-globals(%ebp)
-        ## debug print out rules:
-        ## do print
-        ## mov $'\n, %al
-        ## stosb
-        ## do flush
         ret
 
 proc parse_error
@@ -967,11 +1014,11 @@ proc read_atom
 proc intern
         push %esi
         push %edi
-        mov $atoms-8, %ebx
+        mov $atoms-16, %ebx
         ## At the top of the following loop, %ebx points into (or just
         ## before) the atoms table, %eax points to the string we’re
         ## trying to intern, and %ecx has its length.
-1:      add $8, %ebx         # Advance to next table entry.
+1:      add $16, %ebx        # Advance to next table entry.
         mov (%ebx), %edi     # Load string pointer from table.
         test %edi, %edi      # null string pointer? indicates end of table
                              # test %edi, %edi is one byte smaller than cmp $0.
@@ -990,4 +1037,5 @@ proc intern
 2:                       # not found, must insert
         mov %eax, (%ebx) # non-null pointer here says this is no longer the end
         mov %ecx, 4(%ebx)
+        movl $1, 8(%ebx) # empty rule bucket (nil)
         jmp 1b               # now that we’ve inserted it, it’s “found”
