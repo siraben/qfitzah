@@ -1,0 +1,9 @@
+swap: 2 1
+swap-cap: (20 10)
+my-or: 7
+my-and: 3
+my-or-capture: 42
+my-list: (1 2 3 4 5)
+my-let: 12
+my-begin: 99
+let-syntax: 42

@@ -501,14 +501,343 @@
         (ins "(Dd (X8 0 0 0 0 0 0 0 0))")
         (emit-globals (cdr lst)))))
 
+; ===========================================================================
+; Macro expander (Stage 4). rsc adds a full macro-expansion pass in front of
+; sc1's codegen: every top-level form is expanded to the sc1 core language
+; (quote if lambda define set! begin let cond and or + application) before it
+; is compiled. rsc.scm itself uses NONE of the surface features it adds, so on
+; rsc's own source expand is a structural identity -- the self-host fixpoint
+; therefore only exercises sc1's proven codegen. The new surface features are
+; exercised by a separate corpus of programs.
+;
+; syntax-rules hygiene approach: when a rule's template is instantiated, every
+; template identifier that is (a) not a pattern variable, (b) not a literal,
+; and (c) not a "known" name -- a special-form keyword, a primitive, an
+; already-defined global, or a macro keyword -- is consistently renamed to a
+; fresh symbol for that one expansion. This renames macro-introduced
+; temporaries (fixing the classic (or a b) capture case) while letting template
+; references to cons/if/let/user-globals resolve to their intended bindings.
 ; ---------------------------------------------------------------------------
-; Top-level driver.
+; The ellipsis symbol. Written via string->symbol rather than a bare literal
+; because scheme0's bootstrap reader (used only to interpret rsc under
+; development) mishandles a leading-dot token; sc1-reader (the real bootstrap
+; reader) reads a source "..." to the identically interned symbol.
+(define ell-sym (string->symbol "..."))
+
+(define keyword-list
+  (cons ell-sym
+    '(quote quasiquote unquote unquote-splicing if lambda define set! begin
+      let cond else and or => let* letrec letrec* case when unless do delay
+      define-syntax let-syntax letrec-syntax syntax-rules apply)))
+
+; Fresh-symbol generator for hygiene. Deterministic per compilation.
+(define gensym-counter 0)
+(define (num->chars n)
+  (if (= n 0) (list #\0) (num->chars-loop n '())))
+(define (num->chars-loop n acc)
+  (if (= n 0)
+      acc
+      (num->chars-loop (quotient n 10)
+                       (cons (integer->char (+ 48 (remainder n 10))) acc))))
+(define (gensym)
+  (set! gensym-counter (+ gensym-counter 1))
+  (string->symbol (list->string (cons #\% (cons #\g (num->chars gensym-counter))))))
+
+; Compile-time macro environment: assoc name -> (sr <literals> <rules>).
+(define macro-env '())
+(define defined-globals '())
+(define (register-defined name)
+  (if (memq name defined-globals) #f (set! defined-globals (cons name defined-globals))))
+(define (known-id? id)
+  (or (memq id keyword-list)
+      (memq id prim-names)
+      (memq id defined-globals)
+      (if (assq id macro-env) #t #f)))
+
+; --- syntax-rules matcher. A binding node is (leaf . datum) | (ell . nodes) --
+(define (pattern-var? x lits)
+  (and (symbol? x) (not (eq? x '_)) (not (eq? x ell-sym)) (not (memq x lits))))
+
+(define (sr-match pat inp lits)
+  (cond ((eq? pat '_) '())
+        ((symbol? pat)
+         (if (memq pat lits)
+             (if (eq? inp pat) '() 'no)
+             (list (cons pat (cons 'leaf inp)))))
+        ((null? pat) (if (null? inp) '() 'no))
+        ((pair? pat)
+         (if (and (pair? (cdr pat)) (eq? (cadr pat) ell-sym))
+             (sr-match-ellipsis (car pat) (cddr pat) inp lits)
+             (if (pair? inp)
+                 (let ((mh (sr-match (car pat) (car inp) lits)))
+                   (if (eq? mh 'no)
+                       'no
+                       (let ((mt (sr-match (cdr pat) (cdr inp) lits)))
+                         (if (eq? mt 'no) 'no (append2 mh mt)))))
+                 'no)))
+        (else (if (eq? pat inp) '() 'no))))
+
+(define (pat-min-len p)
+  (cond ((pair? p)
+         (if (and (pair? (cdr p)) (eq? (cadr p) ell-sym))
+             (pat-min-len (cddr p))
+             (+ 1 (pat-min-len (cdr p)))))
+        (else 0)))
+
+(define (take l k) (if (= k 0) '() (cons (car l) (take (cdr l) (- k 1)))))
+(define (drop l k) (if (= k 0) l (drop (cdr l) (- k 1))))
+(define (nth l i) (if (= i 0) (car l) (nth (cdr l) (- i 1))))
+
+(define (sr-match-ellipsis subpat tailpat inp lits)
+  (let ((tlen (pat-min-len tailpat)) (ilen (length inp)))
+    (if (< ilen tlen)
+        'no
+        (let ((k (- ilen tlen)))
+          (let ((taken (take inp k)) (rest (drop inp k)))
+            (let ((subs (match-each subpat taken lits)))
+              (if (eq? subs 'no)
+                  'no
+                  (let ((mt (sr-match tailpat rest lits)))
+                    (if (eq? mt 'no)
+                        'no
+                        (append2 (transpose-binds subpat subs lits) mt))))))))))
+
+(define (match-each subpat elts lits)
+  (if (null? elts)
+      '()
+      (let ((m (sr-match subpat (car elts) lits)))
+        (if (eq? m 'no)
+            'no
+            (let ((r (match-each subpat (cdr elts) lits)))
+              (if (eq? r 'no) 'no (cons m r)))))))
+
+(define (pattern-vars pat lits)
+  (cond ((pattern-var? pat lits) (list pat))
+        ((pair? pat)
+         (if (eq? (car pat) ell-sym)
+             (pattern-vars (cdr pat) lits)
+             (append2 (pattern-vars (car pat) lits) (pattern-vars (cdr pat) lits))))
+        (else '())))
+
+(define (transpose-binds subpat subs lits)
+  (map1 (lambda (v) (cons v (cons 'ell (map1 (lambda (sm) (cdr (assq v sm))) subs))))
+        (pattern-vars subpat lits)))
+
+; --- template instantiation with per-expansion hygiene renaming --------------
+(define rename-map '())
+(define (rename id)
+  (let ((e (assq id rename-map)))
+    (if e
+        (cdr e)
+        (let ((g (gensym)))
+          (set! rename-map (cons (cons id g) rename-map))
+          g))))
+
+(define (node-datum n) (cdr n))   ; leaf node -> datum
+
+(define (sr-inst tmpl binds lits)
+  (cond ((symbol? tmpl)
+         (let ((b (assq tmpl binds)))
+           (if b
+               (node-datum (cdr b))
+               (if (known-id? tmpl) tmpl (rename tmpl)))))
+        ((pair? tmpl)
+         (if (and (pair? (cdr tmpl)) (eq? (cadr tmpl) ell-sym))
+             (append2 (sr-inst-ellipsis (car tmpl) binds lits)
+                      (sr-inst (cddr tmpl) binds lits))
+             (cons (sr-inst (car tmpl) binds lits)
+                   (sr-inst (cdr tmpl) binds lits))))
+        (else tmpl)))
+
+(define (syms-of x)
+  (cond ((symbol? x) (list x))
+        ((pair? x) (append2 (syms-of (car x)) (syms-of (cdr x))))
+        (else '())))
+(define (ell-vars sub binds)
+  (filter-ell (syms-of sub) binds))
+(define (filter-ell syms binds)
+  (cond ((null? syms) '())
+        ((ell-bound? (car syms) binds) (cons (car syms) (filter-ell (cdr syms) binds)))
+        (else (filter-ell (cdr syms) binds))))
+(define (ell-bound? v binds)
+  (let ((b (assq v binds)))
+    (and b (eq? (car (cdr b)) 'ell))))
+
+(define (sr-inst-ellipsis sub binds lits)
+  (let ((evars (ell-vars sub binds)))
+    (if (null? evars)
+        '()
+        (sr-inst-iter sub binds lits evars (length (cdr (cdr (assq (car evars) binds)))) 0))))
+(define (sr-inst-iter sub binds lits evars n i)
+  (if (= i n)
+      '()
+      (cons (sr-inst sub (subst-evars evars binds i) lits)
+            (sr-inst-iter sub binds lits evars n (+ i 1)))))
+(define (subst-evars evars binds i)
+  (if (null? evars)
+      binds
+      (subst-evars (cdr evars)
+                   (cons (cons (car evars) (nth (cdr (cdr (assq (car evars) binds))) i)) binds)
+                   i)))
+
+(define (sr-expand rules lits form)
+  (sr-try rules lits form))
+(define (sr-try rules lits form)
+  (if (null? rules)
+      (error 'macro "no matching syntax-rules clause")
+      (let ((pat (car (car rules))) (tmpl (cadr (car rules))))
+        (let ((m (sr-match (cdr pat) (cdr form) lits)))
+          (if (eq? m 'no)
+              (sr-try (cdr rules) lits form)
+              (begin (set! rename-map '())
+                     (sr-inst tmpl m lits)))))))
+
+; --- quasiquote -> core (list/cons/append/quote) -----------------------------
+(define (qq x depth)
+  (cond ((not (pair? x)) (list 'quote x))
+        ((eq? (car x) 'unquote)
+         (if (= depth 1)
+             (cadr x)
+             (list 'list (list 'quote 'unquote) (qq (cadr x) (- depth 1)))))
+        ((eq? (car x) 'quasiquote)
+         (list 'list (list 'quote 'quasiquote) (qq (cadr x) (+ depth 1))))
+        ((and (pair? (car x)) (eq? (car (car x)) 'unquote-splicing) (= depth 1))
+         (list 'append (cadr (car x)) (qq (cdr x) depth)))
+        (else (list 'cons (qq (car x) depth) (qq (cdr x) depth)))))
+
+; --- the expander ------------------------------------------------------------
+(define (macro-form? x)
+  (and (pair? x) (symbol? (car x)) (if (assq (car x) macro-env) #t #f)))
+
+(define (expand form)
+  (cond
+    ((not (pair? form)) form)
+    ((eq? (car form) 'quote) form)
+    ((macro-form? form)
+     (let ((desc (cdr (assq (car form) macro-env))))
+       (expand (sr-expand (caddr desc) (cadr desc) form))))
+    ((eq? (car form) 'quasiquote) (expand (qq (cadr form) 1)))
+    ((eq? (car form) 'lambda)
+     (cons 'lambda (cons (cadr form) (map1 expand (cddr form)))))
+    ((eq? (car form) 'define) (expand-define form))
+    ((eq? (car form) 'define-syntax) (install-define-syntax form) (list 'begin))
+    ((eq? (car form) 'let-syntax) (expand-let-syntax form))
+    ((eq? (car form) 'letrec-syntax) (expand-let-syntax form))
+    ((eq? (car form) 'set!) (list 'set! (cadr form) (expand (caddr form))))
+    ((eq? (car form) 'if) (cons 'if (map1 expand (cdr form))))
+    ((eq? (car form) 'begin) (cons 'begin (map1 expand (cdr form))))
+    ((eq? (car form) 'let) (expand-let form))
+    ((eq? (car form) 'cond)
+     (if (cond-has-arrow? (cdr form))
+         (expand (cond->core (cdr form)))
+         (cons 'cond (map1 expand-clause (cdr form)))))
+    ((eq? (car form) 'and) (cons 'and (map1 expand (cdr form))))
+    ((eq? (car form) 'or) (cons 'or (map1 expand (cdr form))))
+    (else (map1 expand form))))
+
+(define (expand-define form)
+  (let ((target (cadr form)))
+    (if (pair? target)
+        (cons 'define (cons target (map1 expand (cddr form))))
+        (if (null? (cddr form))
+            form
+            (list 'define target (expand (caddr form)))))))
+
+(define (expand-let form)
+  (if (symbol? (cadr form))
+      (expand (named-let->core form))
+      (cons 'let
+            (cons (map1 (lambda (b) (list (car b) (expand (cadr b)))) (cadr form))
+                  (map1 expand (cddr form))))))
+
+(define (named-let->core form)
+  (let ((name (cadr form)) (binds (caddr form)) (body (cdddr form)))
+    (cons (list (list 'lambda (list name)
+                      (list 'set! name (cons 'lambda (cons (map1 car binds) body)))
+                      name)
+                #f)
+          (map1 cadr binds))))
+
+(define (expand-clause cl)
+  (if (eq? (car cl) 'else)
+      (cons 'else (map1 expand (cdr cl)))
+      (cons (expand (car cl)) (map1 expand (cdr cl)))))
+
+(define (cond-has-arrow? clauses)
+  (cond ((null? clauses) #f)
+        ((and (pair? (cdr (car clauses))) (eq? (cadr (car clauses)) '=>)) #t)
+        (else (cond-has-arrow? (cdr clauses)))))
+(define (cond->core clauses)
+  (if (null? clauses)
+      #f
+      (let ((cl (car clauses)))
+        (cond ((eq? (car cl) 'else) (cons 'begin (cdr cl)))
+              ((and (pair? (cdr cl)) (eq? (cadr cl) '=>))
+               (let ((g (gensym)))
+                 (list 'let (list (list g (car cl)))
+                       (list 'if g (list (caddr cl) g) (cond->core (cdr clauses))))))
+              ((null? (cdr cl)) (list 'or (car cl) (cond->core (cdr clauses))))
+              (else (list 'if (car cl) (cons 'begin (cdr cl)) (cond->core (cdr clauses))))))))
+
+(define (parse-transformer spec)   ; (syntax-rules (lits) rule ...)
+  (list 'sr (cadr spec) (cddr spec)))
+(define (install-define-syntax form)
+  (set! macro-env (cons (cons (cadr form) (parse-transformer (caddr form))) macro-env)))
+(define (install-syntax-list binds)
+  (if (null? binds)
+      #f
+      (begin (set! macro-env
+                   (cons (cons (car (car binds)) (parse-transformer (cadr (car binds)))) macro-env))
+             (install-syntax-list (cdr binds)))))
+(define (expand-let-syntax form)
+  (let ((saved macro-env))
+    (install-syntax-list (cadr form))
+    (let ((r (expand (cons 'begin (cddr form)))))
+      (set! macro-env saved)
+      r)))
+
 ; ---------------------------------------------------------------------------
+; Derived special forms (registered as macros in the initial syntactic
+; environment) and the standard-library prelude prepended to every program.
+; Both are filled in as Stage 4 lands; rsc.scm itself references neither.
+; ---------------------------------------------------------------------------
+(define prelude-forms '())
+(define (install-derived-macros) #f)
+
+; ---------------------------------------------------------------------------
+; Top-level driver: expand each form to core, note its globals, then compile.
+; A top-level (begin ...) splices; an empty (begin) (from define-syntax) emits
+; nothing.
+; ---------------------------------------------------------------------------
+(define (note-globals e)
+  (cond ((not (pair? e)) #f)
+        ((eq? (car e) 'define)
+         (register-defined (if (pair? (cadr e)) (car (cadr e)) (cadr e))))
+        ((eq? (car e) 'begin) (note-globals-list (cdr e)))
+        (else #f)))
+(define (note-globals-list l)
+  (if (null? l) #f (begin (note-globals (car l)) (note-globals-list (cdr l)))))
+
+(define (emit-top e)
+  (cond ((not (pair? e)) (compile-expr e '()))
+        ((eq? (car e) 'begin) (emit-top-list (cdr e)))
+        (else (compile-expr e '()))))
+(define (emit-top-list l)
+  (if (null? l) #f (begin (emit-top (car l)) (emit-top-list (cdr l)))))
+
+(define (compile-top form)
+  (let ((e (expand form)))
+    (note-globals e)
+    (emit-top e)))
+
+(define (compile-prelude l)
+  (if (null? l) #f (begin (compile-top (car l)) (compile-prelude (cdr l)))))
+
 (define (compile-toplevel-loop)
   (let ((form (rd)))
     (if (eof-object? form)
         #f
-        (begin (compile-expr form '()) (compile-toplevel-loop)))))
+        (begin (compile-top form) (compile-toplevel-loop)))))
 
 (define (emit-n-parens n)
   (if (= n 0) #f (begin (o-str ")") (emit-n-parens (- n 1)))))
@@ -520,6 +849,8 @@
   (ins "(Call InitPrims)")
   (ins "(Call InternStatics)")
   (ins "(MovRI EBP (Small 3))")
+  (install-derived-macros)
+  (compile-prelude prelude-forms)
   (compile-toplevel-loop)
   (ins "(MovRI EAX (Small 1))")
   (ins "(XorRR EBX EBX)")

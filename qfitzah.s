@@ -249,7 +249,7 @@ proc cons
         ## then incrementing the allocator pointer by multiples of 4.
         .bss 1
         .balign 4
-arena:  .fill 512*1024*1024
+arena:  .fill 1536*1024*1024
 
         ## The other kinds of elements in our list structure are
         ## constants, such as uppercase symbols and numbers, which are
