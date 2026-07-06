@@ -230,6 +230,69 @@ run_sc1_reader() {
 }
 
 run_sc1_reader
+
+## Stage 3: the sc1 Scheme-to-qfasm compiler. Each corpus case is compiled by
+## interpreted sc1 (running under scheme0), assembled under the seed with the
+## sc1 runtime, run, and its output diffed against the expected transcript.
+sc1_reader="$repo_root/bootstrap/sc1-reader.scm"
+sc1_scm="$repo_root/bootstrap/sc1.scm"
+sc1_runtime="$repo_root/bootstrap/sc1-runtime.qf1"
+
+run_sc1_case() {
+  local name=$1
+  local qfasm elf actual
+  qfasm=$scheme0_dir/$name.qfasm
+  elf=$scheme0_dir/$name.elf
+  actual=$scheme0_dir/$name.out
+  cat "$sc1_reader" "$sc1_scm" "$case_dir/$name.scm" \
+    | timeout 120s "$scheme0_elf" > "$qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$qfasm" \
+    | timeout 300s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  set +e
+  timeout 60s "$elf" > "$actual"
+  local status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    printf 'FAIL %s: compiled program exited %s\n' "$name" "$status" >&2
+    cat "$actual" >&2
+    exit 1
+  fi
+  if ! diff -u "$case_dir/$name.expected" "$actual" >&2; then
+    printf 'FAIL %s: output differs\n' "$name" >&2
+    exit 1
+  fi
+  printf 'ok - %s\n' "$name"
+}
+
+run_sc1_case "sc1-corpus"
+run_sc1_case "sc1-tail"
+
+## The Stage 3 milestone: self-compilation to a byte-identical fixpoint.
+## scheme0 interprets sc1 compiling sc1's own source (reader+compiler) to
+## sc1.qfasm; the seed assembles that to the native sc1.elf; sc1.elf then
+## compiles the same source and must produce byte-identical output. The seed
+## assembly of the ~25k-instruction compiler is slow, hence the wide timeout.
+run_sc1_fixpoint() {
+  local q1 q2 elf
+  q1=$scheme0_dir/sc1.qfasm
+  q2=$scheme0_dir/sc1b.qfasm
+  elf=$scheme0_dir/sc1.elf
+  cat "$sc1_reader" "$sc1_scm" "$sc1_reader" "$sc1_scm" \
+    | timeout 300s "$scheme0_elf" > "$q1"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$q1" \
+    | timeout 900s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  cat "$sc1_reader" "$sc1_scm" | timeout 120s "$elf" > "$q2"
+  if ! cmp "$q1" "$q2"; then
+    printf 'FAIL sc1-fixpoint: sc1.elf output not byte-identical to sc1.qfasm\n' >&2
+    exit 1
+  fi
+  printf 'ok - sc1-fixpoint (self-compile byte-identical)\n'
+}
+
+run_sc1_fixpoint
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'

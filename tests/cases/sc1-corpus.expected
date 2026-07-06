@@ -1,0 +1,15 @@
+fact 10 = 3628800
+quot/rem: 3 -2
+(1 4 9 16 25)
+(1 2 3 4 5 6)
+(d c b a)
+123
+(nested (deep . pair) #t #f 42 -7 #\z "lit")
+#t
+hello-world
+len=6
+ref1=c
+65 #\b
+(#t #t #t #t #t #t #t #t)
+yes
+(3 7 #t)
