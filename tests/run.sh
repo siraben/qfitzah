@@ -98,28 +98,28 @@ run_case "lisp-reverse"
 run_case "full-lisp"
 run_case "self-hosting-compiler"
 
-run_bootstrap_stage1_multiline_rules() {
+run_rule_directive() {
   local output
   local snippet
 
   output=$(mktemp)
-  timeout 5s "$qfitzah" < "$repo_root/bootstrap/stage1-multiline-rules.qf1" > "$output"
+  timeout 5s "$qfitzah" < "$case_dir/rule-directive.qf1" > "$output"
 
   while IFS= read -r snippet; do
     [[ -z "$snippet" ]] && continue
     if ! grep -aFq "$snippet" "$output"; then
-      printf 'FAIL stage1-multiline-rules: expected to find %q in output:\n' "$snippet" >&2
+      printf 'FAIL rule-directive: expected to find %q in output:\n' "$snippet" >&2
       cat "$output" >&2
       rm -f "$output"
       exit 1
     fi
-  done < "$case_dir/stage1-multiline-rules.expected"
+  done < "$case_dir/rule-directive.expected"
 
   rm -f "$output"
-  printf 'ok - stage1-multiline-rules\n'
+  printf 'ok - rule-directive\n'
 }
 
-run_bootstrap_stage1_multiline_rules
+run_rule_directive
 
 ## Stage 1: the general assembler. Each case assembles under the seed with
 ## bootstrap/qfasm.qf1, byte-compares the produced ELF against the expected
@@ -213,7 +213,7 @@ run_scheme0_corpus() {
 
 run_scheme0_corpus
 
-## Stage 3 (in progress): the sc1 reader, Scheme running on scheme0.
+## Stage 3: the sc1 reader, Scheme running on scheme0.
 run_sc1_reader() {
   local actual
   actual=$(mktemp)
@@ -271,8 +271,7 @@ run_sc1_case "sc1-tail"
 ## The Stage 3 milestone: self-compilation to a byte-identical fixpoint.
 ## scheme0 interprets sc1 compiling sc1's own source (reader+compiler) to
 ## sc1.qfasm; the seed assembles that to the native sc1.elf; sc1.elf then
-## compiles the same source and must produce byte-identical output. The seed
-## assembly of the ~25k-instruction compiler is slow, hence the wide timeout.
+## compiles the same source and must produce byte-identical output.
 run_sc1_fixpoint() {
   local q1 q2 elf
   q1=$scheme0_dir/sc1.qfasm
@@ -298,12 +297,11 @@ run_sc1_fixpoint
 ## self-hosts: rscA compiles rsc.scm -> rscB.qfasm, rscB compiles rsc.scm ->
 ## rscC.qfasm, and rscB must equal rscC byte-for-byte. Finally an R5RS corpus
 ## (macros, quasiquote, vectors, apply, library) is compiled by rscA, assembled,
-## run, and diffed. The seed assemblies of the ~25k-instruction compiler are
-## slow, hence the wide timeouts.
+## run, and diffed.
 rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
-# R5RS corpus cases, filled in as Stage 4 features land.
+# R5RS corpus cases.
 RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply"
 
 run_rsc_fixpoint() {

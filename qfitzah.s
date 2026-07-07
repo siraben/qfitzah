@@ -595,7 +595,7 @@ proc ap
         do subst
         jmp ev
 
-        subst_here                      # XXX no longer necessary to be here
+        subst_here
 
         ## Here are some macros from httpdito:
         .equiv __NR_exit, 1     # linux/arch/x86/include/asm/unistd_32.h:9

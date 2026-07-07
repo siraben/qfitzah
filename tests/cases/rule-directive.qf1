@@ -1,0 +1,30 @@
+; The (Rule pattern replacement) directive: one rule written across several
+; physical lines, with the pattern and replacement each free to span lines.
+; A bare two-form rule must fit in one logical record; this explicit form
+; lifts that restriction.
+
+(Rule
+  (Desugar
+    (Let name value body))
+  (Apply
+    (Lambda name body)
+    value))
+
+(Rule
+  (Sequence
+    first
+    second)
+  (Then
+    first
+    second))
+
+(Desugar
+  (Let X A
+    (Use X)))
+
+(Sequence
+  (Read
+    Multi
+    Line)
+  (Emit
+    Bytes))

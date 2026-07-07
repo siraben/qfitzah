@@ -6,8 +6,8 @@ Three fixture families, all deterministic:
 - qfasm-exit42: minimal program with labels and a short jump.
 - qfasm-arith: random 32-bit add/sub cases in nybble-list form, with the
   expected printed results.
-- qfasm-big: a large randomized program (about 8 KiB of code, far beyond the
-  old finite-table assembler's range) covering every instruction category.
+- qfasm-big: a large randomized program (about 8 KiB of code) covering every
+  instruction category.
 
 Expected bytes come from the independent Python model below, not from the
 assembler, so these are true differential tests.

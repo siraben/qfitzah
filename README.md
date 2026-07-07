@@ -36,22 +36,25 @@ The current build is a 32-bit static Linux executable under 2 KiB. It keeps
 the runtime small by using direct syscalls, a bump allocator, pointer tagging,
 and ordered tree rewrite rules instead of a larger parser or object system.
 
-## Current Goal
+## The compiler stack
 
-This repository grows a tiny rewrite-system seed into a self-hosted Scheme
-compiler stack. The ladder, documented in [plan.md](plan.md):
+On top of the seed, this repository builds a self-hosting Scheme compiler as a
+ladder of small language processors, each written in the language of the one
+below it:
 
 ```text
 Stage 0  qfitzah.s      seed: pattern-matching term rewriter
-Stage 1  qfasm.qf1      general symbolic/macro assembler (no finite tables)
+Stage 1  qfasm.qf1      general symbolic assembler (rewrite rules)
 Stage 2  scheme0        minimal Scheme interpreter, assembled by Stage 1
 Stage 3  sc1.scm        Scheme-subset compiler written in the scheme0 subset
-Stage 4  rsc.scm        R5RS-to-asm compiler that recompiles itself
+Stage 4  rsc.scm        R5RS-subset-to-asm compiler that recompiles itself
 ```
 
-Stages 0 and 1 are implemented and tested; Stages 2-4 are in progress. Each
-stage adds capabilities while staying minimal but correct, and every stage
-artifact is produced by running the previous stage, never a host toolchain.
+Each stage stays minimal but correct, and every artifact is produced by running
+the stage below it — never a host toolchain. Stages 3 and 4 close the loop by
+rebuilding their own source to a byte-identical fixpoint. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the full design; the sections below tour
+the language and each rung.
 
 ## Language
 
@@ -98,11 +101,8 @@ the explicit rule directive:
     y))
 ```
 
-[bootstrap/stage1-multiline-rules.qf1](bootstrap/stage1-multiline-rules.qf1)
-is the first Qfitzah-improved bootstrap fixture. It uses only the improved
-reader feature: readable multi-line `(Rule pattern replacement)` records. The
-test suite runs that bootstrap file directly so later staged sources have a
-checked base for multi-line rules.
+This directive lets the pattern and replacement each span several lines, which
+a bare two-form rule cannot.
 
 Rules are tried from newest to oldest. Lowercase names and names beginning with
 `_` are pattern variables. Constants are atoms beginning with characters from
@@ -159,10 +159,10 @@ b8 01 00 00 00 bb 2a 00 00 00 cd 80
 
 ### Stage 0: the seed
 
-[qfitzah.s](qfitzah.s) is the trusted root: a ~1.5 KiB static i386 ELF
+[qfitzah.s](qfitzah.s) is the trusted root: a ~1.7 KiB static i386 ELF
 implementing the rewrite language. Matching supports repeated-variable
 structural equality; substitution preserves unmatched template variables.
-Two scaling properties matter for the stages above it, both invisible to the
+Three scaling properties matter for the stages above it, all invisible to the
 language semantics:
 
 - `evlis` reuses a pair when neither field changed after evaluation, so
@@ -171,7 +171,13 @@ language semantics:
   carries its own rule bucket), so evaluating a term only scans plausible
   candidates. Rules whose pattern head is not a constant atom live on a
   generic list consulted after the bucket, and therefore rank below all
-  head-indexed rules; no current source relies on that ordering.
+  head-indexed rules.
+- Normal forms are memoized by pair identity. Pairs are immutable and never
+  freed, so `ev(t)` is a pure function of the pointer `t` and the current rule
+  set; a direct-mapped cache (invalidated by a generation counter when a rule
+  is added) normalizes each subterm once. This keeps the assembler linear:
+  threading a large instruction chain or symbol table through the rewrite
+  passes would otherwise re-normalize those shared subterms once per step.
 
 ### Stage 1: the general assembler
 
@@ -268,8 +274,8 @@ sc1:
 rsc.scm itself uses none of these surface features (it is plain sc1-subset
 source), so its self-host fixpoint only re-exercises sc1's proven codegen; the
 new features are covered by a separate corpus. Out of scope (documented in
-[plan.md](plan.md)): bignums/numeric tower beyond 30-bit exact integers,
-floats/rationals, full `call/cc`/`dynamic-wind`, first-class `eval`,
+[ARCHITECTURE.md](ARCHITECTURE.md)): bignums/numeric tower beyond 30-bit exact
+integers, floats/rationals, full `call/cc`/`dynamic-wind`, first-class `eval`,
 `delay`/`force`, and `#(...)` vector read syntax (vectors are built by the
 constructors above).
 
@@ -295,15 +301,15 @@ nix flake check
 ```
 
 The test suite covers basic rewriting, fast multi-line piped input, final
-multi-line records at EOF, the Stage 1 multi-line-rule bootstrap fixture,
-repeated pattern variables, structural equality for repeated list-valued
-variables, unmatched template variables, reader ergonomics, empty-list
-matching, nested byte-stream flattening, the example compilers, and the
-Stage 1 assembler: random 32-bit arithmetic and two whole programs (including
-an 8 KiB, 2868-instruction one) checked byte-for-byte against an independent
-Python model, then executed. Test programs live in `tests/cases/*.qf1`, with
-expected snippets in matching `.expected` files and forbidden snippets in
-optional `.unexpected` files; assembler fixtures are regenerated by
+multi-line records at EOF, the multi-line rule directive, repeated pattern
+variables, structural equality for repeated list-valued variables, unmatched
+template variables, reader ergonomics, empty-list matching, nested byte-stream
+flattening, the example compilers, and the Stage 1 assembler: random 32-bit
+arithmetic and two whole programs (including an 8 KiB, 2868-instruction one)
+checked byte-for-byte against an independent Python model, then executed. Test
+programs live in `tests/cases/`, with expected snippets in matching `.expected`
+files and forbidden snippets in optional `.unexpected` files; assembler fixtures
+are regenerated by
 [tools/generate_qfasm_tests.py](tools/generate_qfasm_tests.py).
 
 The suite also assembles and runs Stage 2 (the scheme0 interpreter over a
@@ -312,17 +318,14 @@ Scheme corpus and the sc1 reader) and Stage 3: it compiles `sc1-corpus.scm`
 with `string->symbol`, strings/chars, predicates) and `sc1-tail.scm` (a
 million-iteration tail loop) with interpreted sc1, then checks the
 self-compilation fixpoint — the native `sc1.elf` recompiling sc1's own source
-byte-for-byte. The fixpoint's seed assembly of the ~25k-instruction compiler
-takes a couple of minutes, so that case runs under a wide timeout.
+byte-for-byte.
 
 Stage 4 adds the `rsc-fixpoint` test (sc1 builds `rsc.elf`; rsc recompiles its
 own source to a byte-identical fixpoint) and an R5RS corpus — `rsc-macros`
 (hygiene, ellipsis, recursion, `let-syntax`), `rsc-derived` (`let*`/`letrec`/
 named `let`/`when`/`unless`/`case`/`do`/`cond =>` and quasiquote), `rsc-library`
 (the standard-library prelude), `rsc-vectors`, and `rsc-apply` — each compiled
-by rsc, assembled, run, and diffed. rsc's compiled output is larger than sc1's,
-so the seed's bump-arena was enlarged (`.bss` only, no executable-size change)
-and these self-compiles run under wide timeouts.
+by rsc, assembled, run, and diffed.
 
 You can also run it against a built binary:
 
@@ -412,8 +415,8 @@ Run it:
 nix run < examples/meta2-arithmetic.qf1
 ```
 
-It proves the core runtime does not require languages built on top of it to be
-S-expression languages; only the current bootstrap reader is S-expression-based.
+It shows the core runtime does not require languages built on top of it to be
+S-expression languages; only the seed's own reader is S-expression-based.
 
 ## Example Compiler And VM
 
