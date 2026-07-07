@@ -1,0 +1,3 @@
+[submodule "third_party/mes"]
+	path = third_party/mes
+	url = https://git.savannah.gnu.org/git/mes.git
