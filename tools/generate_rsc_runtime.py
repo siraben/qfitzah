@@ -74,6 +74,20 @@ PRIMS = [("cons", "PrCons"), ("car", "PrCar"), ("cdr", "PrCdr"),
          ("vector->list", "PrVecList"), ("list->vector", "PrListVec"),
          ("error", "PrError"), ("exit", "PrExit")]
 
+# --- P1 substrate extensions (added in parts, see below) -------------------
+# Part A: 32-bit word ("w32") values (object subtype 5) + raw vector words.
+PRIMS += [
+    ("w32-from-fixnum", "PrW32FromFix"), ("w32->fixnum", "PrW32ToFix"),
+    ("w32?", "PrW32Q"),
+    ("w32-add", "PrW32Add"), ("w32-sub", "PrW32Sub"), ("w32-mul", "PrW32Mul"),
+    ("w32-quot", "PrW32Quot"), ("w32-rem", "PrW32Rem"),
+    ("w32-uquot", "PrW32UQuot"), ("w32-urem", "PrW32URem"),
+    ("w32-and", "PrW32And"), ("w32-or", "PrW32Or"),
+    ("w32-xor", "PrW32Xor"), ("w32-not", "PrW32Not"),
+    ("w32-shl", "PrW32Shl"), ("w32-shr", "PrW32Shr"), ("w32-sar", "PrW32Sar"),
+    ("w32-eq?", "PrW32EqQ"), ("w32-lt?", "PrW32LtQ"), ("w32-ult?", "PrW32UltQ"),
+    ("vec-raw-ref", "PrVecRawRef"), ("vec-raw-set!", "PrVecRawSet")]
+
 C = []   # code instructions
 D = []   # data directives
 CUR = C
@@ -1148,6 +1162,189 @@ I("(Jmp32 Emit)")
 L("(PI 4)")
 MOVRI("EAX", 0x3F)
 I("(Jmp32 Emit)")
+
+# ===========================================================================
+# P1 PART A: 32-bit word ("w32") values.
+#
+# A w32 is an object cell of NEW subtype 5: cell.car = 5 (payload ptr 0,
+# subtype 5), cell.cdr = the RAW 32-bit machine word (NOT a tagged value).
+# The boxed value is the object pointer celladdr+2. Because the cdr holds a
+# raw word, ONLY the w32 primitives below may touch it; rsc's printer and GC
+# never run at qmes runtime, so nothing else inspects a subtype-5 cell.
+# All arithmetic uses native 32-bit register ops (no 16-bit limb splitting).
+# ===========================================================================
+
+# MakeW32(ECX = raw word) -> boxed w32 in EAX.  Cons preserves ECX.
+L("MakeW32")
+MOVRI("EAX", 5)                    # car = 5 (payload 0 | subtype 5)
+call("Cons")                       # cell: car=5, cdr=ECX (raw word)
+I("(OrI8 EAX 02)")                 # object pointer
+I("(Ret)")
+
+
+def w32_load2():
+    """Destructure (a b): EAX <- raw a, ECX <- raw b (both from w32 boxes)."""
+    I("(MovRMD ECX EAX 04)")       # ECX = (b)
+    I("(MovRM ECX ECX)")           # ECX = b box
+    I("(MovRM EAX EAX)")           # EAX = a box
+    I("(MovRMD EAX EAX 02)")       # EAX = raw a  ([box+2] = celladdr+4 = cdr)
+    I("(MovRMD ECX ECX 02)")       # ECX = raw b
+
+
+def w32_binop(label, opins):
+    PL(label)
+    w32_load2()
+    I(opins)                       # result raw in EAX
+    I("(MovRR ECX EAX)")
+    I("(Jmp32 MakeW32)")
+
+
+PL("PrW32FromFix")                 # (w32-from-fixnum n): sign-extend n>>2
+I("(MovRM EAX EAX)")               # n fixnum (n*4+1)
+I("(SarI8 EAX 02)")                # arithmetic: signed value, sign-extended
+I("(MovRR ECX EAX)")
+I("(Jmp32 MakeW32)")
+
+PL("PrW32ToFix")                   # (w32->fixnum b): raw -> raw*4+1 (truncates)
+I("(MovRM EAX EAX)")               # b box
+I("(MovRMD EAX EAX 02)")           # raw word
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(Ret)")
+
+PL("PrW32Q")                       # (w32? x): #t iff object subtype 5
+I("(MovRM EAX EAX)")
+I("(MovRR ECX EAX)")
+I("(AndI8 ECX 03)")
+I("(CmpI8 ECX 02)")                # object pointer?
+I("(Jnz (WQ F))")
+I("(SubI8 EAX 02)")                # celladdr
+I("(MovRM EAX EAX)")               # car
+I("(AndI8 EAX 07)")                # subtype
+I("(CmpI8 EAX 05)")
+I("(Jz (WQ T))")
+I("(JmpS (WQ F))")
+ret_bool("WQ")
+
+w32_binop("PrW32Add", "(AddRR EAX ECX)")
+w32_binop("PrW32Sub", "(SubRR EAX ECX)")   # EAX = a - b
+w32_binop("PrW32Mul", "(IMulRR EAX ECX)")  # low 32 bits, wraparound
+w32_binop("PrW32And", "(AndRR EAX ECX)")
+w32_binop("PrW32Or", "(OrRR EAX ECX)")
+w32_binop("PrW32Xor", "(XorRR EAX ECX)")
+
+PL("PrW32Not")                     # (w32-not a)
+I("(MovRM EAX EAX)")
+I("(MovRMD EAX EAX 02)")           # raw a
+I("(NotR EAX)")
+I("(MovRR ECX EAX)")
+I("(Jmp32 MakeW32)")
+
+# Signed division: cdq; idiv.  a in EAX, b in ECX; quot->EAX, rem->EDX.
+PL("PrW32Quot")
+w32_load2()
+I("(Cdq)")
+I("(IDivR ECX)")
+I("(MovRR ECX EAX)")
+I("(Jmp32 MakeW32)")
+
+PL("PrW32Rem")
+w32_load2()
+I("(Cdq)")
+I("(IDivR ECX)")
+I("(MovRR ECX EDX)")
+I("(Jmp32 MakeW32)")
+
+# Unsigned division: xor edx,edx; div.
+PL("PrW32UQuot")
+w32_load2()
+I("(XorRR EDX EDX)")
+I("(DivR ECX)")
+I("(MovRR ECX EAX)")
+I("(Jmp32 MakeW32)")
+
+PL("PrW32URem")
+w32_load2()
+I("(XorRR EDX EDX)")
+I("(DivR ECX)")
+I("(MovRR ECX EDX)")
+I("(Jmp32 MakeW32)")
+
+
+def w32_shift(label, shins, prefix):
+    """(w32-shl/shr/sar a n): n is a small rsc FIXNUM shift count.
+
+    The qfasm assembler has no CL-count (0xD3) shift, and editing the
+    assembler is out of scope, so the count-N shift is done as a bounded loop
+    of single-bit shifts.  This is correct (and, unlike a hardware CL shift,
+    does not mask the count to 5 bits) for any non-negative count.
+    """
+    PL(label)
+    I("(MovRMD ECX EAX 04)")       # ECX = (n)
+    I("(MovRM ECX ECX)")           # ECX = n fixnum
+    I("(MovRM EAX EAX)")           # EAX = a box
+    I("(MovRMD EAX EAX 02)")       # EAX = raw a
+    I("(SarI8 ECX 02)")            # ECX = n (int)
+    L(f"({prefix} 1)")
+    I("(TestRR ECX ECX)")
+    I(f"(Jz ({prefix} 2))")
+    I(shins)                       # shift EAX by one bit
+    I("(DecR ECX)")
+    I(f"(JmpS ({prefix} 1))")
+    L(f"({prefix} 2)")
+    I("(MovRR ECX EAX)")
+    I("(Jmp32 MakeW32)")
+
+
+w32_shift("PrW32Shl", "(ShlI8 EAX 01)", "WSHL")
+w32_shift("PrW32Shr", "(ShrI8 EAX 01)", "WSHR")   # logical
+w32_shift("PrW32Sar", "(SarI8 EAX 01)", "WSAR")   # arithmetic
+
+
+def w32_cmp(label, jcc, prefix):
+    PL(label)
+    w32_load2()                    # EAX = raw a, ECX = raw b
+    I("(CmpRR EAX ECX)")           # sets flags for a - b
+    I(f"({jcc} ({prefix} T))")
+    I(f"(JmpS ({prefix} F))")
+    ret_bool(prefix)
+
+
+w32_cmp("PrW32EqQ", "Jz", "WEQ")
+w32_cmp("PrW32LtQ", "Jl", "WLT")     # signed <
+w32_cmp("PrW32UltQ", "Jb", "WULT")   # unsigned <
+
+# Raw 32-bit vector-word accessors.  A vector (subtype 4) keeps its element
+# buffer at byteptr = (cell.car & ~7); element k lives at byteptr + k*4.
+# These read/write a RAW machine word there, bypassing tag interpretation, so
+# qmes can pack a Mes cell (three words) into consecutive vector slots.
+PL("PrVecRawRef")                  # (vec-raw-ref v k) -> w32 box of raw word
+I("(MovRMD ECX EAX 04)")           # (k)
+I("(MovRM ECX ECX)")               # k fixnum
+I("(AndI8 ECX FC)")                # k*4 (clear the fixnum tag bits)
+I("(MovRM EAX EAX)")               # v obj
+I("(SubI8 EAX 02)")                # celladdr
+I("(MovRM EAX EAX)")               # car = buffer|4
+I("(AndI8 EAX F8)")                # buffer
+I("(AddRR EAX ECX)")               # &elt[k]
+I("(MovRM ECX EAX)")               # raw word
+I("(Jmp32 MakeW32)")
+
+PL("PrVecRawSet")                  # (vec-raw-set! v k w): store w's raw word
+I("(MovRM ECX EAX)")               # v obj
+I("(SubI8 ECX 02)")                # celladdr
+I("(MovRM ECX ECX)")               # car = buffer|4
+I("(AndI8 ECX F8)")                # buffer
+I("(MovRMD EAX EAX 04)")           # (k w)
+I("(MovRM EDX EAX)")               # k fixnum
+I("(AndI8 EDX FC)")                # k*4
+I("(AddRR ECX EDX)")               # &elt[k]
+I("(MovRMD EAX EAX 04)")           # (w)
+I("(MovRM EAX EAX)")               # w box
+I("(MovRMD EAX EAX 02)")           # raw word
+I("(MovMR ECX EAX)")               # elt[k] = raw
+MOVRI("EAX", UNSPEC)
+I("(Ret)")
 
 # ===========================================================================
 # DATA

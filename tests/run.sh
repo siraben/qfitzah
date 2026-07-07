@@ -302,7 +302,7 @@ rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
 # R5RS corpus cases.
-RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply"
+RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply qmes-w32"
 
 run_rsc_fixpoint() {
   local sc1elf rscAqf rscBqf rscBelf rscCqf
