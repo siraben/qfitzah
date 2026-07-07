@@ -88,6 +88,12 @@ PRIMS += [
     ("w32-eq?", "PrW32EqQ"), ("w32-lt?", "PrW32LtQ"), ("w32-ult?", "PrW32UltQ"),
     ("vec-raw-ref", "PrVecRawRef"), ("vec-raw-set!", "PrVecRawSet")]
 
+# Part B: syscalls + process environment (argv/envp captured in HeapInit).
+PRIMS += [
+    ("getenv", "PrGetenv"), ("command-line", "PrCommandLine"),
+    ("sys-open", "PrSysOpen"), ("sys-close", "PrSysClose"),
+    ("sys-read", "PrSysRead"), ("sys-write", "PrSysWrite")]
+
 C = []   # code instructions
 D = []   # data directives
 CUR = C
@@ -129,6 +135,19 @@ CUR = C
 
 # --- HeapInit: set up the bump allocators past CodeEnd -----------------------
 L("HeapInit")
+# Capture argv/argc/envp from the initial process stack BEFORE clobbering EAX.
+# HeapInit is the first thing rsc's compiled Start calls, so at entry the stack
+# is [ESP]=return addr, [ESP+4]=argc, [ESP+8]=&argv[0].  RM01 addressing cannot
+# use ESP as a base, so copy ESP into EAX first.
+I("(MovRR EAX ESP)")
+I("(MovRMD ECX EAX 04)")               # ECX = argc
+I("(MovMemLR GArgc ECX)")
+I("(AddI8 EAX 08)")                    # EAX = &argv[0]
+I("(MovMemLR GArgv EAX)")
+I("(IncR ECX)")                        # argc + 1 (argv is NULL-terminated)
+I("(ShlI8 ECX 02)")                    # (argc+1)*4
+I("(AddRR EAX ECX)")                   # envp = &argv[0] + (argc+1)*4
+I("(MovMemLR GEnvp EAX)")
 I("(MovRILabel EAX CodeEnd)")
 I("(AddI8 EAX 07)")
 I("(AndI8 EAX F8)")
@@ -1347,12 +1366,186 @@ MOVRI("EAX", UNSPEC)
 I("(Ret)")
 
 # ===========================================================================
+# P1 PART B: syscalls + process environment.
+#
+# argv/argc/envp are captured at HeapInit entry (see above).  fds, counts,
+# flags and modes are ordinary rsc fixnums (they fit in 30 bits).
+# ===========================================================================
+
+# CStrToStr(EAX = char* NUL-terminated) -> rsc string in EAX.
+# strlen, then AllocObj (subtype 1).  Callable (AllocObj RETs) or tail-jumped.
+L("CStrToStr")
+I("(MovRR EDX EAX)")               # EDX = scan pointer
+L("(CS 1)")
+I("(MovzxRMb ECX EDX)")            # ECX = byte
+I("(TestRR ECX ECX)")
+I("(Jz (CS 2))")
+I("(IncR EDX)")
+I("(JmpS (CS 1))")
+L("(CS 2)")
+I("(MovRR ECX EDX)")
+I("(SubRR ECX EAX)")               # ECX = len
+MOVRI("EDX", 1)                    # subtype 1 = string
+I("(Jmp32 AllocObj)")             # AllocObj(EAX=src, ECX=len, EDX=1), RETs
+
+# (getenv name): name = rsc string.  Scan GEnvp (NULL-terminated KEY=VALUE
+# C strings); on a KEY==name and next byte '=', return the VALUE as a fresh
+# rsc string; else #f.  ESI/EDI are scratch across the primitive boundary.
+PL("PrGetenv")
+I("(MovRM EAX EAX)")               # name obj
+I("(SubI8 EAX 02)")                # celladdr
+I("(MovRM ESI EAX)")               # car = byteptr|1
+I("(AndI8 ESI F8)")                # ESI = name byteptr
+I("(MovRMD EDI EAX 04)")           # cdr = len*4+1
+I("(SarI8 EDI 02)")                # EDI = name len
+I("(MovRMemL EBX GEnvp)")          # EBX = &envp[0]
+L("(GE loop)")
+I("(MovRM EAX EBX)")               # EAX = envp[i] (char* or NULL)
+I("(TestRR EAX EAX)")
+I("(Jz32 (GE none))")
+I("(XorRR ECX ECX)")               # i = 0
+L("(GE cmp)")
+I("(CmpRR ECX EDI)")               # i == name len?
+I("(Jz32 (GE checkeq))")
+I("(MovRR EAX ESI)")               # &name[i]
+I("(AddRR EAX ECX)")
+I("(MovzxRMb EAX EAX)")            # name[i]
+I("(MovRM EDX EBX)")               # env base
+I("(AddRR EDX ECX)")               # &env[i]
+I("(MovzxRMb EDX EDX)")            # env[i]
+I("(CmpRR EAX EDX)")
+I("(Jnz32 (GE next))")
+I("(IncR ECX)")
+I("(JmpS (GE cmp))")
+L("(GE checkeq)")
+I("(MovRM EDX EBX)")               # env base
+I("(AddRR EDX EDI)")               # &env[len]
+I("(MovzxRMb EAX EDX)")            # env[len]
+I("(CmpI8 EAX 3D)")                # '='
+I("(Jnz32 (GE next))")
+I("(MovRM EAX EBX)")               # env base
+I("(AddRR EAX EDI)")               # &env[len]
+I("(IncR EAX)")                    # -> VALUE start (C string)
+I("(Jmp32 CStrToStr)")
+L("(GE next)")
+I("(AddI8 EBX 04)")                # next envp slot
+I("(Jmp32 (GE loop))")
+L("(GE none)")
+MOVRI("EAX", FALSE)
+I("(Ret)")
+
+# BuildArgv(EAX = index i) -> rsc list of argv[i..argc-1] as strings.
+L("BuildArgv")
+I("(MovRMemL ECX GArgc)")
+I("(CmpRR EAX ECX)")               # i - argc
+I("(Jge32 (BA nil))")
+I("(PushR EAX)")                   # save i
+I("(MovRMemL EDX GArgv)")
+I("(MovRR ECX EAX)")
+I("(ShlI8 ECX 02)")                # i*4
+I("(AddRR EDX ECX)")               # &argv[i]
+I("(MovRM EAX EDX)")               # argv[i] (char*)
+I("(Call CStrToStr)")             # EAX = rsc string
+I("(PopR ECX)")                    # ECX = i
+I("(PushR EAX)")                   # save string
+I("(MovRR EAX ECX)")
+I("(IncR EAX)")                    # i + 1
+I("(Call BuildArgv)")             # EAX = rest list
+I("(PopR ECX)")                    # ECX = string
+I("(XchgRR EAX ECX)")              # EAX = string (car), ECX = rest (cdr)
+I("(Jmp32 Cons)")
+L("(BA nil)")
+MOVRI("EAX", NIL)
+I("(Ret)")
+
+PL("PrCommandLine")                # (command-line) -> list of argv strings
+MOVRI("EAX", 0)
+I("(Jmp32 BuildArgv)")
+
+# (sys-open path flags mode): path=rsc string (not NUL-terminated), flags/mode
+# fixnums.  Copy path bytes to GPathBuf + NUL, then int 0x80 #5 (__NR_open).
+PL("PrSysOpen")
+I("(MovRMD ECX EAX 04)")           # (flags mode)
+I("(MovRM EBX ECX)")               # flags fixnum
+I("(SarI8 EBX 02)")                # flags int
+I("(MovRMD ECX ECX 04)")           # (mode)
+I("(MovRM ECX ECX)")               # mode fixnum
+I("(SarI8 ECX 02)")                # mode int
+I("(PushR ECX)")                   # save mode
+I("(PushR EBX)")                   # save flags
+I("(MovRM ECX EAX)")               # path obj (car)
+I("(SubI8 ECX 02)")                # celladdr
+I("(MovRM EDX ECX)")               # car = byteptr|1
+I("(AndI8 EDX F8)")                # path byteptr
+I("(MovRMD ECX ECX 04)")           # cdr = len*4+1
+I("(SarI8 ECX 02)")                # path len
+I("(MovRILabel EDI GPathBuf)")
+I("(MovRR ESI EDX)")               # source = path bytes
+I("(RepMovsb)")                    # copy ECX bytes ESI->EDI
+I("(XorRR EAX EAX)")
+I("(MovbMR EDI EAX)")              # NUL-terminate at GPathBuf+len
+I("(PopR ECX)")                    # flags
+I("(PopR EDX)")                    # mode
+I("(MovRILabel EBX GPathBuf)")     # path
+MOVRI("EAX", 5)                    # __NR_open
+I("(Int 80)")
+I("(ShlI8 EAX 02)")                # fd (or -errno) -> fixnum
+I("(OrI8 EAX 01)")
+I("(Ret)")
+
+PL("PrSysClose")                   # (sys-close fd)
+I("(MovRM EBX EAX)")               # fd fixnum
+I("(SarI8 EBX 02)")                # fd int
+MOVRI("EAX", 6)                    # __NR_close
+I("(Int 80)")
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(Ret)")
+
+# (sys-read fd str): read up to (string-length str) bytes into str's buffer.
+PL("PrSysRead")
+I("(MovRM EBX EAX)")               # fd fixnum
+I("(SarI8 EBX 02)")                # fd int
+I("(MovRMD EAX EAX 04)")           # (str)
+I("(MovRM EAX EAX)")               # str obj
+I("(SubI8 EAX 02)")                # celladdr
+I("(MovRM ECX EAX)")               # car = byteptr|1
+I("(AndI8 ECX F8)")                # byteptr (read dest)
+I("(MovRMD EDX EAX 04)")           # cdr = len*4+1
+I("(SarI8 EDX 02)")                # count = string length
+MOVRI("EAX", 3)                    # __NR_read
+I("(Int 80)")
+I("(ShlI8 EAX 02)")                # count (or -errno) -> fixnum
+I("(OrI8 EAX 01)")
+I("(Ret)")
+
+# (sys-write fd str n): write n bytes from str's buffer.
+PL("PrSysWrite")
+I("(MovRM EBX EAX)")               # fd fixnum
+I("(SarI8 EBX 02)")                # fd int
+I("(MovRMD EAX EAX 04)")           # (str n)
+I("(MovRM ECX EAX)")               # str obj
+I("(SubI8 ECX 02)")                # celladdr
+I("(MovRM ECX ECX)")               # car = byteptr|1
+I("(AndI8 ECX F8)")                # byteptr (write source)
+I("(MovRMD EAX EAX 04)")           # (n)
+I("(MovRM EDX EAX)")               # n fixnum
+I("(SarI8 EDX 02)")                # n int
+MOVRI("EAX", 4)                    # __NR_write
+I("(Int 80)")
+I("(ShlI8 EAX 02)")
+I("(OrI8 EAX 01)")
+I("(Ret)")
+
+# ===========================================================================
 # DATA
 # ===========================================================================
 CUR = D
 I("(Align4)")
 for g in ["GCellFree", "GByteFree", "GInPtr", "GInEnd", "GObList",
-          "GTokBuf", "GReadBuf"]:
+          "GTokBuf", "GReadBuf",
+          # P1 Part B: argv/argc/envp, captured in HeapInit.
+          "GArgc", "GArgv", "GEnvp"]:
     L(g)
     init = NIL if g == "GObList" else 0
     I(f"(Dd {x8(init)})")
@@ -1361,6 +1554,12 @@ I(f"(Dd {x8(MINUS1)})")
 L("WriteChBuf")
 I("(Db 00)")
 I("(Align4)")
+# P1 Part B: a static NUL-terminating buffer for (sys-open path ...).  It lives
+# in the file-backed data section (mapped for certain) rather than out in the
+# demand-zero arena, so it is valid regardless of arena sizing.  PATH_MAX bytes.
+L("GPathBuf")
+for _ in range(4096 // 4):
+    I(f"(Dd {x8(0)})")
 for name, _ in PRIMS:
     L(gv(name))
     I(f"(Dd {x8(0)})")

@@ -361,6 +361,41 @@ for rsc_case in $RSC_CASES; do
   run_rsc_case "$rsc_case"
 done
 
+## P1 Part B: syscalls + argv/env. Unlike run_rsc_case this drives the
+## compiled program with a known env var, argv, and datafile so the
+## transcript is deterministic (argv[0] is a temp path and is never printed).
+run_qmes_syscall() {
+  local name=qmes-syscall
+  local qfasm elf actual datafile
+  qfasm=$scheme0_dir/$name.qfasm
+  elf=$scheme0_dir/$name.elf
+  actual=$scheme0_dir/$name.out
+  datafile=$scheme0_dir/$name.data
+  printf 'datafile-contents-9x7' > "$datafile"
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" \
+    | timeout 60s "$RSC_ELF" > "$qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+    | timeout 300s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  set +e
+  env -u QMES_ABSENT_VAR_XYZ QMES_TESTVAR=hello-qmes-env \
+    timeout 60s "$elf" ARG_ALPHA ARG_BETA "$datafile" > "$actual"
+  local status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    printf 'FAIL %s: compiled program exited %s\n' "$name" "$status" >&2
+    cat "$actual" >&2
+    exit 1
+  fi
+  if ! diff -u "$case_dir/$name.expected" "$actual" >&2; then
+    printf 'FAIL %s: output differs\n' "$name" >&2
+    exit 1
+  fi
+  printf 'ok - %s\n' "$name"
+}
+
+run_qmes_syscall
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'
