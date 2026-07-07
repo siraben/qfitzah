@@ -429,6 +429,43 @@ run_qmes_soak() {
 
 run_qmes_soak
 
+## P2 milestone gate: the qmes interpreter boot ladder.  Compile bootstrap/
+## qmes.scm with rsc, assemble it under the seed, then run each of Mes's
+## scaffold boot files 00-zero..14-exit under MES_BOOT and compare the exit
+## status of every one against the committed reference (tests/mes-reference-
+## bootstatus.txt, produced by bin/mes-m2).  A single divergence fails.
+run_qmes_boot_ladder() {
+  local qfasm elf actual
+  qfasm=$scheme0_dir/qmes.qfasm
+  elf=$scheme0_dir/qmes.elf
+  actual=$scheme0_dir/qmes-bootstatus.txt
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/qmes.scm" \
+    | timeout 120s "$RSC_ELF" > "$qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+    | timeout 300s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  local boot_dir="$repo_root/third_party/mes/scaffold/boot"
+  local prefix="$repo_root/third_party/mes"
+  : > "$actual"
+  local t st
+  for t in 00-zero 01-true 02-symbol 03-string 04-quote 05-list 06-tick \
+           07-if 08-if-if 10-cons 11-list 12-car 13-cdr 14-exit; do
+    set +e
+    env MES_BOOT="$boot_dir/$t.scm" MES_PREFIX="$prefix" \
+      timeout 30s "$elf" >/dev/null 2>&1
+    st=$?
+    set -e
+    printf '%s -> %s\n' "$t" "$st" >> "$actual"
+  done
+  if ! diff -u "$repo_root/tests/mes-reference-bootstatus.txt" "$actual" >&2; then
+    printf 'FAIL qmes-boot-ladder: exit statuses diverge from mes-m2 reference\n' >&2
+    exit 1
+  fi
+  printf 'ok - qmes-boot-ladder (00-zero..14-exit match mes-m2)\n'
+}
+
+run_qmes_boot_ladder
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'
