@@ -157,14 +157,24 @@ I("(MovRILabel EAX CodeEnd)")
 I("(AddI8 EAX 07)")
 I("(AndI8 EAX F8)")
 I("(MovMemLR GCellFree EAX)")
-I(f"(AddI32 EAX {x8(0x0C000000)})")   # 192 MiB of cells
+I(f"(AddI32 EAX {x8(0x20000000)})")   # 512 MiB of cells (P1 Part D)
 I("(MovMemLR GByteFree EAX)")
-I(f"(AddI32 EAX {x8(0x02000000)})")   # 32 MiB of bytes
+I(f"(AddI32 EAX {x8(0x40000000)})")   # 1 GiB of bytes (P1 Part D)
 I("(MovMemLR GReadBuf EAX)")
 I("(MovMemLR GInPtr EAX)")
 I("(MovMemLR GInEnd EAX)")
 I(f"(AddI32 EAX {x8(0x01000000)})")   # 16 MiB read buffer
 I("(MovMemLR GTokBuf EAX)")
+# The arenas above (~1.5 GiB) far exceed the ELF's demand-zero bss, which is
+# fixed at 256 MiB by rsc.scm's Program header (out of scope to change here).
+# Grow the program break to cover the whole arena top so every arena pointer
+# (byte arena, read buffer, tok buffer) lands in mapped memory.  brk pages are
+# demand-zero, so this reserves address space without committing RAM until a
+# page is touched -- the reset-based soak still runs in constant resident size.
+I("(MovRR EBX EAX)")                  # top = GTokBuf base ...
+I(f"(AddI32 EBX {x8(0x01000000)})")   # ... + 16 MiB headroom for GTokBuf
+MOVRI("EAX", 45)                      # __NR_brk
+I("(Int 80)")
 I("(Ret)")
 
 # --- InitPrims: build a closure object for every primitive -------------------
