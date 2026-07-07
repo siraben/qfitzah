@@ -203,8 +203,11 @@
 
 (define sym-table 0)         ; interning list of symbol cells
 
-; Global environment (recursive-evaluator path; replaced by M0 in E2/E3)
-(define genv 0)
+; Modules and macro table (E2)
+(define m0 0)                ; initial module: hashq(symbol -> variable)
+(define m1 0)                ; current module (cell-f until module system boots)
+(define g-macros-table 0)    ; hashq(symbol -> TMACRO or cell-f)
+(define env-alist 0)         ; the builtin/special alist M0 is built from
 
 (define (bytes-eq-loop p1 p2 i n)
   (if (= i n)
@@ -244,24 +247,153 @@
     (make-strlike TSPECIAL start (- byte-free start))))
 
 ; ===========================================================================
-; Global environment (recursive evaluator; E1/E2 only)
+; List helpers (core.c length__, assq)
 ; ===========================================================================
-(define (env-define! sym val) (set! genv (qcons (qcons sym val) genv)))
-(define (env-scan lst sym)
-  (if (= lst cell-nil)
-      #f
-      (let ((pr (cell-car lst)))
-        (if (= (cell-car pr) sym) pr (env-scan (cell-cdr lst) sym)))))
+(define (length- x) (length-loop x 0))
+(define (length-loop x n)
+  (cond ((= x cell-nil) n)
+        ((not (= (cell-type x) TPAIR)) -1)
+        (else (length-loop (cell-cdr x) (+ n 1)))))
+
+; identity assq (Mes assq for TSYMBOL/TSPECIAL keys) -> the (key . val) pair or cell-f
+(define (qassq x a)
+  (if (not (= (cell-type a) TPAIR)) cell-f (qassq-loop x a)))
+(define (qassq-loop x a)
+  (cond ((= a cell-nil) cell-f)
+        ((= (cell-car (cell-car a)) x) (cell-car a))
+        (else (qassq-loop x (cell-cdr a)))))
+
+; ===========================================================================
+; Vectors / structs / TREF (vector.c, struct.c)
+; ===========================================================================
+(define (vector-entry x)
+  (let ((ty (cell-type x)))
+    (if (or (= ty TCHAR) (= ty TNUMBER)) x (make-ref x))))
+
+(define (unwrap-entry e)                       ; ref/char/number unwrap on ref
+  (let ((ty (cell-type e)))
+    (cond ((= ty TREF) (cell-car e))
+          ((= ty TCHAR) (make-char (char-value e)))
+          ((= ty TNUMBER) (make-number-w (num-value e)))
+          (else e))))
+
+(define (make-vector- k e)
+  (let ((x (alloc-n 1)) (v (alloc-n k)))
+    (set-type! x TVECTOR)
+    (set-car! x k)
+    (set-cdr! x v)
+    (vfill- v 0 k e)
+    x))
+(define (vfill- v i k e)
+  (if (< i k)
+      (begin (copy-cell! (+ v i) (vector-entry e)) (vfill- v (+ i 1) k e))
+      'ok))
+(define (vector-length- x) (cell-car x))
+(define (vector-body x) (cell-cdr x))
+(define (vector-ref- x i) (unwrap-entry (+ (vector-body x) i)))
+(define (vector-set-x- x i e) (copy-cell! (+ (vector-body x) i) (vector-entry e)))
+
+(define (make-struct type fields printer)
+  (let* ((size (+ 2 (length- fields)))
+         (x (alloc-n 1))
+         (v (alloc-n size)))
+    (set-type! x TSTRUCT)
+    (set-car! x size)
+    (set-cdr! x v)
+    (copy-cell! v (vector-entry type))
+    (copy-cell! (+ v 1) (vector-entry printer))
+    (struct-fill! v 2 size fields)
+    x))
+(define (struct-fill! v i size fields)
+  (if (< i size)
+      (let ((e (if (= fields cell-nil) cell-unspec (cell-car fields))))
+        (copy-cell! (+ v i) (vector-entry e))
+        (struct-fill! v (+ i 1) size
+                      (if (= fields cell-nil) fields (cell-cdr fields))))
+      'ok))
+(define (struct-body x) (cell-cdr x))
+(define (struct-ref- x i) (unwrap-entry (+ (struct-body x) i)))
+(define (struct-set-x- x i e) (copy-cell! (+ (struct-body x) i) (vector-entry e)))
+
+; ===========================================================================
+; Variables (variable.c) — TSTRUCT of length 4: [type printer 'variable value]
+; ===========================================================================
+(define (make-variable value)
+  (make-struct cell-symbol-variable
+               (qcons cell-symbol-variable (qcons value cell-nil))
+               cell-unspec))
+(define (variable-ref var) (struct-ref- var 3))
+(define (variable-set-x var val) (struct-set-x- var 3 val))
+
+; ===========================================================================
+; Hash tables (hash.c) — TSTRUCT: [type printer 'hashq-table size buckets]
+; hashq uses the first two name bytes (hash_cstring parity).
+; ===========================================================================
+(define (make-hash-table- size0)
+  (let* ((size (if (= size0 0) 100 size0))
+         (buckets (make-vector- size cell-unspec)))
+    (make-struct cell-symbol-hashq-table
+                 (qcons cell-symbol-hashq-table
+                        (qcons (make-number-fx size)
+                               (qcons buckets cell-nil)))
+                 cell-unspec)))
+(define (hashq- key size)
+  (let* ((off (strlike-offset key))
+         (len (strlike-len key))
+         (b0 (char->integer (string-ref g-bytes off)))
+         (b1 (if (> len 1) (char->integer (string-ref g-bytes (+ off 1))) 0))
+         (h (+ (* b0 37) (if (and (not (= b0 0)) (not (= b1 0))) (* b1 43) 0))))
+    (remainder h size)))
+(define (ht-size table) (num-fixnum (struct-ref- table 3)))
+(define (ht-buckets table) (struct-ref- table 4))
+(define (hashq-get-handle table key)
+  (let* ((size (ht-size table))
+         (h (hashq- key size))
+         (buckets (ht-buckets table))
+         (bucket (vector-ref- buckets h)))
+    (if (= (cell-type bucket) TPAIR) (qassq key bucket) cell-f)))
+(define (hashq-ref- table key dflt)
+  (let ((x (hashq-get-handle table key)))
+    (if (not (= x cell-f)) (cell-cdr x) dflt)))
+(define (hashq-set-x table key value)
+  (let* ((size (ht-size table))
+         (h (hashq- key size))
+         (buckets (ht-buckets table))
+         (bucket0 (vector-ref- buckets h))
+         (bucket (if (= (cell-type bucket0) TPAIR) bucket0 cell-nil)))
+    (vector-set-x- buckets h (acons key value bucket))
+    value))
+
+; ===========================================================================
+; Modules (module.c) — M1 = cell-f path (module system unbooted)
+; ===========================================================================
+(define (make-initial-module a)
+  (let ((m (make-hash-table- 100)))
+    (mim-loop m a)
+    m))
+(define (mim-loop m a)
+  (if (= (cell-type a) TPAIR)
+      (let ((entry (cell-car a)))
+        (hashq-set-x m (cell-car entry) (make-variable (cell-cdr entry)))
+        (mim-loop m (cell-cdr a)))
+      'ok))
+(define (current-module-variable name define-p)
+  (let ((var (hashq-ref- m0 name cell-f)))
+    (if (and (= var cell-f) (not (= define-p cell-f)))
+        (hashq-set-x m0 name (make-variable cell-undefined))
+        var)))
+
+; Recursive-evaluator global lookup, now through M0 (E2).
 (define (global-lookup sym)
-  (let ((pr (env-scan genv sym)))
-    (if pr (cell-cdr pr) (qfail))))
+  (let ((var (current-module-variable sym cell-f)))
+    (if (= var cell-f) (qfail) (variable-ref var))))
 
 ; TFUNC builtin: car = builtin-id, cdr = arity (-1 = n-ary).
 (define (make-func id arity) (alloc TFUNC id arity))
 (define (func-id f) (cell-car f))
 (define (func-arity f) (cell-cdr f))
 (define (bind-builtin name id arity)
-  (env-define! (intern-rsc name) (make-func id arity)))
+  (set! env-alist (acons (intern-rsc name) (make-func id arity) env-alist)))
 
 (define (qfail) (exit 1))    ; unreachable on the milestone forms
 
@@ -318,7 +450,7 @@
   (set! cell-vm-return (special-rsc "*vm-return*"))
 
   (set! sym-table cell-nil)
-  (set! genv cell-nil)
+  (set! env-alist cell-nil)
 
   (set! cell-symbol-lambda (intern-rsc "lambda"))
   (set! cell-symbol-begin (intern-rsc "begin"))
@@ -588,6 +720,9 @@
 (define (qmain)
   (init-cells)
   (init-builtins)
+  (set! m0 (make-initial-module env-alist))
+  (set! m1 cell-f)
+  (set! g-macros-table (make-hash-table- 0))
   (let ((fd (open-boot)))
     (if (< fd 0)
         (exit 1)
