@@ -248,7 +248,10 @@ proc cons
         ## do this by aligning the arena to a 4-byte boundary and
         ## then incrementing the allocator pointer by multiples of 4.
         .bss 1
-        .balign 4
+        ## 8-byte alignment (cons always advances by 8) means every pair
+        ## pointer has its low three bits clear, so (ptr >> 3) is a dense
+        ## index into the ev memo cache below.
+        .balign 8
 arena:  .fill 1536*1024*1024
 
         ## The other kinds of elements in our list structure are
@@ -487,10 +490,58 @@ proc evlis
         ## generic list, which is consulted after the head's bucket;
         ## such rules therefore rank below all head-indexed ones.
         my rules, -1            # generic (non-head-indexed) rules
+
+        ## Generation counter for the ev memo cache, bumped whenever a
+        ## rule is added.  Starts at 1 so the zero-initialised cache
+        ## (whose entries carry generation 0) never produces a false hit.
+        my ev_gen, 1
+
+        ## ev memoizes normal forms by pair identity.  Pairs are
+        ## immutable and never freed, so ev(t) depends only on t and the
+        ## current rule set: once a subterm is normalised its result can
+        ## be reused for every later occurrence of that same pointer.
+        ## This is what keeps the assembler's passes linear — threading a
+        ## large instruction chain or symbol table through a recursive
+        ## rewrite re-visits those shared subterms once per step, which
+        ## without memoization is quadratic.  The cache is direct-mapped;
+        ## a colliding or stale (wrong-generation) slot simply forces a
+        ## recompute, so it can only affect speed, never results.
+        .equiv evcache_bits, 21
+        .equiv evcache_mask, (1 << evcache_bits) - 1
 proc ev
         jpair %al, 1f
         ret                     # atoms always evaluate to themselves
-1:      do evlis
+1:      mov %eax, %edx          # index = (t >> 3) & mask, entries are 16 bytes
+        shr $3, %edx
+        and $evcache_mask, %edx
+        shl $4, %edx
+        add $evcache, %edx      # %edx -> cache slot for t
+        cmp (%edx), %eax        # key matches t?
+        jne 4f
+        mov ev_gen-globals(%ebp), %ecx
+        cmp 8(%edx), %ecx       # and stored generation still current?
+        jne 4f
+        mov 4(%edx), %eax       # hit: reuse the memoized normal form
+        ret
+4:      push %eax               # miss: normalise, then record the result
+        call ev_core
+        pop %ecx                # original t
+        mov %ecx, %edx
+        shr $3, %edx
+        and $evcache_mask, %edx
+        shl $4, %edx
+        add $evcache, %edx
+        mov %ecx, (%edx)        # key
+        mov %eax, 4(%edx)       # normal form
+        mov ev_gen-globals(%ebp), %ecx
+        mov %ecx, 8(%edx)       # generation
+        ret
+
+        ## The rewrite engine proper.  The memo wrapper guarantees %eax
+        ## is a pair on entry; ap's success path tail-jumps back through
+        ## the memoizing ev, so rewritten terms are cached too.
+proc ev_core
+        do evlis
         push %eax               # save evaluated term t
         mov (%eax), %edx        # head of t
         test $1, %dl
@@ -609,6 +660,15 @@ atoms:  .fill 16*65536
         my lineptr, input_buffer
         my paren_depth, 0
         my in_comment, 0
+        ## The ev memo cache: 2^21 direct-mapped slots of 16 bytes each
+        ## (key pointer, memoized normal form, generation, and one spare
+        ## word).  Zero-initialised, so every slot starts at generation 0
+        ## and misses until written.  See proc ev.
+        .bss
+        .balign 16
+evcache:
+        .fill 16 * (1 << 21)
+
         ## Output is handled by setting %edi to point into this output
         ## buffer, then using stosb to add stuff to it.
         .bss
@@ -867,6 +927,7 @@ proc add_rule
         ## %eax is (pattern . template).  Patterns headed by a
         ## constant atom go on that atom's rule bucket; anything else
         ## goes on the generic list.
+        incl ev_gen-globals(%ebp) # adding a rule invalidates the memo cache
         mov (%eax), %edx        # pattern
         jnpair %dl, 1f
         mov (%edx), %edx        # head of pattern

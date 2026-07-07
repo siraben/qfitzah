@@ -49,6 +49,19 @@ printing. This is the trusted root; it stays hand-audited.
       every rule. An 8 KiB / 2868-instruction assembly dropped from 112 s +
       arena exhaustion to 2.5 s. One documented precedence refinement: rules
       whose pattern head is not a constant atom rank below head-indexed ones.
+- [x] Memoize normal forms by pair identity. Pairs are immutable and never
+      freed, so `ev(t)` depends only on `t` and the current rule set; a
+      direct-mapped cache keyed on the pair pointer (invalidated by a
+      generation counter bumped in `add_rule`) makes each subterm normalize
+      once. This is what removes the assembler's quadratic: threading a large
+      instruction chain or symbol table through the rewrite passes re-visits
+      those shared subterms once per step, which without the cache is
+      quadratic. Measured: an N-`Nop` assembly went from ~N^1.8 (16k in 13.0 s)
+      to linear (16k in 1.8 s, 32k in 3.5 s); the whole test suite, dominated
+      by two compiler self-compiles, dropped from ~20 min to ~30 s. Output is
+      byte-identical — the cache can only change speed (a stale or colliding
+      slot just forces a recompute), and both self-host fixpoints still pass.
+      Cost: +84 bytes of code and a 32 MiB `.bss` cache; the seed is ~1.7 KiB.
 - [ ] (Only if measurement demands it) buffered reads instead of 1-byte
       `read(2)` calls. Semantics must not change.
 
