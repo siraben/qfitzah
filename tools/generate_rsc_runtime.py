@@ -94,6 +94,11 @@ PRIMS += [
     ("sys-open", "PrSysOpen"), ("sys-close", "PrSysClose"),
     ("sys-read", "PrSysRead"), ("sys-write", "PrSysWrite")]
 
+# Part C: host-heap reclamation (safepoint arena reset).
+PRIMS += [
+    ("host-heap-mark", "PrHostHeapMark"),
+    ("host-heap-reset!", "PrHostHeapReset")]
+
 C = []   # code instructions
 D = []   # data directives
 CUR = C
@@ -1535,6 +1540,29 @@ MOVRI("EAX", 4)                    # __NR_write
 I("(Int 80)")
 I("(ShlI8 EAX 02)")
 I("(OrI8 EAX 01)")
+I("(Ret)")
+
+# ===========================================================================
+# P1 PART C: host-heap reclamation (safepoint arena reset).
+#
+# rsc has no GC: every host call conses arg-list pairs / env frames that are
+# dead once control returns to a trampoline.  A qmes top-level trampoline
+# reclaims them by capturing GCellFree with (host-heap-mark) and, once the
+# consed garbage is unreachable, restoring it with (host-heap-reset! m).  The
+# mark/reset value is a w32 box holding the raw GCellFree pointer.  Values that
+# must survive a reset must have been allocated BEFORE the mark (e.g. held in a
+# global via set!); the byte arena (strings/vectors) is never reset here.
+# ===========================================================================
+
+PL("PrHostHeapMark")               # -> w32 box of the current GCellFree
+I("(MovRMemL ECX GCellFree)")      # ECX = raw cell-arena free pointer
+I("(Jmp32 MakeW32)")
+
+PL("PrHostHeapReset")              # (host-heap-reset! m): GCellFree <- raw(m)
+I("(MovRM EAX EAX)")               # m box (arglist car)
+I("(MovRMD EAX EAX 02)")           # raw pointer ([box+2] = cell.cdr)
+I("(MovMemLR GCellFree EAX)")
+MOVRI("EAX", UNSPEC)
 I("(Ret)")
 
 # ===========================================================================

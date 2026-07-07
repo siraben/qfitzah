@@ -396,6 +396,39 @@ run_qmes_syscall() {
 
 run_qmes_syscall
 
+## P1 Part C gate: host-heap reclamation. A 50-million-iteration trampoline
+## soak that must complete in constant memory (it would OOM/SIGSEGV if the
+## arena reset did not reclaim). Dedicated runner for a generous run timeout.
+run_qmes_soak() {
+  local name=qmes-heap-soak
+  local qfasm elf actual
+  qfasm=$scheme0_dir/$name.qfasm
+  elf=$scheme0_dir/$name.elf
+  actual=$scheme0_dir/$name.out
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" \
+    | timeout 60s "$RSC_ELF" > "$qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+    | timeout 300s "$qfitzah" > "$elf"
+  chmod +x "$elf"
+  set +e
+  timeout 180s "$elf" > "$actual"
+  local status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    printf 'FAIL %s: soak exited %s (OOM/segfault => reset did not reclaim)\n' \
+      "$name" "$status" >&2
+    cat "$actual" >&2
+    exit 1
+  fi
+  if ! diff -u "$case_dir/$name.expected" "$actual" >&2; then
+    printf 'FAIL %s: output differs\n' "$name" >&2
+    exit 1
+  fi
+  printf 'ok - %s\n' "$name"
+}
+
+run_qmes_soak
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'
