@@ -17,11 +17,16 @@
 #                       bin/mes-m2, byte-compared per unit (needs bin/mes-m2)
 #   make fixpoint-verify  offline F1 gate: qmes sweep vs committed hashes
 #                       (needs only qmes.elf + vendored nyacc; no M2-Planet)
+#   make regen-verify   prove every committed generated artifact (qfasm.qf1,
+#                       scheme0.qfasm, the *-runtime files, the qfasm-* test
+#                       fixtures) is reproduced BYTE-IDENTICALLY by its
+#                       in-dialect generator bootstrap/gen-*.scm (the zero-Python
+#                       replacements for the retired tools/generate_*.py)
 #   make clean
 
 SEED ?= bootstrap/seed/qfitzah
 
-.PHONY: all check qmes boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify clean
+.PHONY: all check qmes boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify regen-verify clean
 
 all: qmes
 
@@ -79,6 +84,11 @@ fixpoint: qmes
 # reference hashes.  No M2-Planet / mes-m2 / mescc-tools needed.
 fixpoint-verify: qmes
 	tools/mescc-fixpoint.sh verify $(if $(JOBS),$(JOBS),16)
+
+# Prove the in-dialect generators reproduce every committed generated artifact
+# byte-for-byte.  Depends on qmes (builds the rsc toolchain the generators run on).
+regen-verify: qmes
+	tools/regen-verify.sh
 
 clean:
 	rm -rf build qmes.elf
