@@ -16,8 +16,9 @@ ref=tests/mes-references
 pass=0; total=0
 for g in B0 B1 B2; do
   total=$((total+1))
+  # qmes output is arena-size-independent pre-GC, so use modest sizes for speed.
   qout=$(MES_BOOT="$g.scm" MES_PREFIX="$repo_root/build/mesroot" \
-         MES_ARENA=20000000 MES_MAX_ARENA=20000000 MES_STACK=5000000 \
+         MES_ARENA=2000000 MES_STACK=200000 \
          LANG= LC_ALL= TZ=UTC MES_DEBUG=0 "$qmes" 2>/dev/null </dev/null)
   qst=$?
   rout=$(cat "$ref/$g.out" 2>/dev/null)

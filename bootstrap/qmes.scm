@@ -36,13 +36,15 @@
 (define TBINDING 15)
 (define TVECTOR 16)
 (define TBROKEN-HEART 17)
-(define TFUNC 20)             ; qmes builtin (holds a builtin-id in car, arity in cdr)
 
 ; ===========================================================================
-; The cell arena (one rsc vector of raw 32-bit words)
+; The cell arena (one rsc vector of raw 32-bit words).
+; Sizes are env-driven (D6): read MES_ARENA/MES_STACK/MES_MAX_STRING at startup
+; (gc.c:67-87) and allocate g-cells / g-stack / the byte pool before the
+; host-heap floor mark (§2.2).  Defaults match the pre-refit fixed sizes.
 ; ===========================================================================
-(define NCELLS 1000000)
-(define g-cells (make-vector 3000000 0))
+(define ARENA-CELLS 1000000)                   ; MES_ARENA (cells)
+(define g-cells 0)                             ; allocated in qmain
 (define cell-free 0)
 
 (define (raw-ref i off) (vec-raw-ref g-cells (+ (* 3 i) off)))
@@ -102,7 +104,8 @@
 ; ===========================================================================
 ; Byte pool: symbol names and string contents (in rsc's byte arena)
 ; ===========================================================================
-(define g-bytes (make-string 2097152))
+(define BYTE-POOL 16777216)                    ; 16 MiB; boot module files slurp here
+(define g-bytes 0)                             ; allocated in qmain
 (define byte-free 0)
 (define (bytes-put! ch)
   (string-set! g-bytes byte-free ch)
@@ -202,6 +205,17 @@
 (define cell-symbol-macro-expand 0)
 
 (define sym-table 0)         ; interning list of symbol cells
+
+; D1/D3 real type structs (builtins.c / hash.c / variable.c).  Symbols:
+(define cell-symbol-builtin 0)      ; '<builtin>  (struct[2] tag of a builtin)
+(define cell-symbol-buckets 0)      ; 'buckets
+(define cell-symbol-size 0)         ; 'size
+(define builtin-printer-sym 0)      ; 'builtin-printer (a symbol used as printer)
+(define variable-printer-sym 0)     ; 'variable-printer
+; The type structs themselves (make_*_type); GC roots for S2.
+(define builtin-type-struct 0)
+(define variable-type-struct 0)
+(define hash-table-type-struct 0)
 
 ; Modules and macro table (E2)
 (define m0 0)                ; initial module: hashq(symbol -> variable)
@@ -323,27 +337,59 @@
 (define (struct-set-x- x i e) (copy-cell! (+ (struct-body x) i) (vector-entry e)))
 
 ; ===========================================================================
-; Variables (variable.c) — TSTRUCT of length 4: [type printer 'variable value]
+; Variables (variable.c) — D3.  make_variable_type = record-type struct with
+; fields (<variable> (value)); make_variable = TSTRUCT of length 4:
+; [variable-type, 'variable-printer, '<variable>, value].  variable? checks
+; struct-ref 0 == variable-type.
 ; ===========================================================================
+(define (make-variable-type)
+  (if (= variable-type-struct 0)
+      (set! variable-type-struct
+            (make-struct cell-symbol-record-type
+                         (qcons cell-symbol-variable
+                                (qcons (qcons (intern-rsc "value") cell-nil) cell-nil))
+                         cell-unspec))
+      'ok)
+  variable-type-struct)
 (define (make-variable value)
-  (make-struct cell-symbol-variable
+  (make-struct (make-variable-type)
                (qcons cell-symbol-variable (qcons value cell-nil))
-               cell-unspec))
+               variable-printer-sym))
 (define (variable-ref var) (struct-ref- var 3))
 (define (variable-set-x var val) (struct-set-x- var 3 val))
+(define (variable-p x)
+  (if (and (= (cell-type x) TSTRUCT) (= (struct-ref- x 0) (make-variable-type)))
+      cell-t cell-f))
 
 ; ===========================================================================
 ; Hash tables (hash.c) — TSTRUCT: [type printer 'hashq-table size buckets]
 ; hashq uses the first two name bytes (hash_cstring parity).
 ; ===========================================================================
+; make_hash_table_type (hash.c): record-type struct, fields
+; (<hashq-table> (size buckets)); struct-ref 0 == this type for hash-table?.
+(define (make-hash-table-type)
+  (if (= hash-table-type-struct 0)
+      (set! hash-table-type-struct
+            (make-struct cell-symbol-record-type
+                         (qcons cell-symbol-hashq-table
+                                (qcons (qcons cell-symbol-size
+                                              (qcons cell-symbol-buckets cell-nil))
+                                       cell-nil))
+                         cell-unspec))
+      'ok)
+  hash-table-type-struct)
 (define (make-hash-table- size0)
   (let* ((size (if (= size0 0) 100 size0))
+         (type (make-hash-table-type))
          (buckets (make-vector- size cell-unspec)))
-    (make-struct cell-symbol-hashq-table
+    (make-struct type
                  (qcons cell-symbol-hashq-table
                         (qcons (make-number-fx size)
                                (qcons buckets cell-nil)))
                  cell-unspec)))
+(define (hash-table-p x)
+  (if (and (= (cell-type x) TSTRUCT) (= (struct-ref- x 0) (make-hash-table-type)))
+      cell-t cell-f))
 (define (hashq- key size)
   (let* ((off (strlike-offset key))
          (len (strlike-len key))
@@ -395,12 +441,39 @@
   (let ((var (current-module-variable sym cell-f)))
     (if (= var cell-f) (qfail) (variable-ref var))))
 
-; TFUNC builtin: car = builtin-id, cdr = arity (-1 = n-ary).
-(define (make-func id arity) (alloc TFUNC id arity))
-(define (func-id f) (cell-car f))
-(define (func-arity f) (cell-cdr f))
+; D1: a builtin is a TSTRUCT per builtins.c:29-64.
+;   make_builtin_type = record-type struct, fields (<builtin> (name arity address))
+;   a builtin instance = [builtin-type, 'builtin-printer, '<builtin>,
+;                         name-string, arity-number, id-number]
+; so struct-ref 2 = '<builtin> (builtin? test), 3 = name, 4 = arity, 5 = id.
+(define (make-builtin-type)
+  (if (= builtin-type-struct 0)
+      (set! builtin-type-struct
+            (make-struct cell-symbol-record-type
+                         (qcons cell-symbol-builtin
+                                (qcons (qcons (intern-rsc "name")
+                                              (qcons (intern-rsc "arity")
+                                                     (qcons (intern-rsc "address") cell-nil)))
+                                       cell-nil))
+                         cell-unspec))
+      'ok)
+  builtin-type-struct)
+(define (make-builtin name-str arity id)
+  (make-struct (make-builtin-type)
+               (qcons cell-symbol-builtin
+                      (qcons name-str
+                             (qcons (make-number-fx arity)
+                                    (qcons (make-number-fx id) cell-nil))))
+               builtin-printer-sym))
+(define (builtin-p x)
+  (if (and (= (cell-type x) TSTRUCT) (= (struct-ref- x 2) cell-symbol-builtin))
+      cell-t cell-f))
+(define (builtin-name- b) (struct-ref- b 3))
+(define (builtin-arity- b) (struct-ref- b 4))
+(define (builtin-id b) (num-fixnum (struct-ref- b 5)))
 (define (bind-builtin name id arity)
-  (set! env-alist (acons (intern-rsc name) (make-func id arity) env-alist)))
+  (let ((sym (intern-rsc name)))
+    (set! env-alist (acons sym (make-builtin (retag TSTRING sym) arity id) env-alist))))
 
 (define (qfail) (exit 1))    ; unreachable on the milestone forms
 
@@ -517,6 +590,14 @@
   (set! cell-symbol-record-type (intern-rsc "<record-type>"))
   (set! cell-symbol-hashq-table (intern-rsc "<hashq-table>"))
   (set! cell-symbol-variable (intern-rsc "<variable>"))
+  (set! cell-symbol-builtin (intern-rsc "<builtin>"))
+  (set! cell-symbol-buckets (intern-rsc "buckets"))
+  (set! cell-symbol-size (intern-rsc "size"))
+  (set! builtin-printer-sym (intern-rsc "builtin-printer"))
+  (set! variable-printer-sym (intern-rsc "variable-printer"))
+  (set! builtin-type-struct 0)
+  (set! variable-type-struct 0)
+  (set! hash-table-type-struct 0)
   (set! cell-symbol-program (intern-rsc "%program"))
   (set! cell-symbol-portable-macro-expand (intern-rsc "portable-macro-expand"))
   (set! cell-symbol-sc-expander-alist (intern-rsc "*sc-expander-alist*"))
@@ -791,8 +872,8 @@
 (define r3 0)   ; continuation state
 (define stkp 0) ; g_stack index, grows down from STACK-SIZE
 
-(define STACK-SIZE 20000)
-(define g-stack (make-vector 20000 0))         ; raw words holding SCM indices
+(define STACK-SIZE 100000)                     ; MES_STACK; allocated in qmain
+(define g-stack 0)                             ; raw words holding SCM indices
 (define (stack-ref i) (w32->fixnum (vec-raw-ref g-stack i)))
 (define (stack-set! i v) (vec-raw-set! g-stack i (w32-from-fixnum v)))
 
@@ -1108,8 +1189,24 @@
       ((= t TPAIR) (display-pair x fd w))
       ((= t TVECTOR) (display-vector x fd w))
       ((= t TCLOSURE) (emit-str fd "#<closure>"))
-      ((= t TFUNC) (emit-str fd "#<procedure>"))
+      ((= t TSTRUCT)
+       (if (= (builtin-p x) cell-t) (builtin-printer fd x) (emit-str fd "#<struct>")))
       (else (emit-str fd "#<?>")))))
+; builtin_printer (builtins.c:66): #<procedure NAME _>  /  #<procedure NAME (_ _)>
+(define (builtin-printer fd b)
+  (emit-str fd "#<procedure ")
+  (let ((nm (builtin-name- b)))
+    (emit-bytes fd (strlike-offset nm) (strlike-len nm)))
+  (emit fd 32)
+  (let ((arity (num-fixnum (builtin-arity- b))))
+    (if (< arity 0) (emit fd 95)
+        (begin (emit fd 40) (builtin-printer-args fd arity 0) (emit fd 41))))
+  (emit fd 62))
+(define (builtin-printer-args fd arity i)
+  (if (< i arity)
+      (begin (if (> i 0) (emit fd 32)) (emit fd 95)
+             (builtin-printer-args fd arity (+ i 1)))
+      'ok))
 (define (display-pair x fd w)
   (emit fd 40)
   (display-pair-loop x fd w)
@@ -1242,7 +1339,7 @@
 ; recurses over each top-level form on the host stack, so one 60-deep nested
 ; `if` would overflow it.  Keep each sub-dispatcher shallow.
 (define (apply-builtin fn x)
-  (apply-builtin-core (func-id fn) x))
+  (apply-builtin-core (builtin-id fn) x))
 (define (apply-builtin-core id x)
   (cond
     ((= id ID-CONS) (qcons (cell-car x) (cell-car (cell-cdr x))))
@@ -1392,9 +1489,9 @@
   (stack-set! (+ stkp 4) (cell-car r1))
   (let* ((f (cell-car r1)) (t (cell-type f)))
     (cond
-      ((= t TFUNC)
+      ((and (= t TSTRUCT) (= (builtin-p f) cell-t))
        (begin
-         (check-formals f (make-number-fx (func-arity f)) (cell-cdr r1))
+         (check-formals f (builtin-arity- f) (cell-cdr r1))
          (set! r1 (apply-builtin f (cell-cdr r1)))
          (st-vm-return)))
       ((= t TCLOSURE) (st-apply-closure f))
@@ -1699,11 +1796,34 @@
 ; ===========================================================================
 ; main / boot (mes.c:211-243, §6.3)
 ; ===========================================================================
+; env-num (gc.c:67-87 atoi-style): parse a leading unsigned decimal, with an
+; optional `eN` exponent (MES_ARENA=20e6); missing/blank -> dflt.
+(define (env-num name dflt)
+  (let ((s (getenv name)))
+    (if (not s) dflt
+        (let ((n (string-length s)))
+          (if (= n 0) dflt (env-num-parse s 0 n 0))))))
+(define (env-num-parse s i n acc)
+  (if (>= i n) acc
+      (let ((c (char->integer (string-ref s i))))
+        (cond ((and (>= c 48) (<= c 57))
+               (env-num-parse s (+ i 1) n (+ (* acc 10) (- c 48))))
+              ((or (= c 101) (= c 69))              ; e / E exponent
+               (env-num-scale acc (env-num-parse s (+ i 1) n 0)))
+              (else acc)))))
+(define (env-num-scale acc e) (if (= e 0) acc (env-num-scale (* acc 10) (- e 1))))
+
 (define (qmain)
   (set! w32-0 (w32-from-fixnum 0))
   (set! g-stdin 0)
   (set! g-stdout 1)
   (set! g-stderr 2)
+  ; D6: env-driven arena/stack/byte-pool, allocated below the host-heap floor.
+  (set! ARENA-CELLS (env-num "MES_ARENA" 1000000))
+  (set! STACK-SIZE (env-num "MES_STACK" 100000))
+  (set! g-cells (make-vector (* 3 ARENA-CELLS) 0))
+  (set! g-stack (make-vector STACK-SIZE 0))
+  (set! g-bytes (make-string BYTE-POOL))
   (init-cells)
   (set! g-ports cell-nil)
   (init-builtins)
