@@ -38,11 +38,15 @@ srcdest=$MES/          # kaem.run convention: trailing slash
 BUILD=$root/build/mes-reference
 BIN=$root/bin
 
-# CPU/arch settings from kaem.x86.
-cc_cpu=i386
-mes_cpu=x86
-stage0_cpu=x86
-blood_elf_flag=--little-endian
+# CPU/arch settings.  ARCH=x86 (default, from kaem.x86) or ARCH=x86_64 (kaem.x86_64).
+ARCH=${ARCH:-x86}
+case "$ARCH" in
+  x86)
+    cc_cpu=i386;    mes_cpu=x86;     stage0_cpu=x86;   blood_elf_flag=--little-endian; out_name=mes-m2 ;;
+  x86_64)
+    cc_cpu=x86_64;  mes_cpu=x86_64;  stage0_cpu=amd64; blood_elf_flag=--64; out_name=mes-m2-64 ;;
+  *) echo "build-mes-reference: unknown ARCH=$ARCH (want x86 or x86_64)" >&2; exit 2 ;;
+esac
 
 # Version pinned from the tree (configure.sh: VERSION=...).
 VERSION=$(sed -n 's/^VERSION=//p' "$MES/configure.sh" | head -1)
@@ -201,15 +205,15 @@ hex2                                                    \
     --base-address 0x1000000                            \
     -f ${srcdest}lib/m2/${mes_cpu}/ELF-${mes_cpu}.hex2  \
     -f "$BUILD/m2/mes.hex2"                              \
-    -o "$BIN/mes-m2"
+    -o "$BIN/$out_name"
 
-chmod +x "$BIN/mes-m2"
-echo "build-mes-reference: wrote $BIN/mes-m2" >&2
+chmod +x "$BIN/$out_name"
+echo "build-mes-reference: wrote $BIN/$out_name" >&2
 
 # Smoke test (kaem.run:169).
 echo "build-mes-reference: smoke test" >&2
 GUILE_LOAD_PATH=${srcdest}mes/module:${srcdest}module \
-    "$BIN/mes-m2" -c "(display 'Hello,M2-mes!) (newline)" || {
+    "$BIN/$out_name" -c "(display 'Hello,M2-mes!) (newline)" || {
         echo "build-mes-reference: WARNING smoke test failed" >&2
     }
 
