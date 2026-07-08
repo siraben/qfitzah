@@ -281,8 +281,14 @@ link_tcc() {
     done
     mkdir -p "$(dirname "$out")"
     _log="$bdir/link-$(basename "$out").log"
-    # mescc (non -nostdlib) auto-prepends x86-mes/crt1.o and -l mescc from -L.
-    CC -m 32 --arch=x86 -o "$out" -L build/mescc-lib $sfiles -l c+tcc \
+    # mescc's default link adds `-l c -l mescc` (libc.a + libmescc.a); we build
+    # only the libc+tcc flavor (a superset of libc), so link -nostdlib with the
+    # crt1.o + libc+tcc + libmescc passed explicitly (same shape as the F2 mes
+    # link in tools/mescc-link.sh, which also uses -nostdlib).  bootstrap.sh's
+    # own `-l c+tcc` relies on a full MES_SOURCE tree that ships a plain libc.a
+    # alongside; -nostdlib gives the identical link set without that duplicate.
+    CC -m 32 --arch=x86 -nostdlib -o "$out" -L build/mescc-lib \
+        "$adir/crt1.o" $sfiles -l c+tcc -l mescc \
         >/dev/null 2>"$_log" || { echo "link FAIL (see $_log)"; tail -30 "$_log" >&2; exit 1; }
     chmod +x "$out"
     echo "link_tcc: wrote $out ($(wc -c <"$out") B)" >&2
@@ -295,11 +301,14 @@ link_tcc() {
 STAGE_CPPFLAGS="-I build/include -I third_party/mes/include -I third_party/mes/lib -D BOOTSTRAP=1"
 gen_amalgams() {
     # Produce build/tcc/src/{libc.c,libtcc1.c,crt*.c} via build-source-lib.sh
-    # with compiler=gcc, mirroring bootstrap.sh's REBUILD_LIBC arm.
+    # with compiler=gcc, mirroring bootstrap.sh's REBUILD_LIBC arm.  configure-
+    # lib.sh does `. ./config.sh`, so drop a config.sh stub (compiler=gcc) first.
     src="$bdir/src"; rm -rf "$src"; mkdir -p "$src"
+    printf 'mes_cpu=x86\nmes_kernel=linux\ncompiler=gcc\nmes_libc=mes\nmes_bits=32\nmes_system=x86-mes\nV=\n' > "$src/config.sh"
     ( cd "$src" && env -i PATH="$PATH" \
         mes_cpu=x86 mes_kernel=linux compiler=gcc mes_libc=mes mes_bits=32 mes_system=x86-mes \
-        srcdest="$tp/" sh "$tp/build-aux/build-source-lib.sh" >/dev/null 2>&1 )
+        srcdest="$tp/" sh "$tp/build-aux/build-source-lib.sh" >"$bdir/gen-amalgams.log" 2>&1 ) \
+        || { echo "gen_amalgams FAIL"; tail -15 "$bdir/gen-amalgams.log" >&2; exit 1; }
     # build-source-lib.sh emits libc+gnu.c; the plan uses that as libc.c.
     cp -f "$src/libc+gnu.c" "$src/libc.c"
 }
@@ -346,7 +355,8 @@ EOF
         -L "$st/lib" -o "$bdir/hello" "$hc" ) \
         >"$bdir/hello-compile.log" 2>&1 \
         || { echo "hello: COMPILE FAIL"; tail -20 "$bdir/hello-compile.log" >&2; exit 1; }
-    out=$("$bdir/hello" 2>&1); rc=$?
+    # exit 42 is the SUCCESS code — guard the capture from `set -e`.
+    rc=0; out=$("$bdir/hello" 2>&1) || rc=$?
     echo "hello: output='$out' exit=$rc"
     [ "$rc" = 42 ] || { echo "hello: FAIL (want exit 42, got $rc)" >&2; exit 1; }
     echo "hello: OK (exit 42)"
@@ -392,6 +402,30 @@ boot_one() {
         || { echo "boot$level: link FAIL"; tail -20 "$bdirlvl/link.log" >&2; return 1; }
     chmod +x "$out"
     echo "boot$level: $out ($(wc -c <"$out") B)"
+    # boot.sh's REBUILD_LIBC tail: each freshly-built boot tcc re-stages crt +
+    # libtcc1 (with -D HAVE_FLOAT=1) for the NEXT level to link against — this is
+    # where the long-double runtime helpers (__floatundixf etc.) that HAVE_FLOAT
+    # codegen needs come from.  Rebuild crt1/i/n + libtcc1 in-place in the stage.
+    restage_boot "$out" "$level" || { echo "boot$level: restage FAIL" >&2; return 1; }
+}
+# restage_boot TCC LEVEL — rebuild crt{1,i,n}.o + libtcc1.a (HAVE_FLOAT=1) with
+# TCC into the stage, so the next boot level links the float runtime helpers.
+restage_boot() {
+    thetcc=$1; level=$2
+    st="$bdir/stage"; src="$bdir/src"
+    run() { ( cd "$repo" && "$thetcc" "$@" ); }
+    for i in 1 i n; do
+        run -c -static -nostdlib -nostdinc $STAGE_CPPFLAGS \
+            -o "$st/lib/crt$i.o" "$src/x86-mes/crt$i.c" \
+            >"$bdir/boot$level-crt$i.log" 2>&1 || return 1
+    done
+    run -c -D HAVE_FLOAT=1 $STAGE_CPPFLAGS \
+        -o "$bdir/boot$level-libtcc1.o" "$src/libtcc1.c" \
+        >"$bdir/boot$level-libtcc1.log" 2>&1 || return 1
+    run -ar cr "$st/libtcc1.a" "$bdir/boot$level-libtcc1.o" >>"$bdir/boot$level-libtcc1.log" 2>&1 || return 1
+    cp -f "$st/libtcc1.a" "$st/libtcc1-mes.a"
+    cp -f "$st/libtcc1.a" "$st/lib/tcc/libtcc1.a"
+    cp -f "$st/libtcc1.a" "$st/lib/tcc/libtcc1-mes.a"
 }
 boot_chain() {
     seed=$1; last=${2-6}
