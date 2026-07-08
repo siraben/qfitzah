@@ -20,6 +20,7 @@ set -eu
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 tp="$repo_root/third_party/mes"
+nyacc="$repo_root/third_party/nyacc"
 root="$repo_root/build/mesroot"
 dest="$root/mes/module"          # == %moduledir under MES_PREFIX=build/mesroot
 
@@ -40,11 +41,21 @@ overlay() {
   done
 }
 
-# Overlay the top half first, then the core half, so that on the two files
-# present in both trees (mes-0.scm, guile.scm) the Mes-native versions in
-# mes/module/ win over the Guile-compat versions in module/ — the reference
-# host is Mes, so it must load the Mes-native shims (the Guile ones reference
-# major-version / effective-version which do not exist here).
+# nyacc (S5): the vendored nyacc submodule supplies the full C99 parser stack
+# (nyacc/lang/c99/parser.scm, cpp.scm, version.scm, util.scm, ...) that MesCC's
+# preprocess.scm imports.  Mes's own tree ships only two nyacc files
+# (nyacc/compat18.scm and nyacc/lang/c99/pprint.scm — a Mes-customised pretty
+# printer); those must WIN over the vendored copies, so overlay the vendored
+# nyacc FIRST and let the two Mes trees below overwrite the two shared files.
+# Vendored nyacc version: 2.02.5 (third_party/nyacc, pinned as a submodule).
+overlay "$nyacc/module"
+
+# Overlay the top half next, then the core half, so that on the files present
+# in more than one tree (mes-0.scm, guile.scm, and the two nyacc files above)
+# the Mes-native versions in mes/module/ win over the Guile-compat / vendored
+# versions — the reference host is Mes, so it must load the Mes-native shims
+# (the Guile ones reference major-version / effective-version which do not
+# exist here).
 overlay "$tp/module"
 overlay "$tp/mes/module"
 
