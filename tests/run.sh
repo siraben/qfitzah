@@ -551,7 +551,37 @@ run_qmes_gc_stress() {
       exit 1
     fi
   done
-  printf 'ok - qmes-gc-stress (00-3a + gc/memory byte-exact under forced GC)\n'
+  # S3 gate: capture a continuation, force collections (MES_GC_STRESS=1), then
+  # invoke it -- the saved stack is a GC-traced TVECTOR, so a stale root or a
+  # mis-relocated snapshot corrupts the resumed value under forced GC.  Require
+  # qmes byte-exact against the mes-m2 reference (differential-first).
+  local ccscm ccref ccout
+  ccscm=$scheme0_dir/qmes-cc-stress.scm
+  ccref=$scheme0_dir/qmes-cc-stress.ref
+  ccout=$scheme0_dir/qmes-cc-stress.out
+  cat > "$ccscm" <<'CCEOF'
+(define k #f)
+(define n 0)
+(define r (+ 1 (call-with-current-continuation (lambda (c) (set! k c) 10))))
+(core:display "r=") (core:display r) (core:display "\n")
+(gc)
+(set! n (+ n 1))
+(if (eq? n 3) (core:display "done\n") (k (+ n 100)))
+(core:display "final-r=") (core:display r) (core:display "\n")
+CCEOF
+  env MES_BOOT="$ccscm" MES_PREFIX="$prefix" MES_ARENA=20000000 MES_STACK=5000000 \
+    LANG= MES_DEBUG=0 timeout 30s "$repo_root/bin/mes-m2" > "$ccref" 2>&1 || true
+  set +e
+  env MES_BOOT="$ccscm" MES_PREFIX="$prefix" MES_GC_STRESS=1 \
+    timeout 60s "$elf" > "$ccout" 2>&1
+  st=$?
+  set -e
+  if [ "$st" -ne 0 ] || ! cmp -s "$ccout" "$ccref"; then
+    printf 'FAIL qmes-gc-stress: call/cc capture->GC->invoke diverges from mes-m2\n' >&2
+    diff -u "$ccref" "$ccout" >&2 || true
+    exit 1
+  fi
+  printf 'ok - qmes-gc-stress (00-3a + gc/memory + call/cc capture->GC->invoke)\n'
 }
 
 run_qmes_gc_stress

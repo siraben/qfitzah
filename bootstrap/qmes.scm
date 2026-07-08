@@ -104,6 +104,11 @@
 
 (define (make-ref x) (alloc TREF x 0))
 
+; make_continuation (gc.c:258-262): TCONTINUATION cell [car = n, cdr = g_stack].
+; The cdr placeholder is overwritten with the snapshot vector at capture (§3.1).
+(define g-continuations 0)
+(define (make-continuation n) (alloc TCONTINUATION n stkp))
+
 ; ===========================================================================
 ; Byte pool: symbol names and string contents (in rsc's byte arena)
 ; ===========================================================================
@@ -229,6 +234,12 @@
 (define cell-symbol-size 0)         ; 'size
 (define builtin-printer-sym 0)      ; 'builtin-printer (a symbol used as printer)
 (define variable-printer-sym 0)     ; 'variable-printer
+; stack.c symbols (make-frame/make-stack/frame-printer).
+(define cell-symbol-procedure 0)    ; 'procedure
+(define cell-symbol-frame 0)        ; 'frame
+(define cell-symbol-stack 0)        ; 'stack
+(define cell-symbol-frames 0)       ; 'frames
+(define frame-printer-sym 0)        ; 'frame-printer
 ; The type structs themselves (make_*_type); GC roots for S2.
 (define builtin-type-struct 0)
 (define variable-type-struct 0)
@@ -647,6 +658,10 @@
 (define ID-GC 104)              ; S2: gc / gc-stats / gc-check builtins
 (define ID-GC-STATS 105)
 (define ID-GC-CHECK 106)
+(define ID-VALUES 107)          ; S3: values / stack.c (§3)
+(define ID-MAKE-STACK 108)
+(define ID-STACK-LENGTH 109)
+(define ID-STACK-REF 110)
 
 ; ===========================================================================
 ; Initialisation
@@ -725,6 +740,11 @@
   (set! cell-symbol-size (intern-rsc "size"))
   (set! builtin-printer-sym (intern-rsc "builtin-printer"))
   (set! variable-printer-sym (intern-rsc "variable-printer"))
+  (set! cell-symbol-procedure (intern-rsc "procedure"))
+  (set! cell-symbol-frame (intern-rsc "frame"))
+  (set! cell-symbol-stack (intern-rsc "stack"))
+  (set! cell-symbol-frames (intern-rsc "frames"))
+  (set! frame-printer-sym (intern-rsc "frame-printer"))
   (set! builtin-type-struct 0)
   (set! variable-type-struct 0)
   (set! hash-table-type-struct 0)
@@ -872,6 +892,11 @@
   (bind-builtin "gc" ID-GC 0)
   (bind-builtin "gc-stats" ID-GC-STATS 0)
   (bind-builtin "gc-check" ID-GC-CHECK 0)
+  ; S3: values + stack introspection (core.c / stack.c; builtins.c:151,287-289)
+  (bind-builtin "values" ID-VALUES -1)
+  (bind-builtin "make-stack" ID-MAKE-STACK -1)
+  (bind-builtin "stack-length" ID-STACK-LENGTH 1)
+  (bind-builtin "stack-ref" ID-STACK-REF 2)
   ; D5: config/env bindings (init_symbols + mes_environment)
   (bind-value (intern-rsc "%version") (string-rsc "0.27.1"))
   (bind-value (intern-rsc "%datadir") (string-rsc g-datadir))
@@ -1106,6 +1131,74 @@
     (set! r1 p1)
     (set! r0 a)
     (set! r3 x)))
+
+(define GC-FRAME-SIZE 5)
+(define GC-FRAME-PROCEDURE 4)
+
+; --- continuation capture/restore (§3.1, eval-apply.c:996-1010, 543-555) ------
+; A snapshot is a TVECTOR of the live stack [stkp, STACK-SIZE); the slots are
+; ordinary SCMs, so gc-copy relocates them like any vector (§3.2).  Capture uses
+; vector-set-x- (the C vector_set_x_) and restore uses vector-ref- (vector_ref_)
+; so the wrap/unwrap round-trip is behaviour-identical to Mes.
+(define (snapshot-stack)
+  (let* ((len (- STACK-SIZE stkp))
+         (v (make-vector- len cell-unspec)))
+    (snapshot-copy v 0 len)
+    v))
+(define (snapshot-copy v i len)
+  (if (< i len)
+      (begin (vector-set-x- v i (stack-ref (+ stkp i)))
+             (snapshot-copy v (+ i 1) len))
+      'ok))
+(define (restore-stack v len i)
+  (if (< i len)
+      (begin (stack-set! (+ (- STACK-SIZE len) i) (vector-ref- v i))
+             (restore-stack v len (+ i 1)))
+      'ok))
+
+; --- stack.c port (§3.1 item 4): make-stack / stack-length / stack-ref -------
+; A fresh frame/stack record type per call, exactly as stack.c does (no root).
+(define (make-frame-type)
+  (make-struct cell-symbol-record-type
+               (qcons cell-symbol-frame
+                      (qcons (qcons cell-symbol-procedure cell-nil) cell-nil))
+               cell-unspec))
+(define (make-frame index)
+  (let ((frame-type (make-frame-type))
+        (procedure cell-f))
+    (if (not (= index 0))
+        (let ((array-index (- STACK-SIZE (* index GC-FRAME-SIZE))))
+          (set! procedure (stack-ref (+ array-index GC-FRAME-PROCEDURE))))
+        'ok)
+    (if (= procedure 0) (set! procedure cell-f) 'ok)
+    (make-struct frame-type
+                 (qcons cell-symbol-frame (qcons procedure cell-nil))
+                 frame-printer-sym)))
+(define (make-stack-type)
+  (make-struct cell-symbol-record-type
+               (qcons cell-symbol-stack
+                      (qcons (qcons cell-symbol-frames cell-nil) cell-nil))
+               cell-unspec))
+(define (make-stack-frames frames i size)
+  (if (< i size)
+      (begin (vector-set-x- frames i (make-frame i))
+             (make-stack-frames frames (+ i 1) size))
+      'ok))
+(define (b-make-stack)
+  (let* ((stack-type (make-stack-type))
+         (size (quotient (- STACK-SIZE stkp) GC-FRAME-SIZE))
+         (frames (make-vector- size cell-unspec)))
+    (make-stack-frames frames 0 size)
+    (make-struct stack-type
+                 (qcons cell-symbol-stack (qcons frames cell-nil))
+                 cell-unspec)))
+(define (b-stack-length stack)
+  (make-number-fx (vector-length- (struct-ref- stack 3))))
+(define (b-stack-ref stack index)
+  (vector-ref- (struct-ref- stack 3) (num-fixnum index)))
+
+; values (core.c:115-121): a TVALUES cell over the list of produced values.
+(define (b-values x) (alloc TVALUES 0 x))
 
 ; ===========================================================================
 ; Closures / bindings / macros (eval-apply.c, gc.c)
@@ -1737,8 +1830,24 @@
 ; The dispatch is split into small chained cond blocks: the qfasm assembler
 ; recurses over each top-level form on the host stack, so one 60-deep nested
 ; `if` would overflow it.  Keep each sub-dispatcher shallow.
+; apply_builtin (eval-apply.c:381-400): before dispatching, a TVALUES in the
+; first (and, for arity>1/-1, second) argument position is coerced to its first
+; value — this is how `(values v ...)` passes a single value through to a
+; builtin (e.g. call-cc.scm's `(core:display (values 'foobar global))`).
 (define (apply-builtin fn x)
-  (apply-builtin-core (builtin-id fn) x))
+  (let ((arity (num-fixnum (builtin-arity- fn))))
+    (if (and (or (> arity 0) (= arity -1)) (not (= x cell-nil))
+             (= (cell-type (cell-car x)) TVALUES))
+        (set! x (qcons (cell-car (cell-cdr (cell-car x))) (cell-cdr x)))
+        'ok)
+    (if (and (or (> arity 1) (= arity -1)) (not (= x cell-nil))
+             (= (cell-type (cell-cdr x)) TPAIR)
+             (= (cell-type (cell-car (cell-cdr x))) TVALUES))
+        (set! x (qcons (cell-car x)
+                       (qcons (cell-car (cell-cdr (cell-car (cell-cdr x))))
+                              (cell-cdr x))))
+        'ok)
+    (apply-builtin-core (builtin-id fn) x)))
 (define (apply-builtin-core id x)
   (cond
     ((= id ID-CONS) (qcons (cell-car x) (cell-car (cell-cdr x))))
@@ -1841,6 +1950,10 @@
     ((= id ID-GC) (qgc))
     ((= id ID-GC-STATS) (b-gc-stats))
     ((= id ID-GC-CHECK) (gc-check))
+    ((= id ID-VALUES) (b-values x))
+    ((= id ID-MAKE-STACK) (b-make-stack))
+    ((= id ID-STACK-LENGTH) (b-stack-length (cell-car x)))
+    ((= id ID-STACK-REF) (b-stack-ref (cell-car x) (cell-car (cell-cdr x))))
     (else (qfail))))
 
 (define (b-exit x)
@@ -1964,6 +2077,8 @@
     ((= r3 cell-vm-eval-check-func)       (st-eval-check-func))
     ((= r3 cell-vm-eval2)                 (st-eval2))
     ((= r3 cell-vm-apply2)                (st-apply2))
+    ((= r3 cell-vm-call-with-current-continuation2) (st-cc2))
+    ((= r3 cell-vm-call-with-values2)     (st-call-with-values2))
     ((= r3 cell-vm-if-expr)               (st-if-expr))
     ((= r3 cell-vm-begin-eval)            (st-begin-eval))
     ((= r3 cell-vm-eval-set-x)            (st-eval-set-x))
@@ -2018,7 +2133,7 @@
          (set! r1 (apply-builtin f (cell-cdr r1)))
          (st-vm-return)))
       ((= t TCLOSURE) (st-apply-closure f))
-      ((= t TCONTINUATION) (qfail))
+      ((= t TCONTINUATION) (st-apply-continuation f))
       ((= t TSPECIAL) (st-apply-special f))
       ((= t TSYMBOL) (st-apply-symbol f))
       ((= t TPAIR) (st-apply-pair f))
@@ -2054,10 +2169,46 @@
     (else (begin (check-apply cell-f f) (st-apply-fallthrough)))))
 (define (st-apply-symbol f)
   (cond
-    ((= f cell-symbol-call-with-current-continuation) (qfail))
-    ((= f cell-symbol-call-with-values) (qfail))
+    ((= f cell-symbol-call-with-current-continuation)
+     (begin (set! r1 (cell-cdr r1)) (st-call-with-current-continuation)))
+    ((= f cell-symbol-call-with-values)
+     (begin (set! r1 (cell-cdr r1)) (st-call-with-values)))
     ((= f cell-symbol-current-environment) (begin (set! r1 r0) (st-vm-return)))
     (else (st-apply-fallthrough))))
+
+; --- restore (eval-apply.c:543-555): reinstate the saved stack, single value.
+(define (st-apply-continuation f)
+  (let* ((v (cell-cdr f))
+         (len (vector-length- v)))
+    (if (not (= len 0))
+        (begin (restore-stack v len 0) (set! stkp (- STACK-SIZE len)))
+        'ok)
+    (set! r1 (cell-car (cell-cdr r1)))
+    (st-vm-return)))
+
+; --- capture (eval-apply.c:996-1010): the double snapshot (§3.1 item 1).  R2 =
+; the continuation x roots the in-progress snapshot across the applied thunk.
+(define (st-call-with-current-continuation)
+  (let ((x (make-continuation g-continuations)))
+    (set! g-continuations (+ g-continuations 1))
+    (set-cdr! x (snapshot-stack))              ; x->continuation = v
+    (push-cc! (qcons (cell-car r1) (qcons x cell-nil)) x r0
+              cell-vm-call-with-current-continuation2)
+    (st-apply)))
+(define (st-cc2)                               ; call_with_current_continuation2
+  (set-cdr! r2 (snapshot-stack))               ; re-snapshot into R2->continuation
+  (st-vm-return))
+
+; --- call-with-values (eval-apply.c:1012-1021): apply consumer to the values.
+(define (st-call-with-values)
+  (push-cc! (qcons (cell-car r1) cell-nil) r1 r0 cell-vm-call-with-values2)
+  (st-apply))
+(define (st-call-with-values2)
+  (if (= (cell-type r1) TVALUES)
+      (set! r1 (cell-cdr r1))
+      (set! r1 (qcons r1 cell-nil)))
+  (set! r1 (qcons (cell-car (cell-cdr r2)) r1))
+  (st-apply))
 (define (st-apply-pair f)
   (if (= (cell-car f) cell-symbol-lambda)
       (let* ((formals (cell-car (cell-cdr f)))
