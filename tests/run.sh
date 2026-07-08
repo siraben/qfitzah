@@ -123,7 +123,7 @@ run_rule_directive
 
 ## Stage 1: the general assembler. Each case assembles under the seed with
 ## bootstrap/qfasm.qf1, byte-compares the produced ELF against the expected
-## hex from the independent Python model (tools/generate_qfasm_tests.py),
+## hex from the independent byte model (bootstrap/gen-qfasm-tests.scm),
 ## then runs the binary and checks its exit status.
 
 qfasm=$repo_root/bootstrap/qfasm.qf1
