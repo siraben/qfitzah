@@ -67,15 +67,16 @@ verify-seed: seed-from-source
 mes-reference:
 	tools/build-mes-reference.sh
 
-# S6 F1 — the working fixpoint claim on i386.  Compiles every MesCC compile unit
-# of the `mes` binary (mes_SOURCES) with `mescc -S` under BOTH ./qmes.elf and
-# bin/mes-m2 and byte-compares each .s.  The qmes sweep is interpreted and slow
-# (~16 min, 20-way parallel).  Pass JOBS=N to change parallelism.
+# S6 — the working fixpoint on i386: F1 (path-independent MesCC assembly over all
+# 20 mes_SOURCES under qmes vs bin/mes-m2), F2 (byte-identical mescc-linked mes
+# binary from each path), F3 (self-recompilation hosted on the qmes-path binary).
+# Needs bin/mes-m2 (make mes-reference) + mescc-tools (self-enters nix shell).
+# The qmes F1 sweep is interpreted and slow (~16 min).  Pass JOBS=N to tune.
 fixpoint: qmes
-	tools/mescc-fixpoint.sh f1 $(if $(JOBS),$(JOBS),16)
+	tools/fixpoint.sh
 
 # Offline F1 gate: run only the qmes sweep and check it against the committed
-# reference hashes.  No M2-Planet / mes-m2 needed.
+# reference hashes.  No M2-Planet / mes-m2 / mescc-tools needed.
 fixpoint-verify: qmes
 	tools/mescc-fixpoint.sh verify $(if $(JOBS),$(JOBS),16)
 

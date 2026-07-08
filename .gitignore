@@ -5,3 +5,5 @@
 /build
 /qmes.elf
 build/
+bin/mes-mescc.ref
+bin/mes-mescc.qmes
