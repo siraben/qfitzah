@@ -586,6 +586,37 @@ CCEOF
 
 run_qmes_gc_stress
 
+## S5 gate: MesCC.  Run GNU Mes's MesCC (-S) over scaffold/hello.c under the
+## just-built qmes.elf and require the emitted assembly to be byte-identical to
+## the committed mes-m2 reference (sha256).  Exercises the whole reader + module
+## system + nyacc C99 parser + MesCC codegen + file-output path end to end.
+run_qmes_mescc_hello() {
+  local elf ref want got
+  elf=$scheme0_dir/qmes.elf                 # built by run_qmes_boot_ladder
+  ref=$repo_root/tests/mescc-references/hello.s.sha256
+  # The -o path is emitted verbatim as a string label, so it MUST match the
+  # reference's ("build/mescc/hello.s", relative to repo_root).
+  local out=$repo_root/build/mescc/hello.s
+  want=$(cat "$ref")
+  set +e
+  ( cd "$repo_root" && bash tools/mescc-smoke.sh "$elf" \
+      third_party/mes/scaffold/hello.c build/mescc/hello.s ) >/dev/null 2>&1
+  local rc=$?
+  set -e
+  if [[ $rc -ne 0 || ! -f "$out" ]]; then
+    printf 'FAIL qmes-mescc-hello: MesCC did not emit an .s (rc=%s)\n' "$rc" >&2
+    exit 1
+  fi
+  got=$(sha256sum "$out" | cut -d' ' -f1)
+  if [[ "$got" != "$want" ]]; then
+    printf 'FAIL qmes-mescc-hello: hello.s sha256 %s != reference %s\n' "$got" "$want" >&2
+    exit 1
+  fi
+  printf 'ok - qmes-mescc-hello (MesCC -S hello.c byte-identical to mes-m2 reference)\n'
+}
+
+run_qmes_mescc_hello
+
 ## The native assembler asm.elf: rsc compiles bootstrap/asm.scm; the seed
 ## assembles it once (~39k instrs).  asm.elf must then produce byte-identical
 ## ELFs to [seed + qfasm.qf1 (+ runtime)] on a broad battery -- the qfasm
