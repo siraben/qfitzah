@@ -1001,13 +1001,20 @@
       ((= c 116) (bytes-put! (integer->char 9)))    ; \t
       (else (bytes-put! (integer->char c))))))
 
+; reader_read_hash (reader.c:200): faithful dispatch.  (Radix #x/#b/#o and the
+; syntax quotes #'/#`/#, are not yet needed by boot-5 head..B4; they fall to the
+; else->read-next-sexp path as placeholders and are added when a rung needs
+; them — MesCC/S5 for radix.)
 (define (reader-read-hash c)
-  (cond ((= c 116) cell-t)                     ; #t
+  (cond ((= c 33) (reader-read-block-comment c (getchar-)) (reader-read-sexp (getchar-)))  ; #!...!#
+        ((= c 124) (reader-read-block-comment c (getchar-)) (reader-read-sexp (getchar-))) ; #|...|#
+        ((= c 116) cell-t)                     ; #t
         ((= c 102) cell-f)                     ; #f
         ((= c 92) (reader-read-char-literal))  ; #\
         ((= c 58) (reader-read-keyword))       ; #:
         ((= c 40) (list->vector- (reader-read-list (getchar-))))  ; #( ... )
-        (else cell-f)))
+        ((= c 59) (reader-read-sexp (getchar-)) (reader-read-sexp (getchar-)))  ; #; datum comment
+        (else (reader-read-sexp (getchar-)))))
 
 (define (reader-read-char-literal)
   (let ((c0 (getchar-)) (start byte-free))
