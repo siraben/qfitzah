@@ -459,6 +459,7 @@ run_qmes_boot_ladder() {
   elf=$scheme0_dir/qmes.elf
   actual=$scheme0_dir/qmes-bootstatus.txt
   cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/qmes.scm" \
+      "$repo_root/bootstrap/qmes-main.scm" \
     | timeout 120s "$RSC_ELF" > "$qfasm"
   build_asm_elf
   "$asm_elf" "$asm_runtime_flat" < "$qfasm" > "$elf"
