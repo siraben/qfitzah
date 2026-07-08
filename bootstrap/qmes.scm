@@ -1287,11 +1287,26 @@
       ((= c 34) 'done)
       ((= c 92) (reader-read-string-escape) (reader-read-string-loop))
       (else (bytes-put! (integer->char c)) (reader-read-string-loop)))))
+; reader_read_string escapes (reader.c:457-489): \\ \" \0 \a \b \t \n \v \f
+; \r \e and \xHH (hex, via reader_read_hex).  Any other char after \ is kept
+; verbatim.  Ported byte-for-byte so string literals like nyacc's "\x07"/"\x08"
+; (C char-escape table in lex.scm read-c-chlit) decode to 7/8, not 'x' (0x78).
 (define (reader-read-string-escape)
   (let ((c (getchar-)))
     (cond
-      ((= c 110) (bytes-put! (integer->char 10)))   ; \n
-      ((= c 116) (bytes-put! (integer->char 9)))    ; \t
+      ((= c 92)  (bytes-put! (integer->char 92)))   ; \\  -> backslash
+      ((= c 34)  (bytes-put! (integer->char 34)))   ; \"  -> quote
+      ((= c 48)  (bytes-put! (integer->char 0)))    ; \0  -> NUL
+      ((= c 97)  (bytes-put! (integer->char 7)))    ; \a  -> alert
+      ((= c 98)  (bytes-put! (integer->char 8)))    ; \b  -> backspace
+      ((= c 116) (bytes-put! (integer->char 9)))    ; \t  -> tab
+      ((= c 110) (bytes-put! (integer->char 10)))   ; \n  -> newline
+      ((= c 118) (bytes-put! (integer->char 11)))   ; \v  -> vtab
+      ((= c 102) (bytes-put! (integer->char 12)))   ; \f  -> formfeed
+      ((= c 114) (bytes-put! (integer->char 13)))   ; \r  -> return
+      ((= c 101) (bytes-put! (integer->char 27)))   ; \e  -> escape
+      ((= c 120)                                    ; \xHH -> hex (reader_read_hex)
+       (bytes-put! (integer->char (w32->fixnum (radix-loop 16 4 (w32-from-fixnum 0))))))
       (else (bytes-put! (integer->char c))))))
 
 ; reader_read_hash (reader.c:200): faithful dispatch.  (Radix #x/#b/#o and the

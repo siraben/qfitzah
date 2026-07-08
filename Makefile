@@ -13,11 +13,15 @@
 #   make seed-from-source  rebuild build/qfitzah from qfitzah.s (binutils or nix)
 #   make verify-seed    rebuild from source and cmp against the committed seed
 #   make mes-reference  build bin/mes-m2 the M2-Planet way (Nix-gated)
+#   make fixpoint       S6 F1: MesCC -S over all 20 mes_SOURCES under qmes vs
+#                       bin/mes-m2, byte-compared per unit (needs bin/mes-m2)
+#   make fixpoint-verify  offline F1 gate: qmes sweep vs committed hashes
+#                       (needs only qmes.elf + vendored nyacc; no M2-Planet)
 #   make clean
 
 SEED ?= bootstrap/seed/qfitzah
 
-.PHONY: all check qmes boot-ladder seed-from-source verify-seed mes-reference clean
+.PHONY: all check qmes boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify clean
 
 all: qmes
 
@@ -62,6 +66,18 @@ verify-seed: seed-from-source
 
 mes-reference:
 	tools/build-mes-reference.sh
+
+# S6 F1 — the working fixpoint claim on i386.  Compiles every MesCC compile unit
+# of the `mes` binary (mes_SOURCES) with `mescc -S` under BOTH ./qmes.elf and
+# bin/mes-m2 and byte-compares each .s.  The qmes sweep is interpreted and slow
+# (~16 min, 20-way parallel).  Pass JOBS=N to change parallelism.
+fixpoint: qmes
+	tools/mescc-fixpoint.sh f1 $(if $(JOBS),$(JOBS),16)
+
+# Offline F1 gate: run only the qmes sweep and check it against the committed
+# reference hashes.  No M2-Planet / mes-m2 needed.
+fixpoint-verify: qmes
+	tools/mescc-fixpoint.sh verify $(if $(JOBS),$(JOBS),16)
 
 clean:
 	rm -rf build qmes.elf
