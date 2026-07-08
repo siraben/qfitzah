@@ -204,7 +204,8 @@
 (define cell-symbol-sc-expander-alist 0)
 (define cell-symbol-macro-expand 0)
 
-(define sym-table 0)         ; interning list of symbol cells
+(define sym-table 0)         ; init-phase interning list (before g-symbols built)
+(define g-symbols 0)         ; D4: the obarray = hashq table size 500 (symbol.c)
 
 ; D1/D3 real type structs (builtins.c / hash.c / variable.c).  Symbols:
 (define cell-symbol-builtin 0)      ; '<builtin>  (struct[2] tag of a builtin)
@@ -240,14 +241,66 @@
             s
             (intern-scan (cell-cdr lst) start len)))))
 
-; Intern a name whose bytes already occupy g-bytes[start, byte-free).
+; hash_cstring (hash.c:8): first two name bytes -> bucket index mod size.
+(define (hash-cstring start len size)
+  (let* ((b0 (char->integer (string-ref g-bytes start)))
+         (b1 (if (> len 1) (char->integer (string-ref g-bytes (+ start 1))) 0))
+         (h (+ (* b0 37) (if (and (not (= b0 0)) (not (= b1 0))) (* b1 43) 0))))
+    (remainder h size)))
+; scan an obarray bucket for an entry (key-string . symbol) matching the token.
+(define (obarray-scan bucket start len)
+  (if (not (= (cell-type bucket) TPAIR))
+      cell-f
+      (let* ((entry (cell-car bucket)) (key (cell-car entry)))
+        (if (and (= (strlike-len key) len)
+                 (bytes-equal? (strlike-offset key) len start len))
+            (cell-cdr entry)
+            (obarray-scan (cell-cdr bucket) start len)))))
+
+; Intern a name whose bytes already occupy g-bytes[start, byte-free).  During
+; init (g-symbols == 0) use the list; the reader uses the obarray (D4).
 (define (intern start len)
+  (if (= g-symbols 0) (intern-list start len) (intern-hash start len)))
+(define (intern-list start len)
   (let ((found (intern-scan sym-table start len)))
     (if found
         (begin (set! byte-free start) found)   ; drop the duplicate copy
         (let ((s (make-strlike TSYMBOL start len)))
           (set! sym-table (qcons s sym-table))
           s))))
+(define (intern-hash start len)
+  (let* ((size (ht-size g-symbols))
+         (h (hash-cstring start len size))
+         (buckets (ht-buckets g-symbols))
+         (bucket (vector-ref- buckets h))
+         (found (obarray-scan bucket start len)))
+    (if (not (= found cell-f))
+        (begin (set! byte-free start) found)   ; drop the duplicate copy
+        (let ((s (make-strlike TSYMBOL start len)))
+          (vector-set-x- buckets h
+                         (acons (retag TSTRING s) s
+                                (if (= (cell-type bucket) TPAIR) bucket cell-nil)))
+          s))))
+; Build the obarray from the init-phase sym-table list and switch to it.
+(define (build-obarray!)
+  (let ((ht (make-hash-table- 500)))
+    (obarray-populate ht sym-table)
+    (set! g-symbols ht)))
+(define (obarray-populate ht lst)
+  (if (= lst cell-nil) 'ok
+      (begin (obarray-insert ht (cell-car lst))
+             (obarray-populate ht (cell-cdr lst)))))
+(define (obarray-insert ht sym)
+  (let* ((size (ht-size ht))
+         (off (strlike-offset sym)) (len (strlike-len sym))
+         (h (hash-cstring off len size))
+         (buckets (ht-buckets ht))
+         (bucket (vector-ref- buckets h)))
+    (if (= (obarray-scan bucket off len) cell-f)
+        (vector-set-x- buckets h
+                       (acons (retag TSTRING sym) sym
+                              (if (= (cell-type bucket) TPAIR) bucket cell-nil)))
+        'ok)))
 
 (define (intern-rsc str)
   (let ((start byte-free))
@@ -2098,6 +2151,7 @@
     (if (< fd 0)
         (exit 1)
         (fd->current-input-port! fd)))          ; boot fd -> current input port
+  (build-obarray!)                              ; D4: switch interning to g-symbols
   (set! stkp STACK-SIZE)
   (set! r3 (make-char 0))
   (let ((program (read-all-forms)))
