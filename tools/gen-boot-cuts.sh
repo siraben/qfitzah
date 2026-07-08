@@ -13,9 +13,21 @@
 # module.mes includes resolve relative to that.  Copies are also kept in
 # build/boot-cuts/ for the sha256 manifest.
 #
-# B0 = boot prelude (boot-00..03 head, no type-0)
-# B1 = + type-0.mes
-# B2 = + module.mes
+# Rungs (FD §5.5 gate table, mapped to boot-5.scm cut lines):
+#   B0  boot prelude (boot-00..03 head, no type-0)
+#   B1  + type-0.mes
+#   B2  + module.mes
+#   B3  + (mes base) (mes quasiquote) (mes let)
+#   B4  + (mes scm)
+#   B5  + (srfi srfi-13)
+#   B6  + (mes fluids)
+#   B7  + (mes catch)
+#   B8  + (mes posix) (mes guile)
+#   B9  + (srfi srfi-9)
+#   B10 + (mes syntax)
+#   B11 + (mes guile-module)
+# B12 (srfi-39 + (mes main) -> top-main) has no cut; it is the full boot,
+# gated by --help / -s / -c parity (tools/record-mes-references.sh).
 #
 # Usage: tools/gen-boot-cuts.sh   (run make-mesroot.sh first)
 set -eu
@@ -46,11 +58,24 @@ emit() { # emit NAME LAST_LINE
   echo "[gen-boot-cuts] $name -> cut after line $last" >&2
 }
 
+# line number of the (last-column) exact match of a module-use form.
+lineof() { grep -nF "$1" "$boot5" | head -1 | cut -d: -f1; }
+
 # B0: everything up to (but not including) the type-0 include.
 emit B0 $((type0_line - 1))
 # B1: through the type-0 include, up to (but not including) module.mes include.
 emit B1 $((module_line - 1))
 # B2: through the module.mes include.
 emit B2 "$module_line"
+# B3..B11: through each successive mes-use-module in the chain.
+emit B3  "$(lineof '(mes-use-module (mes let))')"
+emit B4  "$(lineof '(mes-use-module (mes scm))')"
+emit B5  "$(lineof '(mes-use-module (srfi srfi-13))')"
+emit B6  "$(lineof '(mes-use-module (mes fluids))')"
+emit B7  "$(lineof '(mes-use-module (mes catch))')"
+emit B8  "$(lineof '(mes-use-module (mes guile))')"
+emit B9  "$(lineof '(mes-use-module (srfi srfi-9))')"
+emit B10 "$(lineof '(mes-use-module (mes syntax))')"
+emit B11 "$(lineof '(mes-use-module (mes guile-module))')"
 
 echo "[gen-boot-cuts] wrote $cuts and linked into $moddir" >&2

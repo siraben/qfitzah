@@ -503,13 +503,70 @@
   (let ((x (hashq-get-handle table key)))
     (if (not (= x cell-f)) (cell-cdr x) dflt)))
 (define (hashq-set-x table key value)
-  (let* ((size (ht-size table))
-         (h (hashq- key size))
-         (buckets (ht-buckets table))
+  (hash-set-x- table (hashq- key (ht-size table)) key value))
+; hash_set_x_ (hash.c:115): prepend (key . value) at the bucket index.
+(define (hash-set-x- table h key value)
+  (let* ((buckets (ht-buckets table))
          (bucket0 (vector-ref- buckets h))
          (bucket (if (= (cell-type bucket0) TPAIR) bucket0 cell-nil)))
     (vector-set-x- buckets h (acons key value bucket))
     value))
+; hash_ (hash.c:48): cstring hash for TSTRING keys, else 0.
+(define (hash-str- key size)
+  (if (= (cell-type key) TSTRING) (hashq- key size) 0))
+; hash-set! (hash_set_x, hash.c:171): string-keyed set.
+(define (hash-set-x table key value)
+  (hash-set-x- table (hash-str- key (ht-size table)) key value))
+; core:hash-ref (hash_ref_, hash.c:95): equal2-based assoc, cdr or dflt.
+(define (hash-ref- table key dflt)
+  (let* ((size (ht-size table))
+         (h (hash-str- key size))
+         (bucket (vector-ref- (ht-buckets table) h)))
+    (if (= (cell-type bucket) TPAIR)
+        (let ((x (assoc- key bucket))) (if (not (= x cell-f)) (cell-cdr x) dflt))
+        dflt)))
+; assoc (lib.c): equal2-based association lookup.
+(define (assoc- key alist)
+  (cond ((not (= (cell-type alist) TPAIR)) cell-f)
+        ((= (equal2- key (cell-car (cell-car alist))) cell-t) (cell-car alist))
+        (else (assoc- key (cell-cdr alist)))))
+; create_handle_x (hash.c:136): find-or-create (key . init) handle at index.
+(define (create-handle-x table key index init)
+  (let* ((buckets (ht-buckets table))
+         (bucket0 (vector-ref- buckets index))
+         (bucket (if (= (cell-type bucket0) TPAIR) bucket0 cell-nil))
+         (handle (qassq key bucket)))
+    (if (= handle cell-f)
+        (let ((h (qcons key init)))
+          (vector-set-x- buckets index (qcons h bucket))
+          h)
+        handle)))
+(define (hashq-create-handle-x table key init)
+  (create-handle-x table key (hashq- key (ht-size table)) init))
+(define (hash-create-handle-x table key init)
+  (create-handle-x table key (hash-str- key (ht-size table)) init))
+; hash-clear! (hash_clear_x, hash.c:303): replace buckets with a fresh vector.
+(define (hash-clear-x table)
+  (struct-set-x- table 4 (make-vector- (ht-size table) cell-unspec))
+  cell-unspec)
+; hash-remove! (hash_remove_x, hash.c:180): drop matching entries from bucket.
+(define (hash-remove-x table key)
+  (let* ((h (hash-str- key (ht-size table)))
+         (buckets (ht-buckets table))
+         (bucket (hr-skip-head key (vector-ref- buckets h))))
+    (if (not (= bucket cell-nil)) (hr-scan key bucket (cell-cdr bucket)) 'ok)
+    (vector-set-x- buckets h bucket)
+    cell-unspec))
+(define (hr-skip-head key bucket)
+  (if (and (not (= bucket cell-nil))
+           (= (equal2- key (cell-car (cell-car bucket))) cell-t))
+      (hr-skip-head key (cell-cdr bucket))
+      bucket))
+(define (hr-scan key p b)
+  (if (= b cell-nil) 'ok
+      (if (= (equal2- key (cell-car (cell-car b))) cell-t)
+          (begin (set-cdr! p (cell-cdr b)) (hr-scan key p (cell-cdr b)))
+          (hr-scan key b (cell-cdr b)))))
 
 ; ===========================================================================
 ; Modules (module.c) — M1 = cell-f path (module system unbooted)
@@ -524,6 +581,9 @@
         (hashq-set-x m (cell-car entry) (make-variable (cell-cdr entry)))
         (mim-loop m (cell-cdr a)))
       'ok))
+; set_current_module (module.c:51): swap M1, return the previous module.
+(define (b-set-current-module module)
+  (let ((previous m1)) (set! m1 module) previous))
 (define (current-module-variable name define-p)
   (let ((var (hashq-ref- m0 name cell-f)))
     (if (and (= var cell-f) (not (= define-p cell-f)))
@@ -533,7 +593,7 @@
 ; Recursive-evaluator global lookup, now through M0 (E2).
 (define (global-lookup sym)
   (let ((var (current-module-variable sym cell-f)))
-    (if (= var cell-f) (qfail) (variable-ref var))))
+    (if (= var cell-f) (begin (qerror-diag "global-lookup" sym) (qfail)) (variable-ref var))))
 
 ; D1: a builtin is a TSTRUCT per builtins.c:29-64.
 ;   make_builtin_type = record-type struct, fields (<builtin> (name arity address))
@@ -569,7 +629,9 @@
   (let ((sym (intern-rsc name)))
     (set! env-alist (acons sym (make-builtin (retag TSTRING sym) arity id) env-alist))))
 
-(define (qfail) (exit 1))    ; unreachable on the milestone forms
+(define (qfail)
+  (if (= qmes-debug-err 0) 'ok (emit-str g-stderr ";;; qmes-qfail\n"))
+  (exit 1))    ; unreachable on the milestone forms
 
 ; Builtin ids
 (define ID-CONS 1)
@@ -662,6 +724,34 @@
 (define ID-MAKE-STACK 108)
 (define ID-STACK-LENGTH 109)
 (define ID-STACK-REF 110)
+(define ID-MULT 111)            ; S4/B4: math.c arithmetic tranche
+(define ID-DIV 112)
+(define ID-LESS 113)
+(define ID-GREATER 114)
+(define ID-MODULO 115)
+(define ID-ASH 118)
+(define ID-LOGAND 119)
+(define ID-LOGIOR 120)
+(define ID-LOGXOR 121)
+(define ID-LOGNOT 122)
+(define ID-ERROR 123)           ; B4: core.c error -> throw
+(define ID-STRING-LENGTH 124)   ; B8: string.c
+(define ID-STRING-REF 125)
+(define ID-STRING-SET 126)
+(define ID-ACCESS 127)          ; B8: posix.c access?
+(define ID-ISATTY 128)          ; B8: posix.c isatty?
+(define ID-WRITE-BYTE 129)      ; B8: posix.c write-byte
+(define ID-READ-BYTE 130)
+(define ID-PEEK-BYTE 131)
+(define ID-UNREAD-BYTE 132)
+(define ID-HASH-SET 133)        ; B11: hash.c string-keyed hash tranche
+(define ID-CORE-HASH-REF 134)
+(define ID-HASH-REMOVE 135)
+(define ID-HASH-CLEAR 136)
+(define ID-HASH-BUCKETS 137)
+(define ID-HASH-CREATE-HANDLE 138)
+(define ID-HASHQ-CREATE-HANDLE 139)
+(define ID-SET-CURRENT-MODULE 140)
 
 ; ===========================================================================
 ; Initialisation
@@ -819,10 +909,24 @@
   (bind-builtin "equal2?" ID-EQUAL2 2)
   (bind-builtin "string=?" ID-STRINGEQ 2)
   (bind-builtin "string-append" ID-STRING-APPEND -1)
+  (bind-builtin "string-length" ID-STRING-LENGTH 1)
+  (bind-builtin "string-ref" ID-STRING-REF 2)
+  (bind-builtin "string-set!" ID-STRING-SET 3)
   ; math.c
   (bind-builtin "+" ID-PLUS -1)
   (bind-builtin "-" ID-MINUS -1)
   (bind-builtin "=" ID-IS -1)
+  (bind-builtin "*" ID-MULT -1)
+  (bind-builtin "/" ID-DIV -1)
+  (bind-builtin "<" ID-LESS -1)
+  (bind-builtin ">" ID-GREATER -1)
+  (bind-builtin "modulo" ID-MODULO 2)
+  (bind-builtin "ash" ID-ASH 2)
+  (bind-builtin "logand" ID-LOGAND -1)
+  (bind-builtin "logior" ID-LOGIOR -1)
+  (bind-builtin "logxor" ID-LOGXOR -1)
+  (bind-builtin "lognot" ID-LOGNOT 1)
+  (bind-builtin "error" ID-ERROR 2)
   ; lib.c
   (bind-builtin "core:type" ID-CORE-TYPE 1)
   (bind-builtin "append2" ID-APPEND2 2)
@@ -840,6 +944,10 @@
   (bind-builtin "read-string" ID-READ-STRING -1)
   (bind-builtin "current-output-port" ID-CURRENT-OUTPUT-PORT 0)
   (bind-builtin "write-char" ID-WRITE-CHAR -1)
+  (bind-builtin "write-byte" ID-WRITE-BYTE -1)
+  (bind-builtin "read-byte" ID-READ-BYTE 0)
+  (bind-builtin "peek-byte" ID-PEEK-BYTE 0)
+  (bind-builtin "unread-byte" ID-UNREAD-BYTE 1)
   (bind-builtin "core:display-port" ID-DISPLAY-PORT 2)
   (bind-builtin "core:write-port" ID-WRITE-PORT 2)
   (bind-builtin "exit" ID-EXIT 1)
@@ -849,6 +957,14 @@
   (bind-builtin "hashq-set!" ID-HASHQ-SET 3)
   (bind-builtin "make-hash-table" ID-MAKE-HASH-TABLE -1)
   (bind-builtin "hash-table?" ID-HASH-TABLEP 1)
+  (bind-builtin "hash-set!" ID-HASH-SET 3)
+  (bind-builtin "core:hash-ref" ID-CORE-HASH-REF 3)
+  (bind-builtin "hash-remove!" ID-HASH-REMOVE 2)
+  (bind-builtin "hash-clear!" ID-HASH-CLEAR 1)
+  (bind-builtin "hash-buckets" ID-HASH-BUCKETS 1)
+  (bind-builtin "hash-create-handle!" ID-HASH-CREATE-HANDLE 3)
+  (bind-builtin "hashq-create-handle!" ID-HASHQ-CREATE-HANDLE 3)
+  (bind-builtin "set-current-module" ID-SET-CURRENT-MODULE 1)
   (bind-builtin "initial-module" ID-INITIAL-MODULE 0)
   (bind-builtin "core:reverse!" ID-CORE-REVERSE 2)
   (bind-builtin "append-reverse" ID-APPEND-REVERSE 2)
@@ -885,6 +1001,7 @@
   ; D7: primitive-load + port reader
   (bind-builtin "primitive-load" ID-PRIMITIVE-LOAD 1)
   (bind-builtin "open-input-file" ID-OPEN-INPUT-FILE 1)
+  (bind-builtin "access?" ID-ACCESS 2)
   (bind-builtin "read-char" ID-READ-CHAR -1)
   (bind-builtin "peek-char" ID-PEEK-CHAR 0)
   (bind-builtin "read-input-file-env" ID-READ-INPUT-FILE-ENV 1)
@@ -1394,9 +1511,17 @@
 ; ===========================================================================
 ; Errors — any error path is a divergence for the gate; print + exit 1.
 ; ===========================================================================
-(define (qerror-unbound x) (qfail))
-(define (qerror-args f) (qfail))
-(define (qerror-type e) (qfail))
+; QMES_DEBUG_ERR (set at startup) turns silent error exits into a stderr
+; diagnostic — used only for boot-ladder bring-up; never fires on a passing
+; rung (references have empty stderr), so it cannot affect a byte-exact gate.
+(define qmes-debug-err 0)
+(define (qerror-diag tag x)
+  (if (= qmes-debug-err 0) 'ok
+      (begin (emit-str g-stderr ";;; qmes-error ") (emit-str g-stderr tag)
+             (emit g-stderr 32) (display- x g-stderr 1) (emit g-stderr 10))))
+(define (qerror-unbound x) (qerror-diag "unbound" x) (qfail))
+(define (qerror-args f) (qerror-diag "wrong-args" f) (qfail))
+(define (qerror-type e) (qerror-diag "wrong-type" e) (qfail))
 
 ; ===========================================================================
 ; Leaf helpers (pairlis, append2, check-formals, check-apply, lookup, set!)
@@ -1726,6 +1851,88 @@
         ((w32-eq? (num-value (cell-car x)) n) (is-loop (cell-cdr x) n))
         (else cell-f)))
 
+; core:car / core:cdr (lib.c:39-55): raw field accessors.  For TPAIR/TBINDING
+; car returns the field directly; for TPAIR/TCLOSURE cdr returns the field
+; directly; otherwise the raw field word is wrapped in a fresh TNUMBER.
+(define (b-core-car x)
+  (if (or (= (cell-type x) TPAIR) (= (cell-type x) TBINDING))
+      (cell-car x)
+      (make-number-w (raw-ref x 1))))
+(define (b-core-cdr x)
+  (if (or (= (cell-type x) TPAIR) (= (cell-type x) TCLOSURE))
+      (cell-cdr x)
+      (make-number-w (raw-ref x 2))))
+
+; multiply (math.c:215): fold with w32-mul, identity 1.
+(define (b-mult x) (make-number-w (mult-loop x (w32-from-fixnum 1))))
+(define (mult-loop x acc)
+  (if (= x cell-nil) acc
+      (mult-loop (cell-cdr x) (w32-mul acc (num-value (cell-car x))))))
+; greater_p (math.c:41): (> a b c ...) -> #t iff strictly decreasing.
+; C: v >= n -> cell_f; n = v.  v >= n  <=>  not (v < n).
+(define (b-greater x)
+  (if (= x cell-nil) cell-t (greater-loop (cell-cdr x) (num-value (cell-car x)))))
+(define (greater-loop x n)
+  (cond ((= x cell-nil) cell-t)
+        (else (let ((v (num-value (cell-car x))))
+                (if (w32-lt? v n) (greater-loop (cell-cdr x) v) cell-f)))))
+; less_p (math.c:63): (< a b c ...) -> #t iff strictly increasing.
+; C: v <= n -> cell_f; n = v.  v <= n  <=>  not (n < v).
+(define (b-less x)
+  (if (= x cell-nil) cell-t (less-loop (cell-cdr x) (num-value (cell-car x)))))
+(define (less-loop x n)
+  (cond ((= x cell-nil) cell-t)
+        (else (let ((v (num-value (cell-car x))))
+                (if (w32-lt? n v) (less-loop (cell-cdr x) v) cell-f)))))
+; logand/logior/logxor (math.c): fold, identities -1 / 0 / 0.
+(define (b-logand x) (make-number-w (logand-loop x (w32-from-fixnum -1))))
+(define (logand-loop x acc)
+  (if (= x cell-nil) acc (logand-loop (cell-cdr x) (w32-and acc (num-value (cell-car x))))))
+(define (b-logior x) (make-number-w (logior-loop x w32-0)))
+(define (logior-loop x acc)
+  (if (= x cell-nil) acc (logior-loop (cell-cdr x) (w32-or acc (num-value (cell-car x))))))
+(define (b-logxor x) (make-number-w (logxor-loop x w32-0)))
+(define (logxor-loop x acc)
+  (if (= x cell-nil) acc (logxor-loop (cell-cdr x) (w32-xor acc (num-value (cell-car x))))))
+; ash (math.c): n<<count if count>=0 else n>>(-count) (arithmetic).
+; w32-shl/shr/sar take a plain fixnum shift count (not a w32 box).
+(define (b-ash a b)
+  (let ((n (num-value a)) (c (w32->fixnum (num-value b))))
+    (if (>= c 0)
+        (make-number-w (w32-shl n c))
+        (make-number-w (w32-sar n (- 0 c))))))
+; modulo (math.c:188): result has sign of the divisor's magnitude algorithm;
+; while (n<0) n+=w;  u = (n!=0)? n%w : 0;  if divisor<0 negate.
+(define (b-modulo a b)
+  (let ((n (num-value a)) (v (num-value b)))
+    (let* ((sign-p (w32-lt? v w32-0))
+           (w (if sign-p (w32-neg v) v)))
+      (let ((n2 (mod-raise n w)))
+        (let ((u (if (w32-eq? n2 w32-0) w32-0 (w32-urem n2 w))))
+          (make-number-w (if sign-p (w32-neg u) u)))))))
+(define (mod-raise n w)                          ; while (n<0) n = n + w
+  (if (w32-lt? n w32-0) (mod-raise (w32-add n w) w) n))
+; divide (math.c:143): unsigned magnitude division, sign folded across args.
+; n starts 1; first arg sets n; then for each arg: sign_p toggles per C rule,
+; and u = u / |v| (skipped when |v|==1 or u==0), div-by-zero errors.
+(define (b-div x)
+  (if (= x cell-nil) (make-number-fx 1)
+      (let* ((n0 (num-value (cell-car x)))
+             (neg0 (w32-lt? n0 w32-0))
+             (u0 (if neg0 (w32-neg n0) n0)))
+        (b-div-loop (cell-cdr x) u0 (if neg0 1 0)))))
+(define (b-div-loop x u sign)                    ; sign: 0 or 1
+  (if (= x cell-nil)
+      (make-number-w (if (= sign 1) (w32-neg u) u))
+      (let ((v (num-value (cell-car x))))
+        ; sign_p = (sign_p && v>0) || (!sign_p && v<0); w = (size_t)v (raw).
+        (let ((nsign (if (or (and (= sign 1) (w32-lt? w32-0 v))
+                             (and (= sign 0) (w32-lt? v w32-0))) 1 0)))
+          (cond ((w32-eq? v w32-0) (qerror-type (cell-car x)))  ; divide-by-zero
+                ((w32-eq? u w32-0) (make-number-w (if (= nsign 1) (w32-neg u) u)))
+                ((w32-eq? v (w32-from-fixnum 1)) (b-div-loop (cell-cdr x) u nsign))
+                (else (b-div-loop (cell-cdr x) (w32-uquot u v) nsign)))))))
+
 ; ===========================================================================
 ; String / list / keyword leaf builtins (string.c, lib.c, vector.c)
 ; ===========================================================================
@@ -1734,6 +1941,17 @@
       (qcons (make-char (char->integer (string-ref g-bytes off)))
              (bytes->list- (+ off 1) (- len 1)))))
 (define (string->list- s) (bytes->list- (strlike-offset s) (strlike-len s)))
+; string-ref (string.c:227): p[i] as a char (bounds error if i>size).
+(define (b-string-ref s k)
+  (let ((i (num-fixnum k)))
+    (if (> i (strlike-len s)) (qerror-type k)
+        (make-char (char->integer (string-ref g-bytes (+ (strlike-offset s) i)))))))
+; string-set! (string.c:240): p[i] = c (in-place mutation of the byte pool).
+(define (b-string-set s k c)
+  (let ((i (num-fixnum k)))
+    (if (> i (strlike-len s)) (qerror-type k)
+        (begin (string-set! g-bytes (+ (strlike-offset s) i) (integer->char (char-value c)))
+               cell-unspec))))
 (define (list->string- x)
   (let ((start byte-free))
     (l2s-loop x)
@@ -1797,6 +2015,13 @@
   (let ((c (cell-car x)) (rest (cell-cdr x)))
     (emit (if (= (cell-type rest) TPAIR) (port-fd (cell-car rest)) g-stdout)
           (char-value c))
+    c))
+; write-byte (posix.c): like write-char but the value is a byte (TNUMBER/TCHAR);
+; both store the value in the cdr field, so num-fixnum reads it uniformly.
+(define (b-write-byte x)
+  (let ((c (cell-car x)) (rest (cell-cdr x)))
+    (emit (if (= (cell-type rest) TPAIR) (port-fd (cell-car rest)) g-stdout)
+          (num-fixnum c))
     c))
 
 ; --- D8 leaf helpers (lib.c / posix.c / string.c / struct.c) ---
@@ -1870,12 +2095,27 @@
     ((= id ID-EQUAL2) (equal2- (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-STRINGEQ) (string-eq-p (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-STRING-APPEND) (string-append- x))
+    ((= id ID-STRING-LENGTH) (make-number-fx (strlike-len (cell-car x))))
+    ((= id ID-STRING-REF) (b-string-ref (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-STRING-SET)
+     (b-string-set (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     (else (apply-builtin-math id x))))
 (define (apply-builtin-math id x)
   (cond
     ((= id ID-PLUS) (b-plus x))
     ((= id ID-MINUS) (b-minus x))
     ((= id ID-IS) (b-is x))
+    ((= id ID-MULT) (b-mult x))
+    ((= id ID-DIV) (b-div x))
+    ((= id ID-LESS) (b-less x))
+    ((= id ID-GREATER) (b-greater x))
+    ((= id ID-MODULO) (b-modulo (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-ASH) (b-ash (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-LOGAND) (b-logand x))
+    ((= id ID-LOGIOR) (b-logior x))
+    ((= id ID-LOGXOR) (b-logxor x))
+    ((= id ID-LOGNOT) (make-number-w (w32-not (num-value (cell-car x)))))
+    ((= id ID-ERROR) (b-error (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-CORE-TYPE) (make-number-fx (cell-type (cell-car x))))
     ((= id ID-APPEND2) (append2 (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-VECTOR-LIST) (vector->list- (cell-car x)))
@@ -1892,6 +2132,10 @@
     ((= id ID-READ-STRING) (b-read-string x))
     ((= id ID-CURRENT-OUTPUT-PORT) (make-number-fx g-stdout))
     ((= id ID-WRITE-CHAR) (b-write-char x))
+    ((= id ID-WRITE-BYTE) (b-write-byte x))
+    ((= id ID-READ-BYTE) (make-number-fx (getchar-)))
+    ((= id ID-PEEK-BYTE) (make-number-fx (peekchar)))
+    ((= id ID-UNREAD-BYTE) (begin (unreadchar (num-fixnum (cell-car x))) (cell-car x)))
     ((= id ID-DISPLAY-PORT) (begin (display- (cell-car x) (port-fd (cell-car (cell-cdr x))) 0) cell-unspec))
     ((= id ID-WRITE-PORT) (begin (display- (cell-car x) (port-fd (cell-car (cell-cdr x))) 1) cell-unspec))
     ((= id ID-CURRENT-ERROR-PORT) (make-number-fx g-stderr))
@@ -1904,6 +2148,14 @@
     ((= id ID-HASHQ-SET) (hashq-set-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-MAKE-HASH-TABLE) (b-make-hash-table x))
     ((= id ID-HASH-TABLEP) (hash-table-p (cell-car x)))
+    ((= id ID-HASH-SET) (hash-set-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
+    ((= id ID-CORE-HASH-REF) (hash-ref- (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
+    ((= id ID-HASH-REMOVE) (hash-remove-x (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-HASH-CLEAR) (hash-clear-x (cell-car x)))
+    ((= id ID-HASH-BUCKETS) (ht-buckets (cell-car x)))
+    ((= id ID-HASH-CREATE-HANDLE) (hash-create-handle-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
+    ((= id ID-HASHQ-CREATE-HANDLE) (hashq-create-handle-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
+    ((= id ID-SET-CURRENT-MODULE) (b-set-current-module (cell-car x)))
     ((= id ID-INITIAL-MODULE) m0)
     ((= id ID-CORE-REVERSE) (reverse-x- (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-APPEND-REVERSE) (append-reverse- (cell-car x) (cell-car (cell-cdr x))))
@@ -1913,8 +2165,8 @@
     ((= id ID-STRING-SYMBOL) (b-string->symbol (cell-car x)))
     ((= id ID-SYMBOL-STRING) (retag TSTRING (cell-car x)))
     ((= id ID-MAKE-SYMBOL) (b-make-symbol (cell-car x)))
-    ((= id ID-CORE-CAR) (cell-car (cell-car x)))
-    ((= id ID-CORE-CDR) (cell-cdr (cell-car x)))
+    ((= id ID-CORE-CAR) (b-core-car (cell-car x)))
+    ((= id ID-CORE-CDR) (b-core-cdr (cell-car x)))
     ((= id ID-ACONS) (acons (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-ASSQ) (qassq (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-LAST-PAIR) (last-pair- (cell-car x)))
@@ -1944,6 +2196,7 @@
   (cond
     ((= id ID-PRIMITIVE-LOAD) (b-primitive-load (cell-car x)))
     ((= id ID-OPEN-INPUT-FILE) (b-open-input-file (cell-car x)))
+    ((= id ID-ACCESS) (b-access (cell-car x)))
     ((= id ID-READ-CHAR) (b-read-char))
     ((= id ID-PEEK-CHAR) (b-peek-char))
     ((= id ID-READ-INPUT-FILE-ENV) (read-all-forms))
@@ -1954,7 +2207,11 @@
     ((= id ID-MAKE-STACK) (b-make-stack))
     ((= id ID-STACK-LENGTH) (b-stack-length (cell-car x)))
     ((= id ID-STACK-REF) (b-stack-ref (cell-car x) (cell-car (cell-cdr x))))
-    (else (qfail))))
+    (else
+     (if (= qmes-debug-err 0) 'ok
+         (begin (emit-str g-stderr ";;; qmes-unknown-builtin-id ")
+                (emit-number g-stderr id) (emit g-stderr 10)))
+     (qfail))))
 
 (define (b-exit x)
   (if (= x cell-nil) (exit 0) (exit (num-fixnum (cell-car x)))))
@@ -2058,6 +2315,33 @@
     (let ((result (vm-run-nested)))            ; nested eval_apply
       (pop-frame!)                             ; gc_pop_frame (restore outer r0-r3)
       result)))
+; apply (eval-apply.c:1030-1036): re-enter the VM to apply f to the argument
+; list x in environment a, via the nested trampoline (FD §4 error->throw path).
+(define (apply-proc f args a)
+  (push-frame!)
+  (push-cc! (qcons f args) cell-unspec a cell-unspec)  ; sentinel (r3=unspec)
+  (set! r3 cell-vm-apply)
+  (let ((result (vm-run-nested)))
+    (pop-frame!)
+    result))
+
+; error (core.c:150): if `throw` is bound, apply it to (key x); else print the
+; error to stderr (display key / write x) and exit 1.  On the happy boot path
+; this is only *referenced* (define core:error error), never called.
+(define (b-error key x)
+  (let ((throw (lookup-value cell-symbol-throw)))
+    (if (not (= throw cell-undefined))
+        (apply-proc throw (qcons key (qcons x cell-nil)) r0)
+        (begin (display- key g-stderr 0) (emit-str g-stderr ": ")
+               (display- x g-stderr 1) (emit g-stderr 10)
+               (exit 1)))))
+
+; access? (posix.c): probe readability by opening O_RDONLY (R_OK is the only
+; mode the boot uses — search-path/file-exists?/include-from-path).
+(define (b-access fname)
+  (let ((fd (sys-open (mes-string->rsc fname) 0 0)))
+    (if (< fd 0) cell-f (begin (sys-close fd) cell-t))))
+
 ; open_input_file: slurp the file into a string input port (observably a port).
 (define (b-open-input-file fname)
   (let ((fd (sys-open (mes-string->rsc fname) 0 0)))
@@ -2244,7 +2528,9 @@
           (if (not (= (binding-lexical-p c0) 0))
               (set-car! r1 (cell-cdr (binding-handle c0)))
               (set-car! r1 (variable-ref (cell-cdr (binding-handle c0)))))
-          (if (= (cell-car r1) cell-undefined) (qfail)))
+          (if (= (cell-car r1) cell-undefined)
+              (begin (qerror-diag "head-undefined" (cell-car (binding-handle c0)))
+                     (qfail))))
         'ok))
   (let ((c (cell-car r1)))
     (cond
@@ -2505,6 +2791,7 @@
   (set! JAM-CELLS (quotient ARENA-CELLS 10))
   (set! GC-SAFETY (quotient ARENA-CELLS 100))
   (set! qmes-gc-stress (env-num "MES_GC_STRESS" 0))
+  (set! qmes-debug-err (env-num "QMES_DEBUG_ERR" 0))
   (set! g-cells (make-vector (* 3 (+ ARENA-CELLS JAM-CELLS)) 0))
   (set! g-stack (make-vector STACK-SIZE 0))
   (set! g-bytes-a (make-string BYTE-POOL))

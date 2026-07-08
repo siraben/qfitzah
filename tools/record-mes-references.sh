@@ -52,7 +52,7 @@ st=0
 run "$mes" -s "$out/s-input.scm" > "$out/s-stdin.out" 2> "$out/s-stdin.err" </dev/null || st=$?
 echo "$st" > "$out/s-stdin.status"
 
-for g in B0 B1 B2; do
+for g in B0 B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 B11; do
   st=0
   MES_BOOT="$g.scm" MES_PREFIX="$repo_root/build/mesroot" \
     MES_ARENA=20000000 MES_MAX_ARENA=20000000 MES_STACK=5000000 \
@@ -61,5 +61,5 @@ for g in B0 B1 B2; do
   echo "$st" > "$out/$g.status"
 done
 
-( cd "$out" && sha256sum ./*.out ./*.status ) > tests/mes-references.sha256
+( cd "$out" && sha256sum ./*.out ./*.err ./*.status ) > tests/mes-references.sha256
 echo "[record-mes-references] wrote $out and tests/mes-references.sha256" >&2
