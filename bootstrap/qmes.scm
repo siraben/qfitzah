@@ -11,9 +11,12 @@
 ;   A Mes value ("SCM") is an rsc FIXNUM = an index into the cell arena.
 ;   The cell arena is one rsc VECTOR `g-cells` of 3*NCELLS raw 32-bit words,
 ;   accessed with vec-raw-ref / vec-raw-set!.  Cell i occupies words 3i (type),
-;   3i+1 (car), 3i+2 (cdr).  Allocation is a bump counter `cell-free`; qmes
-;   never GCs (scaffold files fit the arena) — host-heap-reset! only reclaims
-;   rsc-level calling-convention garbage, never arena cells.
+;   3i+1 (car), 3i+2 (cdr).  Allocation is a bump counter `cell-free`; when the
+;   arena fills, the S2 copy-up-slide-back collector (see "Garbage collection"
+;   below) compacts g-cells + the byte pool.  host-heap-reset! is orthogonal:
+;   it only reclaims rsc-level calling-convention garbage, never arena cells
+;   (§2.4) — the two never interfere because the GC runs synchronously inside a
+;   single VM dispatch and stores no host value into a qmes global.
 
 ; ===========================================================================
 ; Cell type tags (include/mes/constants.h)
@@ -105,11 +108,24 @@
 ; Byte pool: symbol names and string contents (in rsc's byte arena)
 ; ===========================================================================
 (define BYTE-POOL 16777216)                    ; 16 MiB; boot module files slurp here
-(define g-bytes 0)                             ; allocated in qmain
+; Paired two-space byte pool (FD §2.3): two equal-size string spaces, a current
+; pool `g-bytes` (bump `byte-free`), and — during a collection — a target pool
+; `gc-to-pool` (bump `gc-to-byte-free`).  gc-copy copies each TBYTES run into
+; the target as its cell is copied; gc-flip swaps the roles.  Sharing is
+; preserved because every string/symbol reaches bytes only through a TBYTES
+; cell, and each TBYTES cell is forwarded exactly once.
+(define g-bytes-a 0)                            ; allocated in qmain
+(define g-bytes-b 0)
+(define g-bytes 0)                              ; = current pool (a or b)
 (define byte-free 0)
+(define gc-to-pool 0)                           ; target pool during a collection
+(define gc-to-byte-free 0)
+(define gc-pressure 0)                          ; set when the pool is near full
+(define BYTE-POOL-HI 15000000)                  ; pressure threshold (set in qmain)
 (define (bytes-put! ch)
   (string-set! g-bytes byte-free ch)
-  (set! byte-free (+ byte-free 1)))
+  (set! byte-free (+ byte-free 1))
+  (if (>= byte-free BYTE-POOL-HI) (set! gc-pressure 1) 'ok))
 (define (copy-rsc-into-pool str)
   (let loop ((i 0) (n (string-length str)))
     (if (< i n)
@@ -628,6 +644,9 @@
 (define ID-READ-CHAR 101)
 (define ID-PEEK-CHAR 102)
 (define ID-READ-INPUT-FILE-ENV 103)
+(define ID-GC 104)              ; S2: gc / gc-stats / gc-check builtins
+(define ID-GC-STATS 105)
+(define ID-GC-CHECK 106)
 
 ; ===========================================================================
 ; Initialisation
@@ -849,6 +868,10 @@
   (bind-builtin "read-char" ID-READ-CHAR -1)
   (bind-builtin "peek-char" ID-PEEK-CHAR 0)
   (bind-builtin "read-input-file-env" ID-READ-INPUT-FILE-ENV 1)
+  ; S2: garbage collector (gc.c / builtins.c:176-179)
+  (bind-builtin "gc" ID-GC 0)
+  (bind-builtin "gc-stats" ID-GC-STATS 0)
+  (bind-builtin "gc-check" ID-GC-CHECK 0)
   ; D5: config/env bindings (init_symbols + mes_environment)
   (bind-value (intern-rsc "%version") (string-rsc "0.27.1"))
   (bind-value (intern-rsc "%datadir") (string-rsc g-datadir))
@@ -1096,6 +1119,180 @@
 (define (make-macro name x) (alloc TMACRO x (strlike-bytes name)))
 (define (macro-get-handle name)
   (if (= (cell-type name) TSYMBOL) (hashq-get-handle g-macros-table name) cell-f))
+
+; ===========================================================================
+; Garbage collection (src/gc.c) — S2.
+;
+; A literal transliteration of Mes's single-arena copy-up-then-slide-back
+; Cheney collector over g-cells (FD §2).  The arena vector is allocated with
+; JAM-CELLS of slack above ARENA-CELLS (qmain); a collection copies the live
+; set up into that slack ("news"), then slides it back to the base.  The FIXED
+; region [0, g-symbol-max) is copied FIRST, cell by cell in index order, so
+; every fixed cell lands back at exactly its original index — qmes's ~90
+; fixed-cell globals (cell-nil, cell-vm-*, cell-symbol-*) are numerically
+; stable across GC and never need patching.  Forwarding uses TBROKEN-HEART:
+; a copied cell's old slot becomes [TBROKEN-HEART | new-index | *].
+;
+; Collection runs ONLY at the three gc-check sites (§2.4 rule 1); all live
+; SCMs are then reachable from the root set, so precise copying needs no host
+; frame scan.  Cell INDICES are small fixnums; TNUMBER/TCHAR payloads are raw
+; w32 words — the flip therefore relocates only pointer fields (small indices)
+; and copies every other word raw, never round-tripping a value through fixnum.
+; ===========================================================================
+(define GC-SAFETY 10000)                        ; = ARENA-CELLS/100 (set in qmain)
+(define JAM-CELLS 100000)                        ; = ARENA-CELLS/10  (set in qmain)
+(define g-symbol-max 0)                          ; end of the fixed region (qmain)
+(define g-news 0)                                ; news-space base for a collection
+(define gc-count 0)
+(define qmes-gc-stress 0)                        ; N>0: collect every N gc-checks
+(define gc-stress-ctr 0)
+
+; --- pointer-field classification (gc.c type lists) ------------------------
+; car is a pointer for {TMACRO, TPAIR, TREF, TBINDING} (gc.c:386-389).
+(define (gc-car-ptr? t)
+  (or (= t TMACRO) (= t TPAIR) (= t TREF) (= t TBINDING)))
+; cdr is a pointer, in the gc_loop scan set (gc.c:556-568): TSTRUCT/TVECTOR are
+; handled by gc-copy (bodies copied inline), and qmes TBYTES has a pool offset,
+; not a pointer, in its cdr — both excluded here.
+(define (gc-cdr-ptr-loop? t)
+  (or (= t TCLOSURE) (= t TCONTINUATION) (= t TKEYWORD) (= t TMACRO)
+      (= t TPAIR) (= t TPORT) (= t TSPECIAL) (= t TSTRING)
+      (= t TSYMBOL) (= t TVALUES)))
+; cdr relocation set at flip (gc_cellcpy, gc.c:393-406): adds TSTRUCT/TVECTOR
+; (their cdr is the body index), still excludes TBYTES (pool offset).
+(define (gc-cdr-ptr-flip? t)
+  (or (gc-cdr-ptr-loop? t) (= t TSTRUCT) (= t TVECTOR)))
+
+; gc-copy (gc.c:473-518): copy `old` to news, leave a broken-heart forward.
+(define (gc-copy old)
+  (if (= (cell-type old) TBROKEN-HEART)
+      (cell-car old)                             ; already forwarded
+      (let ((new (alloc-n 1)) (t (cell-type old)))
+        (copy-cell! new old)
+        (cond
+          ((or (= t TSTRUCT) (= t TVECTOR))
+           (let ((len (cell-car old)) (oldbody (cell-cdr old)))
+             (set-cdr! new cell-free)            ; body follows the header
+             (gc-copy-body oldbody 0 len)))
+          ((= t TBYTES)
+           (let ((len (cell-car old)) (oldoff (cell-cdr old)))
+             (set-cdr! new gc-to-byte-free)      ; new offset in the target pool
+             (gc-copy-bytes oldoff gc-to-byte-free len)
+             (set! gc-to-byte-free (+ gc-to-byte-free len))))
+          (else 'ok))
+        (set-type! old TBROKEN-HEART)
+        (set-car! old new)
+        new)))
+(define (gc-copy-body oldbody i len)
+  (if (< i len)
+      (begin (copy-cell! (alloc-n 1) (+ oldbody i)) (gc-copy-body oldbody (+ i 1) len))
+      'ok))
+(define (gc-copy-bytes src dst len)
+  (if (> len 0)
+      (begin (string-set! gc-to-pool dst (string-ref g-bytes src))
+             (gc-copy-bytes (+ src 1) (+ dst 1) (- len 1)))
+      'ok))
+
+; gc-loop (gc.c:534-580): Cheney scan of the news space; relocate pointer
+; fields, growing the news frontier as gc-copy allocates.
+(define (gc-loop scan)
+  (if (< scan cell-free)
+      (let ((t (cell-type scan)))
+        (if (gc-car-ptr? t) (set-car! scan (gc-copy (cell-car scan))) 'ok)
+        (if (gc-cdr-ptr-loop? t) (set-cdr! scan (gc-copy (cell-cdr scan))) 'ok)
+        (gc-loop (+ scan 1)))
+      'ok))
+
+; gc-flip (gc.c:446-471): slide news back to the base, subtracting `dist` from
+; every pointer field.  Non-pointer words are copied raw (w32 payloads intact).
+(define (gc-cellcpy j upto dist)
+  (if (< j upto)
+      (let ((t (w32->fixnum (raw-ref j 0))) (dest (- j dist)))
+        (raw-set! dest 0 (raw-ref j 0))
+        (if (gc-car-ptr? t)
+            (raw-set! dest 1 (w32-from-fixnum (- (w32->fixnum (raw-ref j 1)) dist)))
+            (raw-set! dest 1 (raw-ref j 1)))
+        (if (gc-cdr-ptr-flip? t)
+            (raw-set! dest 2 (w32-from-fixnum (- (w32->fixnum (raw-ref j 2)) dist)))
+            (raw-set! dest 2 (raw-ref j 2)))
+        (gc-cellcpy (+ j 1) upto dist))
+      'ok))
+(define (gc-fix-stack i dist)
+  (if (< i STACK-SIZE)
+      (begin (stack-set! i (- (stack-ref i) dist)) (gc-fix-stack (+ i 1) dist))
+      'ok))
+(define (gc-flip)
+  (let ((dist g-news))                           ; news base index; base is 0
+    (gc-cellcpy g-news cell-free dist)
+    (let ((tmp g-bytes)) (set! g-bytes gc-to-pool) (set! gc-to-pool tmp))
+    (set! byte-free gc-to-byte-free)
+    (if (< byte-free BYTE-POOL-HI) (set! gc-pressure 0) 'ok)
+    (set! cell-free (- cell-free dist))
+    (set! g-symbols (- g-symbols dist))
+    (set! g-macros-table (- g-macros-table dist))
+    (set! g-ports (- g-ports dist))
+    (set! hash-table-type-struct (- hash-table-type-struct dist))
+    (set! variable-type-struct (- variable-type-struct dist))
+    (set! builtin-type-struct (- builtin-type-struct dist))
+    (set! m0 (- m0 dist))
+    (set! m1 (- m1 dist))
+    (gc-fix-stack stkp dist)))
+
+; gc- (gc.c:592-644): roots in gc.c:627-641 order.  The fixed region first (so
+; it stays put), then g-symbols(obarray) / g-macros-table / g-ports / the three
+; type structs / m0 / m1, then the live stack [stkp, STACK-SIZE) — R0..R3 ride
+; the stack via the push-frame in qgc.  new_cell_nil = g-news.
+(define (gc-copy-fixed i)
+  (if (< i g-symbol-max) (begin (gc-copy i) (gc-copy-fixed (+ i 1))) 'ok))
+(define (gc-copy-stack i)
+  (if (< i STACK-SIZE)
+      (begin (stack-set! i (gc-copy (stack-ref i))) (gc-copy-stack (+ i 1)))
+      'ok))
+(define (gc-)
+  (set! g-news cell-free)
+  (set! gc-to-pool (if (= g-bytes g-bytes-a) g-bytes-b g-bytes-a))
+  (set! gc-to-byte-free 0)
+  (gc-copy-fixed 0)
+  (set! g-symbols (gc-copy g-symbols))
+  (set! g-macros-table (gc-copy g-macros-table))
+  (set! g-ports (gc-copy g-ports))
+  (set! hash-table-type-struct (gc-copy hash-table-type-struct))
+  (set! variable-type-struct (gc-copy variable-type-struct))
+  (set! builtin-type-struct (gc-copy builtin-type-struct))
+  (set! m0 (gc-copy m0))
+  (set! m1 (gc-copy m1))
+  (gc-copy-stack stkp)
+  (gc-loop g-news)
+  (gc-flip)
+  (set! gc-count (+ gc-count 1)))
+
+; gc (gc.c:646-682): bracket gc- with a frame that roots R0..R3 on the stack.
+(define (qgc)
+  (push-frame!)
+  (gc-)
+  (pop-frame!)
+  cell-unspec)
+
+; gc-check (gc.c:582-589): collect when the arena is within GC-SAFETY of full,
+; or the byte pool is under pressure, or gc-stress forces it (§2.4).
+(define (gc-want?)
+  (cond ((not (= qmes-gc-stress 0))
+         (set! gc-stress-ctr (+ gc-stress-ctr 1))
+         (if (>= gc-stress-ctr qmes-gc-stress)
+             (begin (set! gc-stress-ctr 0) #t)
+             #f))
+        ((>= (+ cell-free GC-SAFETY) ARENA-CELLS) #t)
+        ((not (= gc-pressure 0)) #t)
+        (else #f)))
+(define (gc-check)
+  (if (gc-want?) (qgc) cell-unspec))
+
+; gc-stats (gc.c:137-150): an alist of gc-count / arena-free / arena-size.
+(define (b-gc-stats)
+  (let ((used cell-free))
+    (acons (intern-rsc "gc-count") (make-number-fx gc-count)
+      (acons (intern-rsc "arena-free") (make-number-fx (- ARENA-CELLS used))
+        (acons (intern-rsc "arena-size") (make-number-fx ARENA-CELLS) cell-nil)))))
 (define (macro-set-x name value) (hashq-set-x g-macros-table name value))
 (define (get-macro name)
   (let ((m (macro-get-handle name)))
@@ -1641,6 +1838,9 @@
     ((= id ID-READ-CHAR) (b-read-char))
     ((= id ID-PEEK-CHAR) (b-peek-char))
     ((= id ID-READ-INPUT-FILE-ENV) (read-all-forms))
+    ((= id ID-GC) (qgc))
+    ((= id ID-GC-STATS) (b-gc-stats))
+    ((= id ID-GC-CHECK) (gc-check))
     (else (qfail))))
 
 (define (b-exit x)
@@ -1914,7 +2114,9 @@
       ((or (= c cell-symbol-define) (= c cell-symbol-define-macro))
        (st-eval-define-entry))
       (else
-       (begin (push-cc! (cell-car r1) r1 r0 cell-vm-eval-check-func) (st-eval))))))
+       (begin (push-cc! (cell-car r1) r1 r0 cell-vm-eval-check-func)
+              (gc-check)                         ; eval-apply.c:764
+              (st-eval))))))
 (define (st-eval-symbol)
   (cond
     ((= r1 cell-symbol-current-environment) (st-vm-return))
@@ -2060,6 +2262,7 @@
   (if (= r1 cell-nil)
       (begin (set! r1 x) (st-vm-return))
       (begin
+        (gc-check)                               ; eval-apply.c:898
         (if (and (= (cell-type r1) TPAIR)
                  (= (cell-type (cell-car r1)) TPAIR)
                  (= (cell-car (cell-car r1)) cell-symbol-begin))
@@ -2075,6 +2278,7 @@
       (begin (set! r1 x) (st-vm-return))
       (begin-expand-body)))
 (define (begin-expand-body)
+  (gc-check)                                     ; eval-apply.c:928 (begin_expand_while)
   (if (and (= (cell-type r1) TPAIR)
            (= (cell-type (cell-car r1)) TPAIR)
            (= (cell-car (cell-car r1)) cell-symbol-begin))
@@ -2141,13 +2345,24 @@
   (set! g-stdin 0)
   (set! g-stdout 1)
   (set! g-stderr 2)
-  ; D6: env-driven arena/stack/byte-pool, allocated below the host-heap floor.
+  ; D6/S2: env-driven arena/stack/byte-pool, allocated below the host-heap
+  ; floor.  The cell arena carries JAM-CELLS of slack above ARENA-CELLS for the
+  ; copy-up news space (gc.c:89); the byte pool is doubled for two-space
+  ; compaction (§2.3).  GC-SAFETY / JAM-CELLS track gc.c:74,78.
   (set! ARENA-CELLS (env-num "MES_ARENA" 1000000))
   (set! STACK-SIZE (env-num "MES_STACK" 100000))
-  (set! g-cells (make-vector (* 3 ARENA-CELLS) 0))
+  (set! JAM-CELLS (quotient ARENA-CELLS 10))
+  (set! GC-SAFETY (quotient ARENA-CELLS 100))
+  (set! qmes-gc-stress (env-num "MES_GC_STRESS" 0))
+  (set! g-cells (make-vector (* 3 (+ ARENA-CELLS JAM-CELLS)) 0))
   (set! g-stack (make-vector STACK-SIZE 0))
-  (set! g-bytes (make-string BYTE-POOL))
+  (set! g-bytes-a (make-string BYTE-POOL))
+  (set! g-bytes-b (make-string BYTE-POOL))
+  (set! g-bytes g-bytes-a)
+  (set! byte-free 0)
+  (set! BYTE-POOL-HI (- BYTE-POOL (quotient BYTE-POOL 8)))
   (init-cells)
+  (set! g-symbol-max cell-free)                  ; freeze the fixed region (§2.1)
   (set! g-ports cell-nil)
   ; open_boot BEFORE mes_environment so g-datadir feeds %datadir (mes.c order).
   (let ((fd (open-boot)))
@@ -2159,6 +2374,11 @@
         (exit 1)
         (fd->current-input-port! fd)))          ; boot fd -> current input port
   (build-obarray!)                              ; D4: switch interning to g-symbols
+  ; Drop the init-phase scratch lists: their pairs live above g-symbol-max but
+  ; are not roots (the symbols they held are reachable via g-symbols / m0).
+  ; Nil-ing them keeps them from being stale indices after the first GC.
+  (set! sym-table cell-nil)
+  (set! env-alist cell-nil)
   (set! stkp STACK-SIZE)
   (set! r3 (make-char 0))
   (let ((program (read-all-forms)))

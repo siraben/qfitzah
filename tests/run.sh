@@ -498,6 +498,64 @@ run_qmes_boot_ladder() {
 
 run_qmes_boot_ladder
 
+## S2 gate: garbage collection.  Re-run the whole 00-3a boot ladder with
+## MES_GC_STRESS=1 (a full collection forced at every gc-check) and require the
+## exit statuses to still match the mes-m2 reference byte-for-byte -- the
+## strongest signal that the GC root set is complete (a missing root or stale
+## pointer corrupts immediately under forced collection).  Also exercise the
+## collector observably via the gc.scm / memory.scm scaffolds.
+run_qmes_gc_stress() {
+  local elf actual boot_dir prefix t st
+  elf=$scheme0_dir/qmes.elf                 # built by run_qmes_boot_ladder
+  actual=$scheme0_dir/qmes-bootstatus-stress.txt
+  boot_dir="$repo_root/third_party/mes/scaffold/boot"
+  prefix="$repo_root/third_party/mes"
+  : > "$actual"
+  for t in 00-zero 01-true 02-identifier 02-symbol 03-big-string 03-string \
+           04-cons 04-quote 05-big-list 05-list-list 05-list 06-tick 07-if \
+           08-if-if 10-cons 11-list 11-vector 12-car 13-cdr 14-exit 15-display \
+           16-if-eq-quote 17-equal2 17-memq-keyword 17-memq 17-string-append \
+           17-string-equal 20-define-quoted 20-define-quote 20-define \
+           21-define-procedure 22-define-procedure-2 23-begin 24-begin-define \
+           25-begin-define-2 26-begin-define-later 26-define-define \
+           27-lambda-define 28-define-define 29-lambda-define 2a-lambda-lambda \
+           2b-define-lambda 2c-define-lambda-recurse 2d-compose \
+           2d-define-lambda-set 2e-define-first 2f-define-second-lambda \
+           2f-define-second 2g-vector 30-capture 31-capture-define \
+           32-capture-modify-close 33-procedure-override-close \
+           34-cdr-override-close 35-closure-modify 36-closure-override \
+           37-closure-lambda 39-global-define-override \
+           3a-global-define-lambda-override; do
+    set +e
+    env MES_BOOT="$boot_dir/$t.scm" MES_PREFIX="$prefix" MES_GC_STRESS=1 \
+      timeout 90s "$elf" >/dev/null 2>&1
+    st=$?
+    set -e
+    printf '%s -> %s\n' "$t" "$st" >> "$actual"
+  done
+  if ! diff -u "$repo_root/tests/mes-reference-bootstatus.txt" "$actual" >&2; then
+    printf 'FAIL qmes-gc-stress: statuses under forced GC diverge (root-set bug)\n' >&2
+    exit 1
+  fi
+  # Observable collector exercise: gc.scm calls (gc) three times; memory.scm
+  # allocates in a loop.  Both must exit 0 under forced collection.
+  local g
+  for g in gc memory; do
+    set +e
+    env MES_BOOT="$prefix/scaffold/boot/$g.scm" MES_PREFIX="$prefix" \
+      MES_GC_STRESS=1 timeout 30s "$elf" >/dev/null 2>&1
+    st=$?
+    set -e
+    if [ "$st" -ne 0 ]; then
+      printf 'FAIL qmes-gc-stress: %s.scm exited %s under forced GC\n' "$g" "$st" >&2
+      exit 1
+    fi
+  done
+  printf 'ok - qmes-gc-stress (00-3a + gc/memory byte-exact under forced GC)\n'
+}
+
+run_qmes_gc_stress
+
 ## The native assembler asm.elf: rsc compiles bootstrap/asm.scm; the seed
 ## assembles it once (~39k instrs).  asm.elf must then produce byte-identical
 ## ELFs to [seed + qfasm.qf1 (+ runtime)] on a broad battery -- the qfasm
