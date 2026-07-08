@@ -26,7 +26,7 @@
 
 SEED ?= bootstrap/seed/qfitzah
 
-.PHONY: all check qmes boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify regen-verify clean
+.PHONY: all check qmes qmes64 boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify fixpoint-64 regen-verify clean
 
 all: qmes
 
@@ -90,5 +90,15 @@ fixpoint-verify: qmes
 regen-verify: qmes
 	tools/regen-verify.sh
 
+# Build the 64-bit qmes variant (qmes.scm + qmes-w64.scm overlay).
+qmes64: $(SEED)
+	tools/build-qmes64.sh $(SEED)
+
+# S8 — the x86_64 fixpoint: F1-64/F2-64/F3-64 of MesCC targeting x86_64, qmes64
+# vs bin/mes-m2-64.  Needs bin/mes-m2-64 (ARCH=x86_64 make mes-reference) +
+# mescc-tools amd64 (self-enters nix shell).  Slow (interpreted + w64 in Scheme).
+fixpoint-64: qmes64
+	tools/fixpoint-64.sh
+
 clean:
-	rm -rf build qmes.elf
+	rm -rf build qmes.elf qmes64.elf
