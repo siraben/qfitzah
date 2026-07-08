@@ -4,3 +4,7 @@
 [submodule "third_party/nyacc"]
 	path = third_party/nyacc
 	url = https://git.savannah.nongnu.org/git/nyacc.git
+[submodule "third_party/tinycc"]
+	path = third_party/tinycc
+	url = https://gitlab.com/janneke/tinycc.git
+	branch = mes-0.27
