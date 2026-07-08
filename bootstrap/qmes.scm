@@ -790,6 +790,12 @@
   (bind-builtin "vector-set!" ID-VECTOR-SET 3)
   (bind-builtin "make-vector" ID-MAKE-VECTOR -1)
   (bind-builtin "current-error-port" ID-CURRENT-ERROR-PORT 0)
+  ; D7: primitive-load + port reader
+  (bind-builtin "primitive-load" ID-PRIMITIVE-LOAD 1)
+  (bind-builtin "open-input-file" ID-OPEN-INPUT-FILE 1)
+  (bind-builtin "read-char" ID-READ-CHAR -1)
+  (bind-builtin "peek-char" ID-PEEK-CHAR 0)
+  (bind-builtin "read-input-file-env" ID-READ-INPUT-FILE-ENV 1)
   ; D5: config/env bindings (init_symbols + mes_environment)
   (bind-value (intern-rsc "%version") (string-rsc "0.27.1"))
   (bind-value (intern-rsc "%datadir") (string-rsc g-datadir))
@@ -801,83 +807,103 @@
   (set! env-alist (acons cell-closure env-alist env-alist)))
 
 ; ===========================================================================
-; Reader (src/reader.c subset)
+; Reader (src/reader.c) — port-based: readchar/peekchar/unreadchar over the
+; current input port (D7).  A single-char pushback (rd-pb) implements
+; unreadchar/peekchar; every input port is a string port (files are slurped
+; into the byte pool), so the reader is uniform.  read_input_file_env stops on
+; cell-nil (a top-level EOF or `)`), matching reader.c.
 ; ===========================================================================
-(define g-input (make-string 1048576))
-(define g-input-len 0)
-(define g-rd 0)
+(define rd-pb -2)                              ; pushback char, -2 = empty
 
-(define (rd-eof?) (>= g-rd g-input-len))
-(define (rd-peek) (if (rd-eof?) -1 (char->integer (string-ref g-input g-rd))))
-(define (rd-peek-at k)
-  (if (>= (+ g-rd k) g-input-len) -1
-      (char->integer (string-ref g-input (+ g-rd k)))))
-(define (rd-next) (let ((c (rd-peek))) (set! g-rd (+ g-rd 1)) c))
+; string-port-getc: read one byte from the current input string port, shrinking
+; its string cell (posix.c readchar); -1 at EOF.
+(define (string-port-getc)
+  (let* ((port (find-port g-ports)))
+    (if (= port cell-f) -1
+        (let* ((s (cell-cdr port)) (len (strlike-len s)))
+          (if (= len 0) -1
+              (let ((c (char->integer (string-ref g-bytes (strlike-offset s)))))
+                (set-cdr! port (make-strlike TSTRING (+ (strlike-offset s) 1) (- len 1)))
+                c))))))
+(define (getchar-)
+  (if (= rd-pb -2) (string-port-getc)
+      (let ((c rd-pb)) (set! rd-pb -2) c)))
+(define (peekchar)
+  (if (= rd-pb -2) (set! rd-pb (string-port-getc)) 'ok)
+  rd-pb)
+(define (unreadchar c) (if (< c 0) 'ok (set! rd-pb c)))
 
-(define (whitespace? c) (or (= c 32) (= c 9) (= c 10) (= c 13)))
+(define (whitespace? c)
+  (or (= c 32) (= c 9) (= c 10) (= c 13) (= c 12) (= c 11)))
 (define (digit? c) (and (>= c 48) (<= c 57)))
-(define (delimiter? c)
-  (or (< c 0) (whitespace? c) (= c 40) (= c 41) (= c 34) (= c 59)))
+; reader_identifier_p: c > ' ' && c <= '~' && not "();  (reader.c:57)
+(define (identifier-char? c)
+  (and (> c 32) (<= c 126)
+       (not (= c 34)) (not (= c 59)) (not (= c 40)) (not (= c 41))))
+; reader_end_of_word_p (reader.c:63)
+(define (end-of-word? c)
+  (or (= c 34) (= c 59) (= c 40) (= c 41) (whitespace? c) (< c 0)))
 
-(define (skip-line)
-  (let ((c (rd-peek)))
-    (cond ((< c 0) 'done)
-          ((= c 10) (rd-next) 'done)
-          (else (rd-next) (skip-line)))))
-(define (skip-ws)
-  (let ((c (rd-peek)))
-    (cond ((< c 0) 'done)
-          ((whitespace? c) (rd-next) (skip-ws))
-          ((= c 59) (skip-line) (skip-ws))
-          (else 'done))))
+(define (read-line-comment)                    ; consume to '\n'; return next char
+  (let ((c (getchar-)))
+    (cond ((< c 0) -1) ((= c 10) (getchar-)) (else (read-line-comment)))))
+(define (reader-read-block-comment s c)        ; s=prev, c=cur; stop at |# or !#
+  (cond ((< c 0) 'done)
+        ((and (or (= s 124) (= s 33)) (= c 35)) 'done)
+        (else (reader-read-block-comment c (getchar-)))))
 
-(define (rd-read)
-  (skip-ws)
-  (let ((c (rd-peek)))
+; reader_read_sexp_ (reader.c:110): dispatch on the already-read char c.
+(define (reader-read-sexp c)
+  (cond
+    ((< c 0) cell-nil)
+    ((= c 59) (reader-read-sexp (read-line-comment)))
+    ((whitespace? c) (reader-read-sexp (getchar-)))
+    ((= c 40) (reader-read-list (getchar-)))
+    ((= c 41) cell-nil)
+    ((= c 35) (reader-read-hash (getchar-)))
+    ((= c 96) (qcons cell-symbol-quasiquote (qcons (reader-read-sexp (getchar-)) cell-nil)))
+    ((= c 44) (reader-read-unquote))
+    ((= c 39) (qcons cell-symbol-quote (qcons (reader-read-sexp (getchar-)) cell-nil)))
+    ((= c 34) (reader-read-string))
+    ((= c 46) (if (identifier-char? (peekchar)) (reader-read-ident-or-number c) cell-dot))
+    (else (reader-read-ident-or-number c))))
+(define (reader-read-unquote)
+  (if (= (peekchar) 64)                         ; ,@
+      (begin (getchar-) (qcons cell-symbol-unquote-splicing (qcons (reader-read-sexp (getchar-)) cell-nil)))
+      (qcons cell-symbol-unquote (qcons (reader-read-sexp (getchar-)) cell-nil))))
+
+(define (reader-eat-whitespace c)
+  (cond ((whitespace? c) (reader-eat-whitespace (getchar-)))
+        ((= c 59) (reader-eat-whitespace (read-line-comment)))
+        ((= c 35)
+         (let ((p (peekchar)))
+           (if (or (= p 33) (= p 124))
+               (begin (getchar-) (reader-read-block-comment 35 (getchar-)) (reader-eat-whitespace (getchar-)))
+               c)))
+        (else c)))
+(define (reader-read-list c)
+  (let ((c (reader-eat-whitespace c)))
     (cond
-      ((< c 0) cell-eof)
-      ((= c 40) (rd-next) (read-list))                       ; (
-      ((= c 39) (rd-next) (read-quote cell-symbol-quote))    ; '
-      ((= c 96) (rd-next) (read-quote cell-symbol-quasiquote)); `
-      ((= c 44) (rd-next) (read-unquote))                    ; ,
-      ((= c 34) (rd-next) (read-string))                     ; "
-      ((= c 35) (rd-next) (read-hash))                       ; #
-      (else (read-atom)))))
+      ((= c 41) cell-nil)
+      ((< c 0) (qfail))                          ; EOF in list
+      (else
+       (let ((s (reader-read-sexp c)))
+         (if (= s cell-dot)
+             (cell-car (reader-read-list (getchar-)))
+             (qcons s (reader-read-list (getchar-)))))))))
 
-(define (read-quote head)
-  (let ((x (rd-read)))
-    (qcons head (qcons x cell-nil))))
-(define (read-unquote)
-  (if (= (rd-peek) 64)                                       ; ,@
-      (begin (rd-next) (read-quote cell-symbol-unquote-splicing))
-      (read-quote cell-symbol-unquote)))
-
-(define (dot? c) (and (= c 46) (delimiter? (rd-peek-at 1))))
-(define (read-list)
-  (skip-ws)
-  (let ((c (rd-peek)))
-    (cond
-      ((< c 0) cell-nil)
-      ((= c 41) (rd-next) cell-nil)
-      ((dot? c) (rd-next) (read-dotted-tail))
-      (else (let ((hd (rd-read))) (qcons hd (read-list)))))))
-(define (read-dotted-tail)
-  (let ((tl (rd-read)))
-    (skip-ws)
-    (rd-next)
-    tl))
-
-; read one delimited token, then classify as number or symbol (reader.c parity:
-; a token is numeric iff [+-]?[0-9]+, else it is an identifier — so 4a and +44
-; read as the symbol 4a and the number 44 respectively).
-(define (read-atom)
+; token: store all chars until end-of-word (delimiter unread), then classify
+; as number (numeric-token?) or symbol (reader.c:74-116 result).
+(define (read-token-loop c)
+  (if (end-of-word? c)
+      (unreadchar c)
+      (begin (bytes-put! (integer->char c)) (read-token-loop (getchar-)))))
+(define (reader-read-ident-or-number c0)
   (let ((start byte-free))
-    (read-symbol-loop)
+    (read-token-loop c0)
     (let ((len (- byte-free start)))
       (if (numeric-token? start len)
-          (let ((val (parse-number start len)))
-            (set! byte-free start)
-            val)
+          (let ((v (parse-number start len))) (set! byte-free start) v)
           (intern start len)))))
 (define (numeric-token? start len)
   (if (= len 0) #f
@@ -904,41 +930,45 @@
                     (w32-add (w32-mul acc (w32-from-fixnum 10))
                              (w32-from-fixnum (- (char->integer (string-ref g-bytes start)) 48))))))
 
-(define (read-string)
+(define (reader-read-string)
   (let ((start byte-free))
-    (read-string-loop)
+    (reader-read-string-loop)
     (make-strlike TSTRING start (- byte-free start))))
-(define (read-string-loop)
-  (let ((c (rd-peek)))
+(define (reader-read-string-loop)
+  (let ((c (getchar-)))
     (cond
       ((< c 0) 'done)
-      ((= c 34) (rd-next) 'done)
-      ((= c 92) (rd-next) (read-string-escape) (read-string-loop))
-      (else (rd-next) (bytes-put! (integer->char c)) (read-string-loop)))))
-(define (read-string-escape)
-  (let ((c (rd-next)))
+      ((= c 34) 'done)
+      ((= c 92) (reader-read-string-escape) (reader-read-string-loop))
+      (else (bytes-put! (integer->char c)) (reader-read-string-loop)))))
+(define (reader-read-string-escape)
+  (let ((c (getchar-)))
     (cond
       ((= c 110) (bytes-put! (integer->char 10)))   ; \n
       ((= c 116) (bytes-put! (integer->char 9)))    ; \t
       (else (bytes-put! (integer->char c))))))
 
-(define (read-hash)
-  (let ((c (rd-next)))
-    (cond ((= c 116) cell-t)                    ; #t
-          ((= c 102) cell-f)                    ; #f
-          ((= c 92) (read-char-literal))        ; #\
-          ((= c 58) (read-keyword))             ; #:
-          ((= c 40) (list->vector- (read-list)))  ; #( ... ) vector literal
-          (else cell-f))))
+(define (reader-read-hash c)
+  (cond ((= c 116) cell-t)                     ; #t
+        ((= c 102) cell-f)                     ; #f
+        ((= c 92) (reader-read-char-literal))  ; #\
+        ((= c 58) (reader-read-keyword))       ; #:
+        ((= c 40) (list->vector- (reader-read-list (getchar-))))  ; #( ... )
+        (else cell-f)))
 
-(define (read-char-literal)
-  (let ((start byte-free))
-    (read-symbol-loop)
+(define (reader-read-char-literal)
+  (let ((c0 (getchar-)) (start byte-free))
+    (bytes-put! (integer->char c0))
+    (read-charname-loop)
     (let ((len (- byte-free start)))
-      (set! byte-free start)
-      (if (<= len 1)
-          (make-char (char->integer (string-ref g-input (- g-rd 1))))
-          (char-name->char start len)))))
+      (let ((result (if (= len 1) (make-char c0) (char-name->char start len))))
+        (set! byte-free start)
+        result))))
+(define (read-charname-loop)
+  (let ((c (peekchar)))
+    (if (identifier-char? c)
+        (begin (getchar-) (bytes-put! (integer->char c)) (read-charname-loop))
+        'ok)))
 (define (char-name->char start len)
   (cond ((bytes-eq-rsc start len "space") (make-char 32))
         ((bytes-eq-rsc start len "newline") (make-char 10))
@@ -952,21 +982,10 @@
       (if (char=? (string-ref g-bytes (+ start i)) (string-ref str i))
           (bytes-eq-rsc-loop start str (+ i 1) n) #f)))
 
-(define (read-keyword)
+(define (reader-read-keyword)
   (let ((start byte-free))
-    (read-symbol-loop)
+    (read-token-loop (getchar-))
     (make-strlike TKEYWORD start (- byte-free start))))
-
-(define (read-symbol)
-  (let ((start byte-free))
-    (read-symbol-loop)
-    (intern start (- byte-free start))))
-(define (read-symbol-loop)
-  (let ((c (rd-peek)))
-    (if (delimiter? c)
-        'done
-        (begin (rd-next) (bytes-put! (integer->char c)) (read-symbol-loop)))))
-
 ; ===========================================================================
 ; VM registers and the explicit stack (eval-apply.c / gc.c / mes.c)
 ; ===========================================================================
@@ -1411,20 +1430,14 @@
           ((= (cell-type port) TPORT) (set! g-stdin (cell-car port)))
           (else 'ok))
     prev))
-; readchar over a string port: read one byte, shrink the port's string cell.
-(define (readchar)
-  (let* ((port (find-port g-ports)) (s (cell-cdr port)) (len (strlike-len s)))
-    (if (= len 0) -1
-        (let ((c (char->integer (string-ref g-bytes (strlike-offset s)))))
-          (set-cdr! port (make-strlike TSTRING (+ (strlike-offset s) 1) (- len 1)))
-          c))))
-; read-string (string.c:169) [arity n]: read all of the current input port.
+; read-string (string.c:169) [arity n]: read all of the current input port
+; (through the reader's pushback, so it composes with the reader).
 (define (b-read-string x)
   (let ((start byte-free))
     (read-string-all)
     (make-strlike TSTRING start (- byte-free start))))
 (define (read-string-all)
-  (let ((c (readchar)))
+  (let ((c (getchar-)))
     (if (< c 0) 'done (begin (bytes-put! (integer->char c)) (read-string-all)))))
 ; output side: a port arg is a number (fd); write to it (fd 2 -> stderr).
 (define (port-fd port)
@@ -1563,6 +1576,11 @@
     (else (apply-builtin-io id x))))
 (define (apply-builtin-io id x)
   (cond
+    ((= id ID-PRIMITIVE-LOAD) (b-primitive-load (cell-car x)))
+    ((= id ID-OPEN-INPUT-FILE) (b-open-input-file (cell-car x)))
+    ((= id ID-READ-CHAR) (b-read-char))
+    ((= id ID-PEEK-CHAR) (b-peek-char))
+    ((= id ID-READ-INPUT-FILE-ENV) (read-all-forms))
     (else (qfail))))
 
 (define (b-exit x)
@@ -1573,17 +1591,21 @@
 ; ===========================================================================
 (define g-chunk (make-string 65536))
 
-(define (append-chunk n)
-  (let loop ((i 0))
-    (if (< i n)
-        (begin
-          (string-set! g-input g-input-len (string-ref g-chunk i))
-          (set! g-input-len (+ g-input-len 1))
-          (loop (+ i 1)))
-        'ok)))
-(define (slurp fd)
+; slurp an fd into the byte pool, returning a TSTRING over the bytes read.
+(define (slurp-file-to-pool fd)
+  (let ((start byte-free))
+    (slurp-pool-loop fd)
+    (make-strlike TSTRING start (- byte-free start))))
+(define (slurp-pool-loop fd)
   (let ((n (sys-read fd g-chunk)))
-    (if (> n 0) (begin (append-chunk n) (slurp fd)) 'done)))
+    (if (> n 0) (begin (pool-append-chunk n 0) (slurp-pool-loop fd)) 'done)))
+(define (pool-append-chunk n i)
+  (if (< i n) (begin (bytes-put! (string-ref g-chunk i)) (pool-append-chunk n (+ i 1))) 'ok))
+; Read an fd into a fresh string input port and make it current.
+(define (fd->current-input-port! fd)
+  (let ((strcell (slurp-file-to-pool fd)))
+    (sys-close fd)
+    (b-set-current-input-port (b-open-input-string strcell))))
 
 ; open_boot (mes.c:127-176): search order sets g-datadir as a side effect so
 ; %datadir/%moduledir resolve.  MES_PREFIX/mes/module/mes/<boot> first, then
@@ -1609,9 +1631,14 @@
 
 (define floor 0)
 
+; read_input_file_env (reader.c:38): read forms until a top-level cell-nil
+; (EOF or `)`), resetting the reader pushback for a fresh port.
 (define (read-all-forms)
-  (let ((form (rd-read)))
-    (if (= form cell-eof) cell-nil (qcons form (read-all-forms)))))
+  (set! rd-pb -2)
+  (read-forms-loop))
+(define (read-forms-loop)
+  (let ((form (reader-read-sexp (getchar-))))
+    (if (= form cell-nil) cell-nil (qcons form (read-forms-loop)))))
 
 ; ===========================================================================
 ; The VM dispatcher (eval-apply.c:442-504) and the state machine.
@@ -1619,6 +1646,55 @@
 ; Every st-* procedure is only ever tail-called (design §4.4).
 ; ===========================================================================
 (define qmes-no-reset 0)             ; bisect switch (design §4.3.4)
+
+; --- nested trampoline / floor stack (FD §4) -------------------------------
+; vm-run-nested is the ONLY way to re-enter the VM (primitive-load, and later
+; error->throw / eval-closures / struct printers).  It pushes a new floor
+; (mark+64) so the nested run's dispatch resets reclaim only what the nested
+; run allocates; the outer builtin's rsc frames were allocated below this mark
+; and are protected.  On return it pops the floor.  All Mes VM state lives in
+; g-cells/g-stack (never host-reset), so only rsc host frames are at stake, and
+; this let-frame (holding the saved floor) is itself below the nested floor.
+; Audit: floor is captured BEFORE the mark; the new floor > this frame > the
+; mark boxes (protected by the +64 pad); no host value crosses into a global.
+(define (vm-run-nested)
+  (let ((saved-floor floor))
+    (set! floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
+    (let ((result (vm-dispatch)))
+      (set! floor saved-floor)
+      result)))
+
+; primitive_load (eval-apply.c:1039-1071): set current input to the file, read
+; all forms into (begin . forms), restore the port, then eval via the nested
+; trampoline with a sentinel frame.
+(define (b-primitive-load fname)
+  (let ((input (b-set-current-input-port (primitive-load-port fname))))
+    (let ((forms (qcons cell-symbol-begin (read-all-forms))))
+      (b-set-current-input-port input)
+      (primitive-load-eval forms))))
+(define (primitive-load-port fname)
+  (cond ((and (= (cell-type fname) TNUMBER) (= (num-fixnum fname) 0)) (b-current-input-port))
+        ((= (cell-type fname) TSTRING) (b-open-input-file fname))
+        ((= (cell-type fname) TPORT) fname)
+        (else (qfail))))
+(define (primitive-load-eval forms)
+  (let ((env (acons cell-symbol-program forms cell-nil)))
+    (push-frame!)                              ; gc_push_frame (save outer r0-r3)
+    (push-cc! forms cell-unspec env cell-unspec) ; sentinel frame (r3=cell-unspec)
+    (set! r3 cell-vm-begin-expand)
+    (let ((result (vm-run-nested)))            ; nested eval_apply
+      (pop-frame!)                             ; gc_pop_frame (restore outer r0-r3)
+      result)))
+; open_input_file: slurp the file into a string input port (observably a port).
+(define (b-open-input-file fname)
+  (let ((fd (sys-open (mes-string->rsc fname) 0 0)))
+    (if (< fd 0)
+        (qfail)
+        (let ((strcell (slurp-file-to-pool fd)))
+          (sys-close fd)
+          (b-open-input-string strcell)))))
+(define (b-read-char) (make-char (getchar-)))  ; D2: EOF = char -1
+(define (b-peek-char) (make-char (peekchar)))
 
 (define (vm-dispatch)
   (if (= qmes-no-reset 0) (host-heap-reset! floor) 'nop)
@@ -2021,7 +2097,7 @@
     (set! g-macros-table (make-hash-table- 0))
     (if (< fd 0)
         (exit 1)
-        (begin (slurp fd) (sys-close fd))))
+        (fd->current-input-port! fd)))          ; boot fd -> current input port
   (set! stkp STACK-SIZE)
   (set! r3 (make-char 0))
   (let ((program (read-all-forms)))
