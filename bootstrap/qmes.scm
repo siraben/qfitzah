@@ -425,7 +425,16 @@
 (define ID-EQUAL2 18)
 (define ID-STRINGEQ 19)
 (define ID-STRING-APPEND 20)
-(define ID-CClist-VECTOR 21)
+(define ID-PLUS 22)
+(define ID-MINUS 23)
+(define ID-IS 26)              ; =
+(define ID-CORE-TYPE 35)
+(define ID-APPEND2 36)
+(define ID-VECTOR-LIST 38)    ; vector->list
+(define ID-STRING-LIST 39)    ; string->list
+(define ID-LIST-STRING 40)    ; list->string
+(define ID-SYM-KEYWORD 43)    ; symbol->keyword
+(define ID-KEYWORD-STRING 44) ; keyword->string
 
 ; ===========================================================================
 ; Initialisation
@@ -510,7 +519,11 @@
   (set! sym-table (qcons cell-vm-apply sym-table))
   (set! sym-table (qcons cell-vm-eval sym-table))
   (set! sym-table (qcons cell-vm-begin-expand sym-table))
-  (set! sym-table (qcons cell-vm-macro-expand sym-table)))
+  (set! sym-table (qcons cell-vm-macro-expand sym-table))
+  ; *unspecified*/*undefined* appear as literals (e.g. 4f's named-let macro);
+  ; they must self-evaluate to the special cell, not intern as fresh symbols.
+  (set! sym-table (qcons cell-unspec sym-table))
+  (set! sym-table (qcons cell-undefined sym-table)))
 
 (define (bind-value name val) (set! env-alist (acons name val env-alist)))
 (define (bind-type str tnum) (bind-value (intern-rsc str) (make-number-fx tnum)))
@@ -566,6 +579,20 @@
   (bind-builtin "equal2?" ID-EQUAL2 2)
   (bind-builtin "string=?" ID-STRINGEQ 2)
   (bind-builtin "string-append" ID-STRING-APPEND -1)
+  ; math.c
+  (bind-builtin "+" ID-PLUS -1)
+  (bind-builtin "-" ID-MINUS -1)
+  (bind-builtin "=" ID-IS -1)
+  ; lib.c
+  (bind-builtin "core:type" ID-CORE-TYPE 1)
+  (bind-builtin "append2" ID-APPEND2 2)
+  ; vector.c
+  (bind-builtin "vector->list" ID-VECTOR-LIST 1)
+  ; string.c
+  (bind-builtin "string->list" ID-STRING-LIST 1)
+  (bind-builtin "list->string" ID-LIST-STRING 1)
+  (bind-builtin "symbol->keyword" ID-SYM-KEYWORD 1)
+  (bind-builtin "keyword->string" ID-KEYWORD-STRING 1)
   (bind-builtin "exit" ID-EXIT 1)
   ; the (*closure* . a) head entry (symbol.c:205)
   (set! env-alist (acons cell-closure env-alist env-alist)))
@@ -1087,32 +1114,99 @@
       'ok))
 
 ; ===========================================================================
+; Arithmetic (math.c) — fold over w32 TNUMBER payloads.
+; ===========================================================================
+(define w32-0 0)   ; set in init to (w32-from-fixnum 0)
+(define (w32-neg a) (w32-sub w32-0 a))
+
+(define (b-plus x) (make-number-w (plus-loop x w32-0)))
+(define (plus-loop x acc)
+  (if (= x cell-nil) acc
+      (plus-loop (cell-cdr x) (w32-add acc (num-value (cell-car x))))))
+(define (b-minus x)
+  (let ((n0 (num-value (cell-car x))) (rest (cell-cdr x)))
+    (if (= rest cell-nil)
+        (make-number-w (w32-neg n0))
+        (make-number-w (minus-loop rest n0)))))
+(define (minus-loop x acc)
+  (if (= x cell-nil) acc
+      (minus-loop (cell-cdr x) (w32-sub acc (num-value (cell-car x))))))
+(define (b-is x)
+  (if (= x cell-nil) cell-t (is-loop (cell-cdr x) (num-value (cell-car x)))))
+(define (is-loop x n)
+  (cond ((= x cell-nil) cell-t)
+        ((w32-eq? (num-value (cell-car x)) n) (is-loop (cell-cdr x) n))
+        (else cell-f)))
+
+; ===========================================================================
+; String / list / keyword leaf builtins (string.c, lib.c, vector.c)
+; ===========================================================================
+(define (bytes->list- off len)
+  (if (= len 0) cell-nil
+      (qcons (make-char (char->integer (string-ref g-bytes off)))
+             (bytes->list- (+ off 1) (- len 1)))))
+(define (string->list- s) (bytes->list- (strlike-offset s) (strlike-len s)))
+(define (list->string- x)
+  (let ((start byte-free))
+    (l2s-loop x)
+    (make-strlike TSTRING start (- byte-free start))))
+(define (l2s-loop x)
+  (if (= x cell-nil) 'ok
+      (begin (bytes-put! (integer->char (char-value (cell-car x)))) (l2s-loop (cell-cdr x)))))
+; symbol/keyword/string share the (length . tbytes-cell) layout: retag.
+(define (retag t s) (alloc t (cell-car s) (cell-cdr s)))
+; vector->list (vector.c:117): deref TREF only, build from the end.
+(define (vector->list- v) (v2l-loop v (vector-length- v) cell-nil))
+(define (v2l-loop v i acc)
+  (if (= i 0) acc
+      (let ((e (+ (vector-body v) (- i 1))))
+        (v2l-loop v (- i 1)
+                  (qcons (if (= (cell-type e) TREF) (cell-car e) e) acc)))))
+
+; ===========================================================================
 ; apply_builtin — leaf dispatch on the builtin id (eval-apply.c:382 adapted)
 ; ===========================================================================
+; The dispatch is split into small chained cond blocks: the qfasm assembler
+; recurses over each top-level form on the host stack, so one 60-deep nested
+; `if` would overflow it.  Keep each sub-dispatcher shallow.
 (define (apply-builtin fn x)
-  (let ((id (func-id fn)))
-    (cond
-      ((= id ID-CONS) (qcons (cell-car x) (cell-car (cell-cdr x))))
-      ((= id ID-CAR) (cell-car (cell-car x)))
-      ((= id ID-CDR) (cell-cdr (cell-car x)))
-      ((= id ID-LIST) x)
-      ((= id ID-EXIT) (b-exit x))
-      ((= id ID-NULLP) (if (= (cell-car x) cell-nil) cell-t cell-f))
-      ((= id ID-PAIRP) (if (= (cell-type (cell-car x)) TPAIR) cell-t cell-f))
-      ((= id ID-EQP) (eq-p (cell-car x) (cell-car (cell-cdr x))))
-      ((= id ID-DISPLAY) (begin (display- (cell-car x) 1 0) cell-unspec))
-      ((= id ID-WRITE) (begin (display- (cell-car x) 1 1) cell-unspec))
-      ((= id ID-DISPLAY-ERR) (begin (display- (cell-car x) 2 0) cell-unspec))
-      ((= id ID-WRITE-ERR) (begin (display- (cell-car x) 2 1) cell-unspec))
-      ((= id ID-SETCAR) (begin (set-car! (cell-car x) (cell-car (cell-cdr x))) cell-unspec))
-      ((= id ID-SETCDR) (begin (set-cdr! (cell-car x) (cell-car (cell-cdr x))) cell-unspec))
-      ((= id ID-CURRENT-MODULE) m1)
-      ((= id ID-LENGTH) (make-number-fx (length- (cell-car x))))
-      ((= id ID-MEMQ) (memq- (cell-car x) (cell-car (cell-cdr x))))
-      ((= id ID-EQUAL2) (equal2- (cell-car x) (cell-car (cell-cdr x))))
-      ((= id ID-STRINGEQ) (string-eq-p (cell-car x) (cell-car (cell-cdr x))))
-      ((= id ID-STRING-APPEND) (string-append- x))
-      (else (qfail)))))
+  (apply-builtin-core (func-id fn) x))
+(define (apply-builtin-core id x)
+  (cond
+    ((= id ID-CONS) (qcons (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-CAR) (cell-car (cell-car x)))
+    ((= id ID-CDR) (cell-cdr (cell-car x)))
+    ((= id ID-LIST) x)
+    ((= id ID-EXIT) (b-exit x))
+    ((= id ID-NULLP) (if (= (cell-car x) cell-nil) cell-t cell-f))
+    ((= id ID-PAIRP) (if (= (cell-type (cell-car x)) TPAIR) cell-t cell-f))
+    ((= id ID-EQP) (eq-p (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-DISPLAY) (begin (display- (cell-car x) 1 0) cell-unspec))
+    ((= id ID-WRITE) (begin (display- (cell-car x) 1 1) cell-unspec))
+    ((= id ID-DISPLAY-ERR) (begin (display- (cell-car x) 2 0) cell-unspec))
+    ((= id ID-WRITE-ERR) (begin (display- (cell-car x) 2 1) cell-unspec))
+    ((= id ID-SETCAR) (begin (set-car! (cell-car x) (cell-car (cell-cdr x))) cell-unspec))
+    ((= id ID-SETCDR) (begin (set-cdr! (cell-car x) (cell-car (cell-cdr x))) cell-unspec))
+    ((= id ID-CURRENT-MODULE) m1)
+    ((= id ID-LENGTH) (make-number-fx (length- (cell-car x))))
+    ((= id ID-MEMQ) (memq- (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-EQUAL2) (equal2- (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-STRINGEQ) (string-eq-p (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-STRING-APPEND) (string-append- x))
+    (else (apply-builtin-math id x))))
+(define (apply-builtin-math id x)
+  (cond
+    ((= id ID-PLUS) (b-plus x))
+    ((= id ID-MINUS) (b-minus x))
+    ((= id ID-IS) (b-is x))
+    ((= id ID-CORE-TYPE) (make-number-fx (cell-type (cell-car x))))
+    ((= id ID-APPEND2) (append2 (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-VECTOR-LIST) (vector->list- (cell-car x)))
+    ((= id ID-STRING-LIST) (string->list- (cell-car x)))
+    ((= id ID-LIST-STRING) (list->string- (cell-car x)))
+    ((= id ID-SYM-KEYWORD) (retag TKEYWORD (cell-car x)))
+    ((= id ID-KEYWORD-STRING) (retag TSTRING (cell-car x)))
+    (else (qfail))))
 
 (define (b-exit x)
   (if (= x cell-nil) (exit 0) (exit (num-fixnum (cell-car x)))))
@@ -1523,6 +1617,7 @@
 ; main / boot (mes.c:211-243, §6.3)
 ; ===========================================================================
 (define (qmain)
+  (set! w32-0 (w32-from-fixnum 0))
   (init-cells)
   (init-builtins)
   (set! m0 (make-initial-module env-alist))
