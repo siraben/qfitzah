@@ -17,6 +17,11 @@
 #                       bin/mes-m2, byte-compared per unit (needs bin/mes-m2)
 #   make fixpoint-verify  offline F1 gate: qmes sweep vs committed hashes
 #                       (needs only qmes.elf + vendored nyacc; no M2-Planet)
+#   make tcc-reference  T0: build the reference TinyCC under bin/mes-m2 and
+#                       commit its .s + binary hashes (Nix-gated)
+#   make tcc            T1+T2+T3: qmes compiles the full TinyCC byte-identically
+#                       to bin/mes-m2, links + self-hosts (needs bin/mes-m2)
+#   make tcc-verify     offline T1 gate: qmes tcc sweep vs committed hashes
 #   make regen-verify   prove every committed generated artifact (qfasm.qf1,
 #                       scheme0.qfasm, the *-runtime files, the qfasm-* test
 #                       fixtures) is reproduced BYTE-IDENTICALLY by its
@@ -26,7 +31,7 @@
 
 SEED ?= bootstrap/seed/qfitzah
 
-.PHONY: all check qmes qmes64 boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify fixpoint-64 regen-verify clean
+.PHONY: all check qmes qmes64 boot-ladder seed-from-source verify-seed mes-reference fixpoint fixpoint-verify fixpoint-64 regen-verify tcc-reference tcc tcc-verify clean
 
 all: qmes
 
@@ -89,6 +94,29 @@ fixpoint-verify: qmes
 # byte-for-byte.  Depends on qmes (builds the rsc toolchain the generators run on).
 regen-verify: qmes
 	tools/regen-verify.sh
+
+# The next bootstrap rung: qmes's MesCC compiles the full TinyCC byte-identically
+# to the bin/mes-m2 MesCC path (docs/mes-tcc-plan.md).
+#
+#   tcc-reference  T0: build the reference tcc under bin/mes-m2 (10-unit sweep,
+#                  libc+tcc, link tcc-mes.ref, stage, hello exit 42, self-host
+#                  boot chain, cmp boot5==boot6) and commit the .s + binary
+#                  hashes to tests/mescc-references/tcc/t0.sha256.  Nix-gated
+#                  (mescc-tools + bin/mes-m2), like mes-reference.
+#   tcc            T1+T2+T3: qmes compiles the same 10 units, cmp each against
+#                  the reference, link tcc-mes.qmes and cmp the binary, then the
+#                  qmes-built tcc self-hosts.  Interpreted qmes sweep is slow
+#                  (~30-60 min at parallel).  Pass JOBS=N to tune.
+#   tcc-verify     Offline T1 gate: qmes-only 10-unit sweep vs the committed .s
+#                  hashes (needs only qmes.elf + vendored nyacc/tinycc).
+tcc-reference:
+	tools/build-tcc.sh t0 $(if $(JOBS),$(JOBS),16)
+
+tcc: qmes
+	tools/build-tcc.sh fixpoint $(if $(JOBS),$(JOBS),16)
+
+tcc-verify: qmes
+	tools/build-tcc.sh verify $(if $(JOBS),$(JOBS),8)
 
 # Build the 64-bit qmes variant (qmes.scm + qmes-w64.scm overlay).
 qmes64: $(SEED)
