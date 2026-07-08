@@ -64,7 +64,15 @@
 (define (alloc-n n)
   (let ((i cell-free))
     (set! cell-free (+ cell-free n))
+    (if (and (not (= qmes-debug-err 0)) (> cell-free cell-cap))
+        (begin (emit-str g-stderr ";;; ARENA OVERFLOW cell-free=") (emit-number g-stderr cell-free)
+               (emit-str g-stderr " cap=") (emit-number g-stderr cell-cap)
+               (emit-str g-stderr " in-gc=") (emit-number g-stderr in-gc-flag)
+               (emit g-stderr 10) (exit 4))
+        'ok)
     i))
+(define cell-cap 999999999)                      ; = ARENA-CELLS+JAM-CELLS (qmain)
+(define in-gc-flag 0)
 
 (define (alloc type a d)
   (let ((i (alloc-n 1)))
@@ -218,6 +226,8 @@
 (define cell-symbol-wrong-number-of-args 0)
 (define cell-symbol-wrong-type-arg 0)
 (define cell-symbol-record-type 0)
+(define cell-symbol-standard-eval-closure 0)           ; B12: module.c fast paths
+(define cell-symbol-standard-interface-eval-closure 0)
 (define cell-symbol-hashq-table 0)
 (define cell-symbol-variable 0)
 (define cell-symbol-program 0)
@@ -345,6 +355,13 @@
   (let ((start byte-free))
     (copy-rsc-into-pool str)
     (make-strlike TSTRING start (- byte-free start))))
+; %argv (mes.c:93-98 mes_environment): the real process argv (argv[0..]) as a
+; Mes string list; (command-line) returns it verbatim (base.mes:75).  The rsc
+; `command-line` primitive yields the host argv as rsc strings.
+(define (mes-command-line) (mes-argv-loop (command-line)))
+(define (mes-argv-loop lst)
+  (if (null? lst) cell-nil
+      (qcons (string-rsc (car lst)) (mes-argv-loop (cdr lst)))))
 ; Copy a Mes strlike's bytes out to a fresh rsc string (for getenv/open args).
 (define (mes-string->rsc s)
   (let ((len (strlike-len s)) (off (strlike-offset s)))
@@ -525,11 +542,19 @@
     (if (= (cell-type bucket) TPAIR)
         (let ((x (assoc- key bucket))) (if (not (= x cell-f)) (cell-cdr x) dflt))
         dflt)))
-; assoc (lib.c): equal2-based association lookup.
-(define (assoc- key alist)
-  (cond ((not (= (cell-type alist) TPAIR)) cell-f)
-        ((= (equal2- key (cell-car (cell-car alist))) cell-t) (cell-car alist))
-        (else (assoc- key (cell-cdr alist)))))
+; assoc (core.c:256): TSTRING keys use string_equal_p over string keys only;
+; otherwise equal2-based association lookup.
+(define (assoc- x a)
+  (if (= (cell-type x) TSTRING) (assoc-string- x a) (assoc-eq- x a)))
+(define (assoc-string- x a)
+  (cond ((= a cell-nil) cell-f)
+        ((and (= (cell-type (cell-car (cell-car a))) TSTRING)
+              (= (string-eq-p x (cell-car (cell-car a))) cell-t)) (cell-car a))
+        (else (assoc-string- x (cell-cdr a)))))
+(define (assoc-eq- x a)
+  (cond ((not (= (cell-type a) TPAIR)) cell-f)
+        ((= (equal2- x (cell-car (cell-car a))) cell-t) (cell-car a))
+        (else (assoc-eq- x (cell-cdr a)))))
 ; create_handle_x (hash.c:136): find-or-create (key . init) handle at index.
 (define (create-handle-x table key index init)
   (let* ((buckets (ht-buckets table))
@@ -584,11 +609,44 @@
 ; set_current_module (module.c:51): swap M1, return the previous module.
 (define (b-set-current-module module)
   (let ((previous m1)) (set! m1 module) previous))
+; current_module_variable (module.c:59): unbooted -> M0 hashq path; booted ->
+; the current module's eval-closure (standard fast paths, or apply a closure).
 (define (current-module-variable name define-p)
-  (let ((var (hashq-ref- m0 name cell-f)))
-    (if (and (= var cell-f) (not (= define-p cell-f)))
-        (hashq-set-x m0 name (make-variable cell-undefined))
-        var)))
+  (if (= m1 cell-f)
+      (let ((var (hashq-ref- m0 name cell-f)))
+        (if (and (= var cell-f) (not (= define-p cell-f)))
+            (hashq-set-x m0 name (make-variable cell-undefined))
+            var))
+      (let ((eval-closure (struct-ref- m1 6)))         ; MODULE_EVAL_CLOSURE
+        (cond
+          ((= eval-closure cell-symbol-standard-eval-closure)
+           (standard-eval-closure- name define-p))
+          ((= eval-closure cell-symbol-standard-interface-eval-closure)
+           (standard-interface-eval-closure- name define-p))
+          (else (apply-proc eval-closure
+                            (qcons name (qcons define-p cell-nil)) cell-nil))))))
+(define (standard-eval-closure- name define-p)
+  (if (not (= define-p cell-f))
+      (module-make-local-var-x m1 name)
+      (module-variable- m1 name)))
+(define (standard-interface-eval-closure- name define-p)
+  (if (not (= define-p cell-f)) cell-f (module-variable- m1 name)))
+; module_make_local_var_x (module.c:117): intern name in the module's obarray.
+(define (module-make-local-var-x module name)
+  (let* ((obarray (struct-ref- module 3))            ; MODULE_OBARRAY
+         (handle (hashq-create-handle-x obarray name (make-variable cell-undefined))))
+    (cell-cdr handle)))
+; module_variable (module.c:132): search module then its uses transitively.
+(define (module-variable- module name)
+  (mv-loop name (qcons module cell-nil)))
+(define (mv-loop name modules)
+  (if (not (= (cell-type modules) TPAIR)) cell-f
+      (let* ((module (cell-car modules))
+             (obarray (struct-ref- module 3))
+             (variable (hashq-ref- obarray name cell-f)))
+        (if (not (= variable cell-f)) variable
+            (mv-loop name (append2 (struct-ref- module 4)   ; MODULE_USES
+                                   (cell-cdr modules)))))))
 
 ; Recursive-evaluator global lookup, now through M0 (E2).
 (define (global-lookup sym)
@@ -752,6 +810,8 @@
 (define ID-HASH-CREATE-HANDLE 138)
 (define ID-HASHQ-CREATE-HANDLE 139)
 (define ID-SET-CURRENT-MODULE 140)
+(define ID-MAKE-BINDING 141)    ; B12: eval-apply.c make-binding
+(define ID-ASSOC 142)           ; B12: core.c assoc
 
 ; ===========================================================================
 ; Initialisation
@@ -823,6 +883,9 @@
   (set! cell-symbol-wrong-number-of-args (intern-rsc "wrong-number-of-args"))
   (set! cell-symbol-wrong-type-arg (intern-rsc "wrong-type-arg"))
   (set! cell-symbol-record-type (intern-rsc "<record-type>"))
+  (set! cell-symbol-standard-eval-closure (intern-rsc "standard-eval-closure"))
+  (set! cell-symbol-standard-interface-eval-closure
+        (intern-rsc "standard-interface-eval-closure"))
   (set! cell-symbol-hashq-table (intern-rsc "<hashq-table>"))
   (set! cell-symbol-variable (intern-rsc "<variable>"))
   (set! cell-symbol-builtin (intern-rsc "<builtin>"))
@@ -965,6 +1028,7 @@
   (bind-builtin "hash-create-handle!" ID-HASH-CREATE-HANDLE 3)
   (bind-builtin "hashq-create-handle!" ID-HASHQ-CREATE-HANDLE 3)
   (bind-builtin "set-current-module" ID-SET-CURRENT-MODULE 1)
+  (bind-builtin "make-binding" ID-MAKE-BINDING 2)
   (bind-builtin "initial-module" ID-INITIAL-MODULE 0)
   (bind-builtin "core:reverse!" ID-CORE-REVERSE 2)
   (bind-builtin "append-reverse" ID-APPEND-REVERSE 2)
@@ -978,6 +1042,7 @@
   (bind-builtin "core:cdr" ID-CORE-CDR 1)
   (bind-builtin "acons" ID-ACONS 3)
   (bind-builtin "assq" ID-ASSQ 2)
+  (bind-builtin "assoc" ID-ASSOC 2)
   (bind-builtin "last-pair" ID-LAST-PAIR 1)
   (bind-builtin "builtin?" ID-BUILTINP 1)
   (bind-builtin "builtin-name" ID-BUILTIN-NAME 1)
@@ -1002,6 +1067,7 @@
   (bind-builtin "primitive-load" ID-PRIMITIVE-LOAD 1)
   (bind-builtin "open-input-file" ID-OPEN-INPUT-FILE 1)
   (bind-builtin "access?" ID-ACCESS 2)
+  (bind-builtin "isatty?" ID-ISATTY 1)
   (bind-builtin "read-char" ID-READ-CHAR -1)
   (bind-builtin "peek-char" ID-PEEK-CHAR 0)
   (bind-builtin "read-input-file-env" ID-READ-INPUT-FILE-ENV 1)
@@ -1019,7 +1085,7 @@
   (bind-value (intern-rsc "%datadir") (string-rsc g-datadir))
   (bind-value (intern-rsc "%compiler") (string-rsc "gnuc"))
   (bind-value (intern-rsc "%arch") (string-rsc "x86"))
-  (bind-value (intern-rsc "%argv") (qcons (string-rsc "mes") cell-nil))
+  (bind-value (intern-rsc "%argv") (mes-command-line))
   (bind-value (intern-rsc "hash-table-type") (make-hash-table-type))
   ; the (*closure* . a) head entry (symbol.c:205)
   (set! env-alist (acons cell-closure env-alist env-alist)))
@@ -1353,6 +1419,7 @@
 (define JAM-CELLS 100000)                        ; = ARENA-CELLS/10  (set in qmain)
 (define g-symbol-max 0)                          ; end of the fixed region (qmain)
 (define g-news 0)                                ; news-space base for a collection
+(define gc-dbg-scan 0)                            ; last cell scanned (debug guard)
 (define gc-count 0)
 (define qmes-gc-stress 0)                        ; N>0: collect every N gc-checks
 (define gc-stress-ctr 0)
@@ -1375,6 +1442,13 @@
 
 ; gc-copy (gc.c:473-518): copy `old` to news, leave a broken-heart forward.
 (define (gc-copy old)
+  (if (and (not (= qmes-debug-err 0))
+           (or (< old 0) (>= old (+ ARENA-CELLS JAM-CELLS))))
+      (begin (emit-str g-stderr ";;; gc-copy bad index ") (emit-number g-stderr old)
+             (emit-str g-stderr " scan=") (emit-number g-stderr gc-dbg-scan)
+             (emit-str g-stderr " gc-count=") (emit-number g-stderr gc-count)
+             (emit g-stderr 10) (exit 3))
+      'ok)
   (if (= (cell-type old) TBROKEN-HEART)
       (cell-car old)                             ; already forwarded
       (let ((new (alloc-n 1)) (t (cell-type old)))
@@ -1408,6 +1482,7 @@
 (define (gc-loop scan)
   (if (< scan cell-free)
       (let ((t (cell-type scan)))
+        (set! gc-dbg-scan scan)
         (if (gc-car-ptr? t) (set-car! scan (gc-copy (cell-car scan))) 'ok)
         (if (gc-cdr-ptr-loop? t) (set-cdr! scan (gc-copy (cell-cdr scan))) 'ok)
         (gc-loop (+ scan 1)))
@@ -1478,9 +1553,11 @@
 
 ; gc (gc.c:646-682): bracket gc- with a frame that roots R0..R3 on the stack.
 (define (qgc)
+  (set! in-gc-flag 1)
   (push-frame!)
   (gc-)
   (pop-frame!)
+  (set! in-gc-flag 0)
   cell-unspec)
 
 ; gc-check (gc.c:582-589): collect when the arena is within GC-SAFETY of full,
@@ -2156,6 +2233,7 @@
     ((= id ID-HASH-CREATE-HANDLE) (hash-create-handle-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-HASHQ-CREATE-HANDLE) (hashq-create-handle-x (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-SET-CURRENT-MODULE) (b-set-current-module (cell-car x)))
+    ((= id ID-MAKE-BINDING) (make-binding- (qcons (cell-car x) (cell-car (cell-cdr x))) 0))
     ((= id ID-INITIAL-MODULE) m0)
     ((= id ID-CORE-REVERSE) (reverse-x- (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-APPEND-REVERSE) (append-reverse- (cell-car x) (cell-car (cell-cdr x))))
@@ -2169,6 +2247,7 @@
     ((= id ID-CORE-CDR) (b-core-cdr (cell-car x)))
     ((= id ID-ACONS) (acons (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-ASSQ) (qassq (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-ASSOC) (assoc- (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-LAST-PAIR) (last-pair- (cell-car x)))
     (else (apply-builtin-more2 id x))))
 (define (apply-builtin-more2 id x)
@@ -2197,6 +2276,9 @@
     ((= id ID-PRIMITIVE-LOAD) (b-primitive-load (cell-car x)))
     ((= id ID-OPEN-INPUT-FILE) (b-open-input-file (cell-car x)))
     ((= id ID-ACCESS) (b-access (cell-car x)))
+    ; isatty? (posix.c): no ioctl primitive in the rsc runtime; under the
+    ; reference harness every fd is redirected (non-tty), so isatty? is #f.
+    ((= id ID-ISATTY) cell-f)
     ((= id ID-READ-CHAR) (b-read-char))
     ((= id ID-PEEK-CHAR) (b-peek-char))
     ((= id ID-READ-INPUT-FILE-ENV) (read-all-forms))
@@ -2214,6 +2296,9 @@
      (qfail))))
 
 (define (b-exit x)
+  (if (= qmes-debug-err 0) 'ok
+      (begin (emit-str g-stderr ";;; qmes gc-count=") (emit-number g-stderr gc-count)
+             (emit g-stderr 10)))
   (if (= x cell-nil) (exit 0) (exit (num-fixnum (cell-car x)))))
 
 ; ===========================================================================
@@ -2788,7 +2873,8 @@
   ; compaction (§2.3).  GC-SAFETY / JAM-CELLS track gc.c:74,78.
   (set! ARENA-CELLS (env-num "MES_ARENA" 1000000))
   (set! STACK-SIZE (env-num "MES_STACK" 100000))
-  (set! JAM-CELLS (quotient ARENA-CELLS 10))
+  (set! JAM-CELLS (env-num "MES_JAM" (quotient ARENA-CELLS 10)))
+  (set! cell-cap (+ ARENA-CELLS JAM-CELLS))
   (set! GC-SAFETY (quotient ARENA-CELLS 100))
   (set! qmes-gc-stress (env-num "MES_GC_STRESS" 0))
   (set! qmes-debug-err (env-num "QMES_DEBUG_ERR" 0))
