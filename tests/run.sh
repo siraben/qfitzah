@@ -448,8 +448,21 @@ run_qmes_boot_ladder() {
   local prefix="$repo_root/third_party/mes"
   : > "$actual"
   local t st
-  for t in 00-zero 01-true 02-symbol 03-string 04-quote 05-list 06-tick \
-           07-if 08-if-if 10-cons 11-list 12-car 13-cdr 14-exit; do
+  for t in 00-zero 01-true 02-identifier 02-symbol 03-big-string 03-string \
+           04-cons 04-quote 05-big-list 05-list-list 05-list 06-tick 07-if \
+           08-if-if 10-cons 11-list 11-vector 12-car 13-cdr 14-exit 15-display \
+           16-if-eq-quote 17-equal2 17-memq-keyword 17-memq 17-string-append \
+           17-string-equal 20-define-quoted 20-define-quote 20-define \
+           21-define-procedure 22-define-procedure-2 23-begin 24-begin-define \
+           25-begin-define-2 26-begin-define-later 26-define-define \
+           27-lambda-define 28-define-define 29-lambda-define 2a-lambda-lambda \
+           2b-define-lambda 2c-define-lambda-recurse 2d-compose \
+           2d-define-lambda-set 2e-define-first 2f-define-second-lambda \
+           2f-define-second 2g-vector 30-capture 31-capture-define \
+           32-capture-modify-close 33-procedure-override-close \
+           34-cdr-override-close 35-closure-modify 36-closure-override \
+           37-closure-lambda 39-global-define-override \
+           3a-global-define-lambda-override; do
     set +e
     env MES_BOOT="$boot_dir/$t.scm" MES_PREFIX="$prefix" \
       timeout 30s "$elf" >/dev/null 2>&1
@@ -461,7 +474,7 @@ run_qmes_boot_ladder() {
     printf 'FAIL qmes-boot-ladder: exit statuses diverge from mes-m2 reference\n' >&2
     exit 1
   fi
-  printf 'ok - qmes-boot-ladder (00-zero..14-exit match mes-m2)\n'
+  printf 'ok - qmes-boot-ladder (00-zero..3a match mes-m2)\n'
 }
 
 run_qmes_boot_ladder
