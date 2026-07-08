@@ -1,3 +1,6 @@
 [submodule "third_party/mes"]
 	path = third_party/mes
 	url = https://git.savannah.gnu.org/git/mes.git
+[submodule "third_party/nyacc"]
+	path = third_party/nyacc
+	url = https://git.savannah.nongnu.org/git/nyacc.git
