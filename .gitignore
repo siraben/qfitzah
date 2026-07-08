@@ -8,3 +8,5 @@ build/
 bin/mes-mescc.ref
 bin/mes-mescc.qmes
 qmes64.elf
+bin/mes-mescc64.qmes
+bin/mes-mescc64.ref

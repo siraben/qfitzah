@@ -117,18 +117,41 @@ do_compile() {
     wait
 }
 
-# ---- F2-64 support: libc + link, amd64 (mirrors mescc-link.sh at 64) ---------
+# ---- F2-64 support: libc + link, amd64 ---------------------------------------
+# NOTE on the driver split: bin/mes-m2-64's `system*` is broken (it returns a
+# stack pointer instead of the child's wait status), so it CANNOT reliably drive
+# M1/hex2 to assemble/link.  bin/mes-m2 (i386, the trusted reference) drives them
+# correctly but cannot COMPILE 64-bit code.  So:
+#   * codegen (C -> .s, needs 64-bit): bin/mes-m2-64  `mescc -S`   (no system*)
+#   * assemble (.s -> .o) + link      : M1/blood-elf/hex2, orchestrated either
+#     directly (assemble) or by bin/mes-m2 driving mescc's link (proven to
+#     produce a runnable ELF64).  M1/hex2 do all amd64 work — same trust model
+#     as the i386 F2.
 lib="$repo/build/mescc-lib-64"
 adir="$lib/x86_64-mes"
-CC64() {
+M1MACROS="$tp/lib/x86_64-mes/x86_64.M1"
+# CC64_S: bin/mes-m2-64 mescc -S (compile a C unit to amd64 .s; clean exit).
+CC64_S() {
     ( cd "$repo" && env -i \
         PATH="$PATH" LANG= MES_DEBUG=0 %version=0.27.1 %arch=x86_64 MES_UNINSTALLED=1 \
         MES_ARENA=20000000 MES_MAX_ARENA=20000000 MES_STACK=8000000 \
-        MES_PREFIX="$root" srcdest="$tp/" \
-        GUILE_LOAD_PATH="$moduledir" \
+        MES_PREFIX="$root" srcdest="$tp/" GUILE_LOAD_PATH="$moduledir" \
+        "$repo/bin/mes-m2-64" --no-auto-compile -e main third_party/mes/module/mescc.scm -- \
+        -S "$@" )
+}
+# M1ASM: assemble one amd64 .s to a hex2 .o exactly as `mescc -c` would.
+M1ASM() { # M1ASM IN.s OUT.o
+    M1 --little-endian --architecture amd64 -f "$M1MACROS" -f "$1" -o "$2"
+}
+# CC64LINK: bin/mes-m2 (i386) driving mescc's linker (drives M1/blood-elf/hex2).
+CC64LINK() {
+    ( cd "$repo" && env -i \
+        PATH="$PATH" LANG= MES_DEBUG=0 %version=0.27.1 %arch=x86_64 MES_UNINSTALLED=1 \
+        MES_ARENA=20000000 MES_MAX_ARENA=20000000 MES_STACK=8000000 \
+        MES_PREFIX="$root" srcdest="$tp/" GUILE_LOAD_PATH="$moduledir" \
         M1="$(command -v M1)" HEX2="$(command -v hex2)" BLOOD_ELF="$(command -v blood-elf)" \
         MES="$repo/bin/mes-m2-64" \
-        "$repo/bin/mes-m2-64" --no-auto-compile -e main third_party/mes/module/mescc.scm -- "$@" )
+        "$repo/bin/mes-m2" --no-auto-compile -e main third_party/mes/module/mescc.scm -- "$@" )
 }
 CPP64="-m 64 --arch=x86_64 -D HAVE_CONFIG_H=1 -I build/include-64 -I third_party/mes/include"
 sources() {
@@ -148,16 +171,23 @@ build_libc() {
     printf 'mes_cpu=x86_64\nmes_kernel=linux\ncompiler=mescc\nmes_libc=mes\nV=\n' > "$sc/config.sh"
     rm -rf "$lib"; mkdir -p "$adir"
     jobs=${1-16}
+    # compile1 SRC BASE: mes-m2-64 -S -> BASE.s, then M1 -> BASE.o (like mescc -c).
+    compile1() {
+        _src=$1; _b=$2
+        CC64_S $CPP64 -o "$adir/$_b.s" "$_src" >/dev/null 2>"$adir/$_b.log" \
+            || { echo "FAIL $_src (compile)"; return 1; }
+        M1ASM "$adir/$_b.s" "$adir/$_b.o" >>"$adir/$_b.log" 2>&1 \
+            || { echo "FAIL $_src (assemble)"; return 1; }
+        echo "done $_src"
+    }
     echo "  crt1.c" >&2
-    CC64 -c $CPP64 -L build/mescc-lib-64 -o "$adir/crt1.o" "$tp/lib/linux/x86_64-mes-mescc/crt1.c" \
-        >/dev/null 2>"$adir/crt1.log" || { echo "crt1 FAIL"; cat "$adir/crt1.log" >&2; exit 1; }
+    compile1 "$tp/lib/linux/x86_64-mes-mescc/crt1.c" crt1 >"$adir/crt1.progress" 2>&1 \
+        || { echo "crt1 FAIL"; cat "$adir/crt1.log" >&2; exit 1; }
     build_group() {
         _grp=$1
         for c in $(sources "$_grp"); do
             b=$(echo "$c" | sed -e 's,^\./,,' -e 's,/,-,g' -e 's,\.c$,,')
-            o="$adir/$b.o"
-            ( CC64 -c $CPP64 -o "$o" "$tp/$c" >/dev/null 2>"$o.log" && echo "done $c" \
-                || { echo "FAIL $c"; cat "$o.log" >&2; } ) &
+            ( compile1 "$tp/$c" "$b" ) &
             while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
         done
         wait
@@ -178,6 +208,14 @@ build_libc() {
     archive libmescc $(sources libmescc)
     echo "build_libc: wrote $adir/{crt1.o,libc.a,libmescc.a}" >&2
 }
+# link_mes: assemble the 20 mes .s (in mes_SOURCES order) with M1 into one hex2
+# object, then hex2-link (elf64 header + crt1 + mes.o + libmescc.a + libc.a +
+# elf64 single-main footer) at base 0x1000000 -> a runnable amd64 ELF64.  This
+# is exactly what `mescc -nostdlib --base-address=0x1000000 -lc -lmescc` runs
+# (captured from its command trace), but invoked directly so no flaky mes
+# `system*` wait-status is in the path.  M1/hex2 do all the amd64 work.
+hdr="$tp/lib/linux/x86_64-mes/elf64-header.hex2"
+ftr="$tp/lib/linux/x86_64-mes/elf64-footer-single-main.hex2"
 link_mes() {
     sdir=$1; out=$2
     sfiles=""
@@ -185,13 +223,18 @@ link_mes() {
         b=$(echo "$c" | sed -e 's,/,-,g' -e 's,\.c$,,')
         f="$sdir/$b.s"
         [ -f "$f" ] || { echo "link_mes: missing $f" >&2; exit 1; }
-        sfiles="$sfiles $f"
+        sfiles="$sfiles -f $f"
     done
     mkdir -p "$(dirname "$out")" "$sc"
+    _obj="$sc/$(basename "$out").mes.o"
     _log="$sc/link-$(basename "$out").log"
-    CC64 -m 64 --arch=x86_64 -nostdlib --base-address=0x1000000 \
-        -L build/mescc-lib-64 -o "$out" "$adir/crt1.o" $sfiles -lc -lmescc \
-        >/dev/null 2>"$_log" || { echo "link FAIL (see $_log)"; tail -20 "$_log" >&2; exit 1; }
+    M1 --little-endian --architecture amd64 -f "$M1MACROS" $sfiles -o "$_obj" 2>"$_log" \
+        || { echo "link FAIL (M1, see $_log)"; tail -20 "$_log" >&2; exit 1; }
+    hex2 --little-endian --architecture amd64 --base-address 0x1000000 \
+        -f "$hdr" -f "$adir/crt1.o" -f "$_obj" \
+        -f "$adir/libmescc.a" -f "$adir/libc.a" -f "$ftr" \
+        -o "$out" 2>>"$_log" \
+        || { echo "link FAIL (hex2, see $_log)"; tail -20 "$_log" >&2; exit 1; }
     chmod +x "$out"
     echo "link_mes: wrote $out" >&2
 }
