@@ -142,6 +142,10 @@
 (define (make-number-fx n) (make-number-w (w32-from-fixnum n)))
 (define (num-value i) (raw-ref i 2))        ; -> w32 box
 (define (num-fixnum i) (w32->fixnum (raw-ref i 2)))
+; Number value-equality and value-copy seams (qmes-w64.scm widens them to
+; compare / copy both the hi and lo words).  a and b are TNUMBER cell indices.
+(define (num=? a b) (w32-eq? (num-value a) (num-value b)))
+(define (copy-num e) (make-number-w (num-value e)))
 
 ; TCHAR cell: value (small fixnum, as w32) in cdr (offset 2); car=0.
 (define (make-char n)
@@ -439,7 +443,7 @@
         (else (qassq-loop x (cell-cdr a)))))
 (define (qassq-value x a)
   (cond ((= a cell-nil) cell-f)
-        ((w32-eq? (num-value x) (raw-ref (cell-car (cell-car a)) 2)) (cell-car a))
+        ((num=? x (cell-car (cell-car a))) (cell-car a))
         (else (qassq-value x (cell-cdr a)))))
 (define (qassq-keyword x a)
   (cond ((= a cell-nil) cell-f)
@@ -457,7 +461,7 @@
   (let ((ty (cell-type e)))
     (cond ((= ty TREF) (cell-car e))
           ((= ty TCHAR) (make-char (char-value e)))
-          ((= ty TNUMBER) (make-number-w (num-value e)))
+          ((= ty TNUMBER) (copy-num e))
           (else e))))
 
 (define (make-vector- k e)
@@ -1925,7 +1929,7 @@
           (else (memq-id x a)))))
 (define (memq-value x a)
   (cond ((= a cell-nil) cell-f)
-        ((w32-eq? (num-value x) (raw-ref (cell-car a) 2)) a)
+        ((num=? x (cell-car a)) a)
         (else (memq-value x (cell-cdr a)))))
 (define (memq-keyword x a)
   (cond ((= a cell-nil) cell-f)
@@ -1980,7 +1984,7 @@
            (if (and (= (cell-type y) TCHAR) (w32-eq? (num-value x) (num-value y)))
                cell-t cell-f))
           ((= t TNUMBER)
-           (if (and (= (cell-type y) TNUMBER) (w32-eq? (num-value x) (num-value y)))
+           (if (and (= (cell-type y) TNUMBER) (num=? x y))
                cell-t cell-f))
           (else cell-f)))))
 
@@ -2004,11 +2008,13 @@
 (define (emit-digits fd n)
   (if (< n 10) (emit fd (+ 48 n))
       (begin (emit-digits fd (quotient n 10)) (emit fd (+ 48 (remainder n 10))))))
+; TNUMBER printer seam (qmes-w64.scm widens it to two words).
+(define (emit-tnumber fd x) (emit-number fd (num-fixnum x)))
 
 (define (display- x fd w)
   (let ((t (cell-type x)))
     (cond
-      ((= t TNUMBER) (emit-number fd (num-fixnum x)))
+      ((= t TNUMBER) (emit-tnumber fd x))
       ((= t TCHAR)
        (if (= w 1) (begin (emit fd 35) (emit fd 92) (emit fd (char-value x)))
            (emit fd (char-value x))))
@@ -2130,6 +2136,8 @@
 (define (b-logxor x) (make-number-w (logxor-loop x w32-0)))
 (define (logxor-loop x acc)
   (if (= x cell-nil) acc (logxor-loop (cell-cdr x) (w32-xor acc (num-value (cell-car x))))))
+; lognot (math.c): ~n.  Seam so qmes-w64.scm can widen it.
+(define (b-lognot x) (make-number-w (w32-not (num-value (cell-car x)))))
 ; ash (math.c): n<<count if count>=0 else n>>(-count) (arithmetic).
 ; w32-shl/shr/sar take a plain fixnum shift count (not a w32 box).
 (define (b-ash a b)
@@ -2382,7 +2390,7 @@
     ((= id ID-LOGAND) (b-logand x))
     ((= id ID-LOGIOR) (b-logior x))
     ((= id ID-LOGXOR) (b-logxor x))
-    ((= id ID-LOGNOT) (make-number-w (w32-not (num-value (cell-car x)))))
+    ((= id ID-LOGNOT) (b-lognot x))
     ((= id ID-ERROR) (b-error (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-CORE-TYPE) (make-number-fx (cell-type (cell-car x))))
     ((= id ID-APPEND2) (append2 (cell-car x) (cell-car (cell-cdr x))))
@@ -3145,4 +3153,3 @@
     (vm-dispatch))
   (exit 0))
 
-(qmain)

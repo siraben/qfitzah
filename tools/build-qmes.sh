@@ -77,7 +77,10 @@ fi
 # The assembly step uses asm.elf by default; set USE_SEED_ASM=1 to fall back to
 # the seed (both produce byte-identical output).
 echo "[build-qmes] compiling qmes.scm -> qmes.qfasm" >&2
-cat "$bootstrap/rsc-prelude.scm" "$bootstrap/qmes.scm" \
+# The trailing (qmain) call lives in bootstrap/qmes-main.scm so that the 64-bit
+# variant (tools/build-qmes64.sh) can splice bootstrap/qmes-w64.scm before it.
+# cat qmes.scm + qmes-main.scm is byte-identical to the pre-split qmes.scm.
+cat "$bootstrap/rsc-prelude.scm" "$bootstrap/qmes.scm" "$bootstrap/qmes-main.scm" \
   | "$b/rscA.elf" > "$b/qmes.qfasm"
 if [ "${USE_SEED_ASM:-0}" = "1" ]; then
   echo "[build-qmes] assembling qmes.qfasm -> qmes.elf (seed)" >&2
