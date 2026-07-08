@@ -434,6 +434,25 @@ run_qmes_soak
 ## scaffold boot files 00-zero..14-exit under MES_BOOT and compare the exit
 ## status of every one against the committed reference (tests/mes-reference-
 ## bootstatus.txt, produced by bin/mes-m2).  A single divergence fails.
+# asm.elf: rsc compiles bootstrap/asm.scm; the seed assembles it once (~39k
+# instrs, under the seed's arena ceiling).  Built once, reused by the qmes boot
+# ladder and asm-validate.  qmes itself has outgrown the seed ceiling (S1's
+# fidelity refit pushed it well past ~66k qfasm instrs), so qmes.elf is
+# assembled by asm.elf, not the seed.
+asm_elf=""
+asm_qfasm=""
+asm_runtime_flat="$repo_root/bootstrap/asm-runtime.flat"
+build_asm_elf() {
+  asm_qfasm=$scheme0_dir/asm.qfasm
+  asm_elf=$scheme0_dir/asm.elf
+  [ -x "$asm_elf" ] && return 0
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/asm.scm" \
+    | timeout 120s "$RSC_ELF" > "$asm_qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$asm_qfasm" \
+    | timeout 300s "$qfitzah" > "$asm_elf"
+  chmod +x "$asm_elf"
+}
+
 run_qmes_boot_ladder() {
   local qfasm elf actual
   qfasm=$scheme0_dir/qmes.qfasm
@@ -441,8 +460,8 @@ run_qmes_boot_ladder() {
   actual=$scheme0_dir/qmes-bootstatus.txt
   cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/qmes.scm" \
     | timeout 120s "$RSC_ELF" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
-    | timeout 300s "$qfitzah" > "$elf"
+  build_asm_elf
+  "$asm_elf" "$asm_runtime_flat" < "$qfasm" > "$elf"
   chmod +x "$elf"
   local boot_dir="$repo_root/third_party/mes/scaffold/boot"
   local prefix="$repo_root/third_party/mes"
@@ -486,18 +505,12 @@ run_qmes_boot_ladder
 ## asm.elf self-fixpoint (it reassembles its own asm.qfasm to itself).  These
 ## reuse the qfasm/ELF artifacts already built by the fixpoint stages above.
 run_asm_validate() {
-  local asm_qfasm asm_elf out
-  asm_qfasm=$scheme0_dir/asm.qfasm
-  asm_elf=$scheme0_dir/asm.elf
+  local out
   local rsc_flat="$repo_root/bootstrap/asm-runtime.flat"
   local sc1_flat="$repo_root/bootstrap/sc1-asm-runtime.flat"
 
-  # Build asm.elf through the ladder (rsc compiles it; the seed assembles it).
-  cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/asm.scm" \
-    | timeout 120s "$RSC_ELF" > "$asm_qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$asm_qfasm" \
-    | timeout 300s "$qfitzah" > "$asm_elf"
-  chmod +x "$asm_elf"
+  # asm.elf was built by build_asm_elf (during the qmes boot ladder); reuse it.
+  build_asm_elf
 
   # Byte-identical differential: asm.elf output == seed-pipeline output.
   asm_diff() { # asm_diff NAME QFASM SEED_ELF [FLAT]
@@ -518,10 +531,13 @@ run_asm_validate() {
       | timeout 120s "$qfitzah" > "$se"
     asm_diff "$name" "$case_dir/$name.qfasm" "$se"
   done
-  # staged outputs (runtime programs) vs the seed-built ELFs from the fixpoints
+  # staged outputs (runtime programs) vs the seed-built ELFs from the fixpoints.
+  # (No qmes case: qmes has outgrown the seed's arena ceiling, so there is no
+  # seed-built qmes.elf to diff against; asm.elf correctness is covered by
+  # sc1/rscA byte-identity + the self-fixpoint below.  qmes.elf is asm.elf-built
+  # and exercised end-to-end by the boot ladder above.)
   asm_diff sc1  "$scheme0_dir/sc1.qfasm"  "$scheme0_dir/sc1.elf"  "$sc1_flat"
   asm_diff rscA "$scheme0_dir/rscA.qfasm" "$scheme0_dir/rscA.elf" "$rsc_flat"
-  asm_diff qmes "$scheme0_dir/qmes.qfasm" "$scheme0_dir/qmes.elf" "$rsc_flat"
 
   # self-fixpoint: asm.elf reassembling its own qfasm reproduces asm.elf.
   local asm2=$scheme0_dir/asm2.elf
