@@ -64,7 +64,8 @@
 (define (alloc-n n)
   (let ((i cell-free))
     (set! cell-free (+ cell-free n))
-    (if (and (not (= qmes-debug-err 0)) (> cell-free cell-cap))
+    ; Unconditional cell-arena tripwire (C Mes asserts in make_cell; §3/#3).
+    (if (> cell-free cell-cap)
         (begin (emit-str g-stderr ";;; ARENA OVERFLOW cell-free=") (emit-number g-stderr cell-free)
                (emit-str g-stderr " cap=") (emit-number g-stderr cell-cap)
                (emit-str g-stderr " in-gc=") (emit-number g-stderr in-gc-flag)
@@ -98,6 +99,22 @@
   (if (< gc-k 0)
       (begin (host-heap-reset! gc-floor) (set! gc-k GC-RESET-K))
       'ok))
+
+; --- host pair-heap ceiling tripwire (§3/#3) --------------------------------
+; The rsc host pair heap is a 512 MiB bump allocator with no bounds check in
+; Cons; overflowing it silently smashes g-cells.  qmain records the base mark
+; and a ceiling = base + cap (default 496 MiB, i.e. 16 MiB slack under the real
+; 512 MiB span; overridable via QMES_HOSTHEAP_CAP_MIB for testing).  This cheap
+; unsigned compare, called at the reader/nested-run re-entry points, turns an
+; overflow into a clean one-line abort instead of silent corruption.
+(define host-heap-base #f)
+(define host-heap-ceiling #f)
+(define (host-heap-guard!)
+  (if (w32-ult? (host-heap-mark) host-heap-ceiling)
+      'ok
+      (begin (emit-str g-stderr ";;; qmes: host pair heap ceiling exceeded (overflow tripwire); aborting")
+             (emit g-stderr 10)
+             (exit 3))))
 
 (define (alloc type a d)
   (let ((i (alloc-n 1)))
@@ -405,13 +422,29 @@
         ((not (= (cell-type x) TPAIR)) -1)
         (else (length-loop (cell-cdr x) (+ n 1)))))
 
-; identity assq (Mes assq for TSYMBOL/TSPECIAL keys) -> the (key . val) pair or cell-f
+; assq (core.c:211-253): dispatch on the KEY type — TSYMBOL/TSPECIAL and the
+; default use pointer (cell-index) equality; TCHAR/TNUMBER compare by value
+; (each numeric literal is a distinct cell, so identity is wrong — this is what
+; broke nyacc's LALR tables, whose action alists are keyed by integer token
+; ids); TKEYWORD compares by string.  -> the (key . val) pair or cell-f.
 (define (qassq x a)
-  (if (not (= (cell-type a) TPAIR)) cell-f (qassq-loop x a)))
+  (if (not (= (cell-type a) TPAIR)) cell-f
+      (let ((t (cell-type x)))
+        (cond ((or (= t TCHAR) (= t TNUMBER)) (qassq-value x a))
+              ((= t TKEYWORD) (qassq-keyword x a))
+              (else (qassq-loop x a))))))
 (define (qassq-loop x a)
   (cond ((= a cell-nil) cell-f)
         ((= (cell-car (cell-car a)) x) (cell-car a))
         (else (qassq-loop x (cell-cdr a)))))
+(define (qassq-value x a)
+  (cond ((= a cell-nil) cell-f)
+        ((w32-eq? (num-value x) (raw-ref (cell-car (cell-car a)) 2)) (cell-car a))
+        (else (qassq-value x (cell-cdr a)))))
+(define (qassq-keyword x a)
+  (cond ((= a cell-nil) cell-f)
+        ((= (string-eq-p x (cell-car (cell-car a))) cell-t) (cell-car a))
+        (else (qassq-keyword x (cell-cdr a)))))
 
 ; ===========================================================================
 ; Vectors / structs / TREF (vector.c, struct.c)
@@ -837,6 +870,8 @@
 (define ID-SET-CURRENT-MODULE 140)
 (define ID-MAKE-BINDING 141)    ; B12: eval-apply.c make-binding
 (define ID-ASSOC 142)           ; B12: core.c assoc
+(define ID-OPEN-OUTPUT-FILE 143)       ; S5: posix.c open-output-file (MesCC -o)
+(define ID-SET-CURRENT-OUTPUT-PORT 144) ; S5: posix.c set-current-output-port
 
 ; ===========================================================================
 ; Initialisation
@@ -1031,6 +1066,8 @@
   (bind-builtin "set-current-input-port" ID-SET-CURRENT-INPUT-PORT 1)
   (bind-builtin "read-string" ID-READ-STRING -1)
   (bind-builtin "current-output-port" ID-CURRENT-OUTPUT-PORT 0)
+  (bind-builtin "set-current-output-port" ID-SET-CURRENT-OUTPUT-PORT 1)
+  (bind-builtin "open-output-file" ID-OPEN-OUTPUT-FILE 1)
   (bind-builtin "write-char" ID-WRITE-CHAR -1)
   (bind-builtin "write-byte" ID-WRITE-BYTE -1)
   (bind-builtin "read-byte" ID-READ-BYTE 0)
@@ -1268,28 +1305,70 @@
         ((= c 102) cell-f)                     ; #f
         ((= c 92) (reader-read-char-literal))  ; #\
         ((= c 58) (reader-read-keyword))       ; #:
+        ((= c 98) (reader-read-radix 2 1))     ; #b binary
+        ((= c 111) (reader-read-radix 8 3))    ; #o octal
+        ((= c 120) (reader-read-radix 16 4))   ; #x hex
         ((= c 40) (list->vector- (reader-read-list (getchar-))))  ; #( ... )
         ((= c 59) (reader-read-sexp (getchar-)) (reader-read-sexp (getchar-)))  ; #; datum comment
         (else (reader-read-sexp (getchar-)))))
 
+; reader_read_character (reader.c:274-365): a char literal is either an octal
+; escape (#\NNN, first two chars octal), a hex escape (#\xHH), a named char
+; (#\nul, #\return, nyacc abbrevs #\ht/#\np/... — first two chars in [a-z*]),
+; or a single literal char.  Ported to match Mes byte-for-byte.
+(define (charname-char? c) (or (and (>= c 97) (<= c 122)) (= c 42)))  ; a-z or *
+(define (hex-gate-p? p)  ; reader.c:290 predicate that admits #\x as hex
+  (or (and (>= p 48) (<= p 57)) (and (>= p 97) (<= p 102)) (= p 70)))
 (define (reader-read-char-literal)
-  (let ((c0 (getchar-)) (start byte-free))
-    (bytes-put! (integer->char c0))
+  (let ((c (getchar-)) (p (peekchar)))
+    (cond ((and (>= c 48) (<= c 55) (>= p 48) (<= p 55))     ; #\NNN octal
+           (make-char (char-octal-loop (- c 48))))
+          ((and (= c 120) (hex-gate-p? p))                   ; #\xHH hex
+           (make-char (w32->fixnum (radix-loop 16 4 (w32-from-fixnum 0)))))
+          ((and (charname-char? c) (charname-char? p))       ; #\name
+           (reader-read-charname c))
+          (else (make-char c)))))
+(define (char-octal-loop acc)
+  (let ((p (peekchar)))
+    (if (and (>= p 48) (<= p 55))
+        (char-octal-loop (+ (* acc 8) (- (getchar-) 48)))
+        acc)))
+(define (reader-read-charname c)
+  (let ((start byte-free))
+    (bytes-put! (integer->char c))
     (read-charname-loop)
     (let ((len (- byte-free start)))
-      (let ((result (if (= len 1) (make-char c0) (char-name->char start len))))
+      (let ((result (make-char (char-name->code start len))))
         (set! byte-free start)
         result))))
 (define (read-charname-loop)
   (let ((c (peekchar)))
-    (if (identifier-char? c)
+    (if (charname-char? c)
         (begin (getchar-) (bytes-put! (integer->char c)) (read-charname-loop))
         'ok)))
-(define (char-name->char start len)
-  (cond ((bytes-eq-rsc start len "space") (make-char 32))
-        ((bytes-eq-rsc start len "newline") (make-char 10))
-        ((bytes-eq-rsc start len "tab") (make-char 9))
-        (else (make-char (char->integer (string-ref g-bytes start))))))
+; The named-char table (reader.c:310-362), including nyacc's old abbreviations.
+(define (char-name->code start len)
+  (cond ((bytes-eq-rsc start len "*eof*") -1)
+        ((bytes-eq-rsc start len "nul") 0)
+        ((bytes-eq-rsc start len "alarm") 7)
+        ((bytes-eq-rsc start len "backspace") 8)
+        ((bytes-eq-rsc start len "tab") 9)
+        ((bytes-eq-rsc start len "linefeed") 10)
+        ((bytes-eq-rsc start len "newline") 10)
+        ((bytes-eq-rsc start len "vtab") 11)
+        ((bytes-eq-rsc start len "page") 12)
+        ((bytes-eq-rsc start len "return") 13)
+        ((bytes-eq-rsc start len "esc") 27)
+        ((bytes-eq-rsc start len "space") 32)
+        ((bytes-eq-rsc start len "bel") 7)
+        ((bytes-eq-rsc start len "bs") 8)
+        ((bytes-eq-rsc start len "ht") 9)
+        ((bytes-eq-rsc start len "nl") 10)
+        ((bytes-eq-rsc start len "vt") 11)
+        ((bytes-eq-rsc start len "np") 12)
+        ((bytes-eq-rsc start len "cr") 13)
+        ((bytes-eq-rsc start len "fs") 28)
+        (else (emit-str g-stderr ";;; qmes: char not supported\n") (exit 1))))
 (define (bytes-eq-rsc start len str)
   (and (= len (string-length str))
        (bytes-eq-rsc-loop start str 0 len)))
@@ -1297,6 +1376,25 @@
   (if (= i n) #t
       (if (char=? (string-ref g-bytes (+ start i)) (string-ref str i))
           (bytes-eq-rsc-loop start str (+ i 1) n) #f)))
+
+; reader_read_binary/octal/hex (reader.c:367-442): read a (possibly signed)
+; number in the given radix from the port, matching Mes's <<shift accumulation
+; (so #xE80A0E65 wraps to the same 32-bit signed value mes-m2 produces).
+(define (radix-digit c radix)                   ; digit value, or -1
+  (cond ((and (>= c 48) (<= c 57)) (let ((d (- c 48))) (if (< d radix) d -1)))
+        ((and (= radix 16) (>= c 97) (<= c 102)) (- c 87))   ; a-f
+        ((and (= radix 16) (>= c 65) (<= c 70)) (- c 55))    ; A-F
+        (else -1)))
+(define (radix-loop radix shift acc)
+  (let ((d (radix-digit (peekchar) radix)))
+    (if (< d 0) acc
+        (begin (getchar-)
+               (radix-loop radix shift
+                           (w32-add (w32-shl acc shift) (w32-from-fixnum d)))))))
+(define (reader-read-radix radix shift)
+  (let ((neg (if (= (peekchar) 45) (begin (getchar-) 1) 0)))
+    (let ((v (radix-loop radix shift (w32-from-fixnum 0))))
+      (make-number-w (if (= neg 1) (w32-sub (w32-from-fixnum 0) v) v)))))
 
 (define (reader-read-keyword)
   (let ((start byte-free))
@@ -2114,8 +2212,26 @@
       (if (= (cell-car (cell-car x)) g-stdin) (cell-car x) (find-port (cell-cdr x)))))
 (define (b-current-input-port)
   (if (>= g-stdin 0) (make-number-fx g-stdin) (find-port g-ports)))
+; Mes stores the unread/peek pushback PER PORT (posix.c readchar/unreadchar back
+; up the port's own string).  qmes's rd-pb is a single global, so a pending
+; pushback would leak into the next port across set-current-input-port (this
+; broke nyacc's CPP reader: read-cpp-line unreads '\n' on the C source, then
+; cpp-line->stmt switches to the directive string port and read the leaked
+; '\n' instead of the directive).  Before switching, hand the pushback back to
+; the current string port the Mes way (offset-1, len+1, write the char), so it
+; is read again when we return to that port.
+(define (flush-pushback!)
+  (if (= rd-pb -2) 'ok
+      (let ((port (find-port g-ports)))
+        (if (= port cell-f) (set! rd-pb -2)
+            (let ((s (cell-cdr port)))
+              (let ((off (strlike-offset s)) (len (strlike-len s)))
+                (string-set! g-bytes (- off 1) (integer->char rd-pb))
+                (set-cdr! port (make-strlike TSTRING (- off 1) (+ len 1)))
+                (set! rd-pb -2)))))))
 (define (b-set-current-input-port port)
   (let ((prev (b-current-input-port)))
+    (flush-pushback!)
     (cond ((= (cell-type port) TNUMBER)
            (let ((p (num-fixnum port))) (set! g-stdin (if (= p 0) 0 p))))
           ((= (cell-type port) TPORT) (set! g-stdin (cell-car port)))
@@ -2139,6 +2255,20 @@
     (emit (if (= (cell-type rest) TPAIR) (port-fd (cell-car rest)) g-stdout)
           (char-value c))
     c))
+; open-output-file (posix.c): O_WRONLY|O_CREAT|O_TRUNC (577), mode 0644 (420);
+; the fd IS the output port (port-fd maps a TNUMBER port -> its fd).  Returns
+; the number -1 on failure so the boot's (= port -1) check fires.  MesCC's
+; with-output-to-file uses this + set-current-output-port to emit the .s.
+(define (b-open-output-file fname)
+  (let ((fd (sys-open (mes-string->rsc fname) 577 420)))
+    (make-number-fx (if (< fd 0) -1 fd))))
+; set-current-output-port (posix.c): retarget output to the port's fd; return
+; the previous current-output-port (a TNUMBER fd) so with-output-to-port can
+; restore it.  b-write-char / current-output-port both read g-stdout.
+(define (b-set-current-output-port port)
+  (let ((prev (make-number-fx g-stdout)))
+    (if (= (cell-type port) TNUMBER) (set! g-stdout (num-fixnum port)) 'ok)
+    prev))
 ; write-byte (posix.c): like write-char but the value is a byte (TNUMBER/TCHAR);
 ; both store the value in the cdr field, so num-fixnum reads it uniformly.
 (define (b-write-byte x)
@@ -2294,6 +2424,8 @@
     ((= id ID-ACONS) (acons (cell-car x) (cell-car (cell-cdr x)) (cell-car (cell-cdr (cell-cdr x)))))
     ((= id ID-ASSQ) (qassq (cell-car x) (cell-car (cell-cdr x))))
     ((= id ID-ASSOC) (assoc- (cell-car x) (cell-car (cell-cdr x))))
+    ((= id ID-OPEN-OUTPUT-FILE) (b-open-output-file (cell-car x)))
+    ((= id ID-SET-CURRENT-OUTPUT-PORT) (b-set-current-output-port (cell-car x)))
     ((= id ID-LAST-PAIR) (last-pair- (cell-car x)))
     (else (apply-builtin-more2 id x))))
 (define (apply-builtin-more2 id x)
@@ -2394,12 +2526,33 @@
 
 ; read_input_file_env (reader.c:38): read forms until a top-level cell-nil
 ; (EOF or `)`), resetting the reader pushback for a fresh port.
+;
+; Chunked host-heap reclamation (mirrors the GC loops, §2.4, and asm.scm's
+; slurp-loop): reading a whole file (e.g. nyacc's 100 KiB c99-tab.scm) conses
+; megabytes of transient host (rsc) frames.  If those accumulate across the
+; forms of a file — and across the nested primitive-load chain — the 512 MiB
+; host pair heap overflows into g-cells and silently smashes the low cells
+; (docs/qmes-define-module-diagnosis.md).  So read-forms-loop is a NILADIC
+; self-tail loop with all surviving state in globals (rd-forms is a g-cells
+; list index — immediate; the parsed datum lives in g-cells), and the host
+; heap is reset to a floor captured at read-all-forms entry (mark+64) once per
+; top-level form.  The loop's single migrating frame lands in the +64 pad; the
+; forms already read survive because they are g-cells structures.
+(define rd-floor #f)                            ; host-heap floor for reader resets
+(define rd-forms 0)                             ; forms read so far, reversed (g-cells)
 (define (read-all-forms)
   (set! rd-pb -2)
+  (set! rd-forms cell-nil)
+  (set! rd-floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
   (read-forms-loop))
 (define (read-forms-loop)
+  (host-heap-reset! rd-floor)                   ; reclaim prior form's reader transients
+  (host-heap-guard!)                            ; tripwire: fail clean before overflow
   (let ((form (reader-read-sexp (getchar-))))
-    (if (= form cell-nil) cell-nil (qcons form (read-forms-loop)))))
+    (if (= form cell-nil)
+        (reverse-x- rd-forms cell-nil)          ; restore source order (destructive, tail)
+        (begin (set! rd-forms (qcons form rd-forms))
+               (read-forms-loop)))))
 
 ; ===========================================================================
 ; The VM dispatcher (eval-apply.c:442-504) and the state machine.
@@ -2419,6 +2572,7 @@
 ; Audit: floor is captured BEFORE the mark; the new floor > this frame > the
 ; mark boxes (protected by the +64 pad); no host value crosses into a global.
 (define (vm-run-nested)
+  (host-heap-guard!)                             ; tripwire before each VM re-entry
   (let ((saved-floor floor))
     (set! floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
     (let ((result (vm-dispatch)))
@@ -2428,10 +2582,18 @@
 ; primitive_load (eval-apply.c:1039-1071): set current input to the file, read
 ; all forms into (begin . forms), restore the port, then eval via the nested
 ; trampoline with a sentinel frame.
+; Capture the host-heap mark BEFORE the read so the read's transients (and the
+; slurp of the file into the byte pool) are reclaimed before the nested eval
+; captures its floor — otherwise every deeper load's floor ratchets upward on
+; top of this file's read garbage and the pair heap never gets reclaimed until
+; the outermost dispatch (docs/qmes-define-module-diagnosis.md §4.1(2)).  forms
+; and input are g-cells / immediate, so the reset to mark+64 keeps them.
 (define (b-primitive-load fname)
-  (let ((input (b-set-current-input-port (primitive-load-port fname))))
+  (let ((mark (host-heap-mark))
+        (input (b-set-current-input-port (primitive-load-port fname))))
     (let ((forms (qcons cell-symbol-begin (read-all-forms))))
       (b-set-current-input-port input)
+      (host-heap-reset! (w32-add mark (w32-from-fixnum 64)))
       (primitive-load-eval forms))))
 (define (primitive-load-port fname)
   (cond ((and (= (cell-type fname) TNUMBER) (= (num-fixnum fname) 0)) (b-current-input-port))
@@ -2910,6 +3072,13 @@
 
 (define (qmain)
   (set! w32-0 (w32-from-fixnum 0))
+  ; Host pair-heap ceiling: base + cap MiB (default 496; 16 MiB slack under the
+  ; real 512 MiB span).  Captured before the bulk of startup interning so the
+  ; ceiling stays safely under the true top-of-heap.
+  (set! host-heap-base (host-heap-mark))
+  (set! host-heap-ceiling
+        (w32-add host-heap-base
+                 (w32-shl (w32-from-fixnum (env-num "QMES_HOSTHEAP_CAP_MIB" 496)) 20)))
   (set! g-stdin 0)
   (set! g-stdout 1)
   (set! g-stderr 2)
