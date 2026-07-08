@@ -74,6 +74,31 @@
 (define cell-cap 999999999)                      ; = ARENA-CELLS+JAM-CELLS (qmain)
 (define in-gc-flag 0)
 
+; --- GC chunked host-heap reclamation (§2.4 follow-up: MesCC scale) ----------
+; A single collection scans/relocates the whole live set (millions of cells);
+; each cell processed conses transient host (rsc) w32 boxes.  Across one gc-
+; call these overflow the ~512 MiB host cell heap and corrupt it.  Mirror the
+; asm.scm discipline: the big loops (Cheney scan + flip cellcpy) are NILADIC
+; self-tail loops with all cursor state in globals, and every GC-RESET-K cells
+; the host heap is reset to a floor captured (mark+64) right before the loop.
+; Nothing is pinned above that floor: the loop's single (migrating) frame lands
+; in the 64-byte pad, and its return target sits below the mark.  g-cells holds
+; raw words (vec-raw-set! stores the value, not a box ref), so relocated fields
+; survive resets.  Loop cursors are fixnums (immediate); gc-floor's w32 box is
+; below the floor (pad-protected), like the dispatch floor.
+(define GC-RESET-K 256)
+(define gc-floor #f)
+(define gc-k 0)
+(define gc-scan 0)                               ; niladic gc-loop cursor
+(define gc-cc-j 0)                               ; niladic gc-cellcpy cursor
+(define gc-cc-upto 0)
+(define gc-dist 0)
+(define (gc-tick!)
+  (set! gc-k (- gc-k 1))
+  (if (< gc-k 0)
+      (begin (host-heap-reset! gc-floor) (set! gc-k GC-RESET-K))
+      'ok))
+
 (define (alloc type a d)
   (let ((i (alloc-n 1)))
     (raw-set! i 0 (w32-from-fixnum type))
@@ -1479,28 +1504,36 @@
 
 ; gc-loop (gc.c:534-580): Cheney scan of the news space; relocate pointer
 ; fields, growing the news frontier as gc-copy allocates.
-(define (gc-loop scan)
-  (if (< scan cell-free)
-      (let ((t (cell-type scan)))
-        (set! gc-dbg-scan scan)
-        (if (gc-car-ptr? t) (set-car! scan (gc-copy (cell-car scan))) 'ok)
-        (if (gc-cdr-ptr-loop? t) (set-cdr! scan (gc-copy (cell-cdr scan))) 'ok)
-        (gc-loop (+ scan 1)))
+; Niladic Cheney scan (cursor gc-scan in a global) with periodic host-heap
+; resets.  cell-free grows as gc-copy allocates; re-read each iteration.
+(define (gc-loop)
+  (gc-tick!)
+  (if (< gc-scan cell-free)
+      (let ((t (cell-type gc-scan)))
+        (set! gc-dbg-scan gc-scan)
+        (if (gc-car-ptr? t) (set-car! gc-scan (gc-copy (cell-car gc-scan))) 'ok)
+        (if (gc-cdr-ptr-loop? t) (set-cdr! gc-scan (gc-copy (cell-cdr gc-scan))) 'ok)
+        (set! gc-scan (+ gc-scan 1))
+        (gc-loop))
       'ok))
 
 ; gc-flip (gc.c:446-471): slide news back to the base, subtracting `dist` from
 ; every pointer field.  Non-pointer words are copied raw (w32 payloads intact).
-(define (gc-cellcpy j upto dist)
-  (if (< j upto)
-      (let ((t (w32->fixnum (raw-ref j 0))) (dest (- j dist)))
-        (raw-set! dest 0 (raw-ref j 0))
+; Niladic flip cellcpy (cursor gc-cc-j, bounds gc-cc-upto, delta gc-dist in
+; globals) with periodic host-heap resets.
+(define (gc-cellcpy)
+  (gc-tick!)
+  (if (< gc-cc-j gc-cc-upto)
+      (let ((t (w32->fixnum (raw-ref gc-cc-j 0))) (dest (- gc-cc-j gc-dist)))
+        (raw-set! dest 0 (raw-ref gc-cc-j 0))
         (if (gc-car-ptr? t)
-            (raw-set! dest 1 (w32-from-fixnum (- (w32->fixnum (raw-ref j 1)) dist)))
-            (raw-set! dest 1 (raw-ref j 1)))
+            (raw-set! dest 1 (w32-from-fixnum (- (w32->fixnum (raw-ref gc-cc-j 1)) gc-dist)))
+            (raw-set! dest 1 (raw-ref gc-cc-j 1)))
         (if (gc-cdr-ptr-flip? t)
-            (raw-set! dest 2 (w32-from-fixnum (- (w32->fixnum (raw-ref j 2)) dist)))
-            (raw-set! dest 2 (raw-ref j 2)))
-        (gc-cellcpy (+ j 1) upto dist))
+            (raw-set! dest 2 (w32-from-fixnum (- (w32->fixnum (raw-ref gc-cc-j 2)) gc-dist)))
+            (raw-set! dest 2 (raw-ref gc-cc-j 2)))
+        (set! gc-cc-j (+ gc-cc-j 1))
+        (gc-cellcpy))
       'ok))
 (define (gc-fix-stack i dist)
   (if (< i STACK-SIZE)
@@ -1508,7 +1541,14 @@
       'ok))
 (define (gc-flip)
   (let ((dist g-news))                           ; news base index; base is 0
-    (gc-cellcpy g-news cell-free dist)
+    ; niladic gc-cellcpy over [g-news, cell-free): state in globals, reset to a
+    ; floor captured here (below is this gc-flip frame, preserved on return).
+    (set! gc-dist dist)
+    (set! gc-cc-upto cell-free)
+    (set! gc-cc-j g-news)
+    (set! gc-floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
+    (set! gc-k GC-RESET-K)
+    (gc-cellcpy)
     (let ((tmp g-bytes)) (set! g-bytes gc-to-pool) (set! gc-to-pool tmp))
     (set! byte-free gc-to-byte-free)
     (if (< byte-free BYTE-POOL-HI) (set! gc-pressure 0) 'ok)
@@ -1547,7 +1587,13 @@
   (set! m0 (gc-copy m0))
   (set! m1 (gc-copy m1))
   (gc-copy-stack stkp)
-  (gc-loop g-news)
+  ; niladic Cheney scan from g-news: cursor gc-scan global, host-heap reset to a
+  ; floor captured here (mark+64).  The pre-loop root copies above sit below the
+  ; mark and are not freed (bounded: fixed region + a handful of roots).
+  (set! gc-scan g-news)
+  (set! gc-floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
+  (set! gc-k GC-RESET-K)
+  (gc-loop)
   (gc-flip)
   (set! gc-count (+ gc-count 1)))
 
@@ -2878,6 +2924,7 @@
   (set! GC-SAFETY (quotient ARENA-CELLS 100))
   (set! qmes-gc-stress (env-num "MES_GC_STRESS" 0))
   (set! qmes-debug-err (env-num "QMES_DEBUG_ERR" 0))
+  (set! qmes-no-reset (env-num "QMES_NO_RESET" 0))
   (set! g-cells (make-vector (* 3 (+ ARENA-CELLS JAM-CELLS)) 0))
   (set! g-stack (make-vector STACK-SIZE 0))
   (set! g-bytes-a (make-string BYTE-POOL))
