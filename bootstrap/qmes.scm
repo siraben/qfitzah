@@ -435,6 +435,15 @@
 (define ID-LIST-STRING 40)    ; list->string
 (define ID-SYM-KEYWORD 43)    ; symbol->keyword
 (define ID-KEYWORD-STRING 44) ; keyword->string
+; ports (posix.c)
+(define ID-OPEN-INPUT-STRING 50)
+(define ID-CURRENT-INPUT-PORT 51)
+(define ID-SET-CURRENT-INPUT-PORT 52)
+(define ID-READ-STRING 53)
+(define ID-CURRENT-OUTPUT-PORT 56)
+(define ID-WRITE-CHAR 58)
+(define ID-DISPLAY-PORT 59)
+(define ID-WRITE-PORT 60)
 
 ; ===========================================================================
 ; Initialisation
@@ -593,6 +602,15 @@
   (bind-builtin "list->string" ID-LIST-STRING 1)
   (bind-builtin "symbol->keyword" ID-SYM-KEYWORD 1)
   (bind-builtin "keyword->string" ID-KEYWORD-STRING 1)
+  ; posix.c ports
+  (bind-builtin "open-input-string" ID-OPEN-INPUT-STRING 1)
+  (bind-builtin "current-input-port" ID-CURRENT-INPUT-PORT 0)
+  (bind-builtin "set-current-input-port" ID-SET-CURRENT-INPUT-PORT 1)
+  (bind-builtin "read-string" ID-READ-STRING -1)
+  (bind-builtin "current-output-port" ID-CURRENT-OUTPUT-PORT 0)
+  (bind-builtin "write-char" ID-WRITE-CHAR -1)
+  (bind-builtin "core:display-port" ID-DISPLAY-PORT 2)
+  (bind-builtin "core:write-port" ID-WRITE-PORT 2)
   (bind-builtin "exit" ID-EXIT 1)
   ; the (*closure* . a) head entry (symbol.c:205)
   (set! env-alist (acons cell-closure env-alist env-alist)))
@@ -1164,6 +1182,60 @@
                   (qcons (if (= (cell-type e) TREF) (cell-car e) e) acc)))))
 
 ; ===========================================================================
+; Ports (posix.c) — string input ports + fd output ports.
+;   g-stdin: a fixnum.  >= 0 = a real fd; < 0 identifies a string port
+;   (id = -length(g-ports-before-add) - 2).  TPORT = [TPORT | id | string-cell];
+;   readchar consumes the string cell (posix.c:89).
+; ===========================================================================
+(define g-stdin 0)
+(define g-stdout 1)
+(define g-stderr 2)
+(define g-ports 0)             ; Mes list, cell-nil terminated
+
+(define (make-string-port strcell)
+  (alloc TPORT (- (- 0 (length- g-ports)) 2) strcell))
+(define (b-open-input-string strcell)
+  (let ((port (make-string-port strcell)))
+    (set! g-ports (qcons port g-ports))
+    port))
+(define (find-port x)
+  (if (= x cell-nil) cell-f
+      (if (= (cell-car (cell-car x)) g-stdin) (cell-car x) (find-port (cell-cdr x)))))
+(define (b-current-input-port)
+  (if (>= g-stdin 0) (make-number-fx g-stdin) (find-port g-ports)))
+(define (b-set-current-input-port port)
+  (let ((prev (b-current-input-port)))
+    (cond ((= (cell-type port) TNUMBER)
+           (let ((p (num-fixnum port))) (set! g-stdin (if (= p 0) 0 p))))
+          ((= (cell-type port) TPORT) (set! g-stdin (cell-car port)))
+          (else 'ok))
+    prev))
+; readchar over a string port: read one byte, shrink the port's string cell.
+(define (readchar)
+  (let* ((port (find-port g-ports)) (s (cell-cdr port)) (len (strlike-len s)))
+    (if (= len 0) -1
+        (let ((c (char->integer (string-ref g-bytes (strlike-offset s)))))
+          (set-cdr! port (make-strlike TSTRING (+ (strlike-offset s) 1) (- len 1)))
+          c))))
+; read-string (string.c:169) [arity n]: read all of the current input port.
+(define (b-read-string x)
+  (let ((start byte-free))
+    (read-string-all)
+    (make-strlike TSTRING start (- byte-free start))))
+(define (read-string-all)
+  (let ((c (readchar)))
+    (if (< c 0) 'done (begin (bytes-put! (integer->char c)) (read-string-all)))))
+; output side: a port arg is a number (fd); write to it (fd 2 -> stderr).
+(define (port-fd port)
+  (if (= (cell-type port) TNUMBER)
+      (let ((v (num-fixnum port))) (if (= v 2) g-stderr v)) g-stdout))
+(define (b-write-char x)
+  (let ((c (cell-car x)) (rest (cell-cdr x)))
+    (emit (if (= (cell-type rest) TPAIR) (port-fd (cell-car rest)) g-stdout)
+          (char-value c))
+    c))
+
+; ===========================================================================
 ; apply_builtin — leaf dispatch on the builtin id (eval-apply.c:382 adapted)
 ; ===========================================================================
 ; The dispatch is split into small chained cond blocks: the qfasm assembler
@@ -1206,6 +1278,17 @@
     ((= id ID-LIST-STRING) (list->string- (cell-car x)))
     ((= id ID-SYM-KEYWORD) (retag TKEYWORD (cell-car x)))
     ((= id ID-KEYWORD-STRING) (retag TSTRING (cell-car x)))
+    (else (apply-builtin-port id x))))
+(define (apply-builtin-port id x)
+  (cond
+    ((= id ID-OPEN-INPUT-STRING) (b-open-input-string (cell-car x)))
+    ((= id ID-CURRENT-INPUT-PORT) (b-current-input-port))
+    ((= id ID-SET-CURRENT-INPUT-PORT) (b-set-current-input-port (cell-car x)))
+    ((= id ID-READ-STRING) (b-read-string x))
+    ((= id ID-CURRENT-OUTPUT-PORT) (make-number-fx g-stdout))
+    ((= id ID-WRITE-CHAR) (b-write-char x))
+    ((= id ID-DISPLAY-PORT) (begin (display- (cell-car x) (port-fd (cell-car (cell-cdr x))) 0) cell-unspec))
+    ((= id ID-WRITE-PORT) (begin (display- (cell-car x) (port-fd (cell-car (cell-cdr x))) 1) cell-unspec))
     (else (qfail))))
 
 (define (b-exit x)
@@ -1618,7 +1701,11 @@
 ; ===========================================================================
 (define (qmain)
   (set! w32-0 (w32-from-fixnum 0))
+  (set! g-stdin 0)
+  (set! g-stdout 1)
+  (set! g-stderr 2)
   (init-cells)
+  (set! g-ports cell-nil)
   (init-builtins)
   (set! m0 (make-initial-module env-alist))
   (set! m1 cell-f)
