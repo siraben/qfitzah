@@ -292,6 +292,13 @@
 (define (vector-body x) (cell-cdr x))
 (define (vector-ref- x i) (unwrap-entry (+ (vector-body x) i)))
 (define (vector-set-x- x i e) (copy-cell! (+ (vector-body x) i) (vector-entry e)))
+(define (list->vector- x)
+  (let ((v (make-vector- (length- x) cell-unspec)))
+    (l2v-loop v 0 x)
+    v))
+(define (l2v-loop v i x)
+  (if (= x cell-nil) 'ok
+      (begin (vector-set-x- v i (cell-car x)) (l2v-loop v (+ i 1) (cell-cdr x)))))
 
 (define (make-struct type fields printer)
   (let* ((size (+ 2 (length- fields)))
@@ -605,9 +612,7 @@
       ((= c 44) (rd-next) (read-unquote))                    ; ,
       ((= c 34) (rd-next) (read-string))                     ; "
       ((= c 35) (rd-next) (read-hash))                       ; #
-      ((digit? c) (read-number 1))
-      ((and (= c 45) (digit? (rd-peek-at 1))) (rd-next) (read-number -1))
-      (else (read-symbol)))))
+      (else (read-atom)))))
 
 (define (read-quote head)
   (let ((x (rd-read)))
@@ -632,19 +637,42 @@
     (rd-next)
     tl))
 
-(define (read-number sign)
-  (read-number-loop (w32-from-fixnum 0) sign))
-(define (read-number-loop acc sign)
-  (let ((c (rd-peek)))
-    (if (digit? c)
-        (begin
-          (rd-next)
-          (read-number-loop
-            (w32-add (w32-mul acc (w32-from-fixnum 10))
-                     (w32-from-fixnum (- c 48)))
-            sign))
-        (make-number-w
-          (if (= sign -1) (w32-sub (w32-from-fixnum 0) acc) acc)))))
+; read one delimited token, then classify as number or symbol (reader.c parity:
+; a token is numeric iff [+-]?[0-9]+, else it is an identifier — so 4a and +44
+; read as the symbol 4a and the number 44 respectively).
+(define (read-atom)
+  (let ((start byte-free))
+    (read-symbol-loop)
+    (let ((len (- byte-free start)))
+      (if (numeric-token? start len)
+          (let ((val (parse-number start len)))
+            (set! byte-free start)
+            val)
+          (intern start len)))))
+(define (numeric-token? start len)
+  (if (= len 0) #f
+      (let ((c0 (char->integer (string-ref g-bytes start))))
+        (cond ((digit? c0) (all-digits? (+ start 1) (- len 1)))
+              ((and (or (= c0 43) (= c0 45)) (> len 1))
+               (all-digits? (+ start 1) (- len 1)))
+              (else #f)))))
+(define (all-digits? start len)
+  (if (= len 0) #t
+      (if (digit? (char->integer (string-ref g-bytes start)))
+          (all-digits? (+ start 1) (- len 1)) #f)))
+(define (parse-number start len)
+  (let ((c0 (char->integer (string-ref g-bytes start))))
+    (cond ((= c0 45)
+           (make-number-w (w32-sub (w32-from-fixnum 0)
+                                   (parse-digits (+ start 1) (- len 1) (w32-from-fixnum 0)))))
+          ((= c0 43)
+           (make-number-w (parse-digits (+ start 1) (- len 1) (w32-from-fixnum 0))))
+          (else (make-number-w (parse-digits start len (w32-from-fixnum 0)))))))
+(define (parse-digits start len acc)
+  (if (= len 0) acc
+      (parse-digits (+ start 1) (- len 1)
+                    (w32-add (w32-mul acc (w32-from-fixnum 10))
+                             (w32-from-fixnum (- (char->integer (string-ref g-bytes start)) 48))))))
 
 (define (read-string)
   (let ((start byte-free))
@@ -670,6 +698,7 @@
           ((= c 102) cell-f)                    ; #f
           ((= c 92) (read-char-literal))        ; #\
           ((= c 58) (read-keyword))             ; #:
+          ((= c 40) (list->vector- (read-list)))  ; #( ... ) vector literal
           (else cell-f))))
 
 (define (read-char-literal)
