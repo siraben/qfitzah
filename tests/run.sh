@@ -479,6 +479,62 @@ run_qmes_boot_ladder() {
 
 run_qmes_boot_ladder
 
+## The native assembler asm.elf: rsc compiles bootstrap/asm.scm; the seed
+## assembles it once (~39k instrs).  asm.elf must then produce byte-identical
+## ELFs to [seed + qfasm.qf1 (+ runtime)] on a broad battery -- the qfasm
+## fixtures, sc1's output, rsc's output and the 65.9k-instr qmes -- plus the
+## asm.elf self-fixpoint (it reassembles its own asm.qfasm to itself).  These
+## reuse the qfasm/ELF artifacts already built by the fixpoint stages above.
+run_asm_validate() {
+  local asm_qfasm asm_elf out
+  asm_qfasm=$scheme0_dir/asm.qfasm
+  asm_elf=$scheme0_dir/asm.elf
+  local rsc_flat="$repo_root/bootstrap/asm-runtime.flat"
+  local sc1_flat="$repo_root/bootstrap/sc1-asm-runtime.flat"
+
+  # Build asm.elf through the ladder (rsc compiles it; the seed assembles it).
+  cat "$repo_root/bootstrap/rsc-prelude.scm" "$repo_root/bootstrap/asm.scm" \
+    | timeout 120s "$RSC_ELF" > "$asm_qfasm"
+  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$asm_qfasm" \
+    | timeout 300s "$qfitzah" > "$asm_elf"
+  chmod +x "$asm_elf"
+
+  # Byte-identical differential: asm.elf output == seed-pipeline output.
+  asm_diff() { # asm_diff NAME QFASM SEED_ELF [FLAT]
+    local name=$1 qfasm=$2 seedelf=$3 flat=${4:-}
+    out=$scheme0_dir/$name.asm.elf
+    "$asm_elf" $flat < "$qfasm" > "$out"
+    if ! cmp -s "$seedelf" "$out"; then
+      printf 'FAIL asm-validate %s: asm.elf output differs from the seed pipeline\n' "$name" >&2
+      exit 1
+    fi
+    printf 'ok - asm-validate %s (byte-identical to seed)\n' "$name"
+  }
+  # bare qfasm fixtures: compare against the seed directly
+  local se
+  for name in qfasm-exit42 qfasm-big; do
+    se=$scheme0_dir/$name.seed.elf
+    cat "$repo_root/bootstrap/qfasm.qf1" "$case_dir/$name.qfasm" \
+      | timeout 120s "$qfitzah" > "$se"
+    asm_diff "$name" "$case_dir/$name.qfasm" "$se"
+  done
+  # staged outputs (runtime programs) vs the seed-built ELFs from the fixpoints
+  asm_diff sc1  "$scheme0_dir/sc1.qfasm"  "$scheme0_dir/sc1.elf"  "$sc1_flat"
+  asm_diff rscA "$scheme0_dir/rscA.qfasm" "$scheme0_dir/rscA.elf" "$rsc_flat"
+  asm_diff qmes "$scheme0_dir/qmes.qfasm" "$scheme0_dir/qmes.elf" "$rsc_flat"
+
+  # self-fixpoint: asm.elf reassembling its own qfasm reproduces asm.elf.
+  local asm2=$scheme0_dir/asm2.elf
+  "$asm_elf" "$rsc_flat" < "$asm_qfasm" > "$asm2"
+  if ! cmp -s "$asm_elf" "$asm2"; then
+    printf 'FAIL asm-validate self-fixpoint: asm.elf does not reassemble to itself\n' >&2
+    exit 1
+  fi
+  printf 'ok - asm-validate self-fixpoint (asm.elf reassembles itself)\n'
+}
+
+run_asm_validate
+
 rm -rf "$scheme0_dir"
 
 printf 'all tests passed\n'

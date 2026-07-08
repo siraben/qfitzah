@@ -58,12 +58,34 @@ if need "$b/rscA.elf" "$b/sc1.elf" "$bootstrap/sc1-reader.scm" \
   chmod +x "$b/rscA.elf"
 fi
 
+# --- asm.elf: the native assembler (replaces the seed for big programs) ------
+# bootstrap/asm.scm is compiled by rscA.elf, then assembled ONCE through the
+# seed (~39k instrs, well under the seed's ceiling) into asm.elf.  Thereafter it
+# assembles arbitrarily large programs (full qmes, MesCC output) in O(program)
+# memory -- the seed only ever assembles scheme0 and this one-time bootstrap.
+ASM_RUNTIME="$bootstrap/asm-runtime.flat"
+if need "$b/asm.elf" "$b/rscA.elf" "$bootstrap/asm.scm" "$bootstrap/rsc-runtime.qf1"; then
+  echo "[build-qmes] compiling+assembling asm.elf" >&2
+  cat "$bootstrap/rsc-prelude.scm" "$bootstrap/asm.scm" \
+    | "$b/rscA.elf" > "$b/asm.qfasm"
+  cat "$QFASM" "$bootstrap/rsc-runtime.qf1" "$b/asm.qfasm" \
+    | "$qfitzah" > "$b/asm.elf"
+  chmod +x "$b/asm.elf"
+fi
+
 # --- qmes: compile then assemble -------------------------------------------
+# The assembly step uses asm.elf by default; set USE_SEED_ASM=1 to fall back to
+# the seed (both produce byte-identical output).
 echo "[build-qmes] compiling qmes.scm -> qmes.qfasm" >&2
 cat "$bootstrap/rsc-prelude.scm" "$bootstrap/qmes.scm" \
   | "$b/rscA.elf" > "$b/qmes.qfasm"
-echo "[build-qmes] assembling qmes.qfasm -> qmes.elf" >&2
-cat "$QFASM" "$bootstrap/rsc-runtime.qf1" "$b/qmes.qfasm" \
-  | "$qfitzah" > "$repo_root/qmes.elf"
+if [ "${USE_SEED_ASM:-0}" = "1" ]; then
+  echo "[build-qmes] assembling qmes.qfasm -> qmes.elf (seed)" >&2
+  cat "$QFASM" "$bootstrap/rsc-runtime.qf1" "$b/qmes.qfasm" \
+    | "$qfitzah" > "$repo_root/qmes.elf"
+else
+  echo "[build-qmes] assembling qmes.qfasm -> qmes.elf (asm.elf)" >&2
+  "$b/asm.elf" "$ASM_RUNTIME" < "$b/qmes.qfasm" > "$repo_root/qmes.elf"
+fi
 chmod +x "$repo_root/qmes.elf"
 echo "[build-qmes] wrote $repo_root/qmes.elf" >&2
