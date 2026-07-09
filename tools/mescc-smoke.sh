@@ -1,7 +1,7 @@
 #!/bin/sh
 # mescc-smoke.sh — run GNU Mes's MesCC in compile-only (-S) mode over a C file
 # under a chosen Scheme host (bin/mes-m2 or qmes.elf) and emit the .s (M1 text),
-# with the determinism contract pinned (mes-bootstrap-plan §5, F1).
+# with the determinism contract pinned (docs/mes-bootstrap.md, F1).
 #
 # Usage: tools/mescc-smoke.sh HOST INPUT.c OUTPUT.s
 #   HOST     path to the Mes interpreter (e.g. bin/mes-m2 or ./qmes.elf)
@@ -36,29 +36,20 @@ fi
 
 mkdir -p "$(dirname "$output")"
 
-# Determinism contract (plan §5): clear LANG, pin %version / MES_VERSION,
-# fixed arena/stack, fixed MES_PREFIX + moduledir, no MES_DEBUG noise.
-# Run from repo_root so any path strings that reach the .s are stable.
+# Determinism contract: clear LANG, pin %version / MES_VERSION, fixed
+# arena/stack, fixed MES_PREFIX + moduledir, no MES_DEBUG noise.  Run from
+# repo_root so any path strings that reach the .s are stable.  The scrubbed
+# `env -i ... mescc.scm --` driver is shared via tools/lib/mescc.sh; this
+# script keeps its own arch/include/arena POLICY.
+. "$repo_root/tools/lib/mescc.sh"
 cd "$repo_root"
-exec env -i \
-    PATH="$PATH" \
-    LANG= \
-    MES_DEBUG=0 \
-    %version=0.27.1 \
-    MES_ARENA="${MES_ARENA-20000000}" \
-    MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" \
-    MES_STACK="${MES_STACK-5000000}" \
-    MES_PREFIX="$root" \
-    srcdest="$tp/" \
-    GUILE_LOAD_PATH="$moduledir" \
-    "$host" \
-        --no-auto-compile \
-        -e main \
-        "$tp/module/mescc.scm" \
-        -- \
-        -S -m 32 --arch=x86 \
-        -D HAVE_CONFIG_H=1 \
-        -I "$repo_root/build/include" \
-        -I "$tp/include" \
-        -o "$output" \
-        "$input"
+export MES_PREFIX="$root" MES_SRCDEST="$tp/" MES_MODULEDIR="$moduledir" MES_SCM="$tp/module/mescc.scm"
+export MES_ARENA="${MES_ARENA-20000000}" MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" MES_STACK="${MES_STACK-5000000}"
+mescc_run "$host" \
+    -- \
+    -S -m 32 --arch=x86 \
+    -D HAVE_CONFIG_H=1 \
+    -I "$repo_root/build/include" \
+    -I "$tp/include" \
+    -o "$output" \
+    "$input"

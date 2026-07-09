@@ -1,5 +1,5 @@
-#!/bin/sh
-# fixpoint-64.sh — the S8 x86_64 MesCC fixpoint (F1-64 / F2-64 / F3-64).
+#!/usr/bin/env bash
+# fixpoint-64.sh — the x86_64 MesCC fixpoint (F1-64 / F2-64 / F3-64).
 #
 # A second, independent fixpoint to the i386 one (tools/fixpoint.sh), at the
 # amd64 width.  Self-contained: it does NOT edit the i386 harness scripts.
@@ -29,8 +29,12 @@ tp="$repo/third_party/mes"
 root="$repo/build/mesroot"
 moduledir="$root/mes/module"
 sc="$repo/build/fixpoint64"
-refhash="$repo/tests/mescc-references/fixpoint-64/f1-64.sha256"
-binhash="$repo/tests/mescc-references/fixpoint-64/mes-mescc64.sha256"
+
+# Shared scrubbed MesCC `-S` driver (byte-identical to the hand-written form);
+# the libc/link recipes (CC64_S/CC64LINK) stay inline — see build_libc.
+. "$repo/tools/lib/mescc.sh"
+refhash="$repo/tests/references/mescc/fixpoint-64/f1-64.sha256"
+binhash="$repo/tests/references/mescc/fixpoint-64/mes-mescc64.sha256"
 JOBS=${JOBS-16}
 # qmes64 is a 32-bit process: keep its cell arena within the i386 address space.
 QMES64_ARENA=${QMES64_ARENA-50000000}
@@ -79,14 +83,11 @@ ensure_env() {
 compile_one() {
     _host=$1; _in=$2; _out=$3; _arena=${4-20000000}
     mkdir -p "$repo/$(dirname "$_out")"
-    ( cd "$repo" && exec env -i \
-        PATH="$PATH" LANG= MES_DEBUG=0 \
-        %version=0.27.1 %arch=x86_64 \
-        MES_ARENA="$_arena" MES_MAX_ARENA="$_arena" MES_STACK="${MES_STACK-8000000}" \
-        MES_PREFIX="$root" srcdest="$tp/" \
-        GUILE_LOAD_PATH="$moduledir" \
-        "$_host" \
-            --no-auto-compile -e main third_party/mes/module/mescc.scm -- \
+    ( cd "$repo" \
+      && export MES_ARCH_PIN=x86_64 MES_PREFIX="$root" MES_SRCDEST="$tp/" MES_MODULEDIR="$moduledir" \
+                MES_ARENA="$_arena" MES_MAX_ARENA="$_arena" MES_STACK="${MES_STACK-8000000}" \
+      && mescc_run "$_host" \
+            -- \
             -S -m 64 --arch=x86_64 \
             -D HAVE_CONFIG_H=1 \
             -I build/include-64 \
@@ -104,6 +105,7 @@ do_compile() {
     canon_rel="build/fixpoint64/canon"
     mkdir -p "$repo/$canon_rel"
     outdir_abs=$(cd "$outdir" && pwd)
+    pids=""
     for u in $UNITS; do
         base=$(echo "$u" | sed -e 's,/,-,g' -e 's,\.c$,,')
         cout="$canon_rel/$base.s"
@@ -111,10 +113,13 @@ do_compile() {
         log="$outdir_abs/$base.log"
         ( if compile_one "$host" "third_party/mes/$u" "$cout" "$arena" >"$log" 2>&1; then
               mv -f "$repo/$cout" "$out"; echo "done $u"
-          else rm -f "$repo/$cout"; echo "FAIL $u (see $log)"; fi ) &
+          else rm -f "$repo/$cout"; echo "FAIL $u (see $log)"; exit 1; fi ) &
+        pids="$pids $!"
         while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
     done
-    wait
+    _fail=0
+    for p in $pids; do wait "$p" || _fail=1; done
+    [ "$_fail" = 0 ] || { echo "compile: some units failed" >&2; exit 1; }
 }
 
 # ---- F2-64 support: libc + link, amd64 ---------------------------------------
@@ -184,17 +189,21 @@ build_libc() {
     compile1 "$tp/lib/linux/x86_64-mes-mescc/crt1.c" crt1 >"$adir/crt1.progress" 2>&1 \
         || { echo "crt1 FAIL"; cat "$adir/crt1.log" >&2; exit 1; }
     build_group() {
-        _grp=$1
+        _grp=$1; _pids=""
         for c in $(sources "$_grp"); do
             b=$(echo "$c" | sed -e 's,^\./,,' -e 's,/,-,g' -e 's,\.c$,,')
             ( compile1 "$tp/$c" "$b" ) &
+            _pids="$_pids $!"
             while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
         done
-        wait
+        _grpfail=0
+        for p in $_pids; do wait "$p" || _grpfail=1; done
+        return "$_grpfail"
     }
-    echo "  libc_mini" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1
-    echo "  libmescc"  >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1
-    echo "  libc"      >&2; build_group libc      >"$adir/libc.progress" 2>&1
+    # Run all groups (|| true); the grep over the progress files is the gate.
+    echo "  libc_mini" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1 || true
+    echo "  libmescc"  >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1 || true
+    echo "  libc"      >&2; build_group libc      >"$adir/libc.progress" 2>&1 || true
     if grep -h '^FAIL' "$adir"/*.progress 2>/dev/null; then echo "build_libc: units failed" >&2; exit 1; fi
     archive() {
         _name=$1; shift
@@ -306,7 +315,7 @@ case "${1-}" in
       && echo "F3-64: 20/20 units match F1-64 — self-recompilation fixpoint reached" \
       || { echo "F3-64 FAILED" >&2; exit 1; }
     echo "============================================================================"
-    echo "S8 FIXPOINT ACHIEVED (x86_64): F1-64 20/20 | F2-64 byte-identical ELF64 | F3-64 20/20"
+    echo "FIXPOINT (x86_64): F1-64 20/20 | F2-64 byte-identical ELF64 | F3-64 20/20"
     ;;
   *) echo "usage: $0 {all | compile HOST OUTDIR [JOBS] [ARENA] | libc | link SDIR OUT | verify [JOBS] | units}" >&2; exit 2 ;;
 esac

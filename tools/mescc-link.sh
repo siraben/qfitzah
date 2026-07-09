@@ -1,5 +1,5 @@
-#!/bin/sh
-# mescc-link.sh — S6 F2/F3 support: build a runnable `mes` binary the MesCC way
+#!/usr/bin/env bash
+# mescc-link.sh — F2/F3 support: build a runnable `mes` binary the MesCC way
 # (NOT M2-Planet), harness-driven so the interpreter under test (qmes) never
 # needs fork/exec — all sub-tools (mescc, M1, hex2) are driven from here.
 #
@@ -99,19 +99,24 @@ build_libc() {
         || { echo "crt1 FAIL"; cat "$adir/crt1.log" >&2; exit 1; }
     # compile a source list into $adir, echoing objects
     build_group() {
-        _grp=$1; _n=0
+        _grp=$1; _n=0; _pids=""
         for c in $(sources "$_grp"); do
             b=$(echo "$c" | sed -e 's,^\./,,' -e 's,/,-,g' -e 's,\.c$,,')
             o="$adir/$b.o"
-            ( compile_c "$tp/$c" "$o" && echo "done $c" || echo "FAIL $c" ) &
+            ( compile_c "$tp/$c" "$o" && echo "done $c" || { echo "FAIL $c"; exit 1; } ) &
+            _pids="$_pids $!"
             _n=$((_n + 1))
             while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
         done
-        wait
+        _grpfail=0
+        for p in $_pids; do wait "$p" || _grpfail=1; done
+        return "$_grpfail"
     }
-    echo "  libc_mini ($(sources libc_mini | wc -l) units)" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1
-    echo "  libmescc  ($(sources libmescc  | wc -l) units)" >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1
-    echo "  libc      ($(sources libc      | wc -l) units)" >&2; build_group libc      >"$adir/libc.progress" 2>&1
+    # Run all three groups (|| true so one failing group still lets the others
+    # report); the grep over the progress files below is the aggregate gate.
+    echo "  libc_mini ($(sources libc_mini | wc -l) units)" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1 || true
+    echo "  libmescc  ($(sources libmescc  | wc -l) units)" >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1 || true
+    echo "  libc      ($(sources libc      | wc -l) units)" >&2; build_group libc      >"$adir/libc.progress" 2>&1 || true
     if grep -h '^FAIL' "$adir"/*.progress 2>/dev/null; then echo "build_libc: some units failed" >&2; exit 1; fi
 
     # Archive like mesar (cat): libX.a = cat objects, libX.s = cat .s.

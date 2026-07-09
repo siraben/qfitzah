@@ -1,14 +1,14 @@
-#!/bin/sh
-# build-tcc.sh — the qmes → MesCC → TinyCC bootstrap rung (docs/mes-tcc-plan.md).
+#!/usr/bin/env bash
+# build-tcc.sh — the qmes → MesCC → TinyCC bootstrap rung (docs/mes-bootstrap.md).
 #
 # The thesis: qmes's MesCC compiles the full TinyCC byte-identically to the
-# M2-Planet-reference MesCC path (bin/mes-m2).  We mirror the S6 F1/F2/F3
+# M2-Planet-reference MesCC path (bin/mes-m2).  We mirror the F1/F2/F3
 # machinery of tools/mescc-fixpoint.sh + tools/mescc-link.sh + tools/fixpoint.sh
 # exactly, one rung up: the 10 tcc translation units are the compile set, tcc
 # links against the `libc+tcc` flavor of the Mes libc, and the reference is the
 # same tcc built under bin/mes-m2 (fast), byte-compared against the qmes build.
 #
-# Gates (docs/mes-tcc-plan.md §4):
+# Gates (docs/mes-bootstrap.md, tcc rung):
 #   T0  reference tcc under bin/mes-m2: 10 units -> tcc-mes.ref -> stage libc ->
 #       hello (exit 42) -> self-host boot chain -> cmp tcc-boot5 tcc-boot6.
 #       Commit the reference .s + binary sha256 set.
@@ -18,7 +18,7 @@
 #       the mes-m2-linked one; then the hello gate using the qmes-built tcc.
 #   T3  tcc self-host fixpoint seeded from the qmes tcc: cmp tcc-boot5 tcc-boot6.
 #
-# Determinism contract (identical to F1, docs/mes-tcc-plan.md §2.2): env -i,
+# Determinism contract (identical to F1, docs/mes-bootstrap.md): env -i,
 # LANG=, MES_DEBUG=0, %version=0.27.1, MES_PREFIX=build/mesroot,
 # srcdest=third_party/mes/, GUILE_LOAD_PATH=$moduledir, run from repo root,
 # MES_ARENA=MES_MAX_ARENA=20000000, MES_STACK=10000000; the -o label is the
@@ -47,18 +47,22 @@ tp="$repo/third_party/mes"
 tcc="$repo/third_party/tinycc"
 root="$repo/build/mesroot"
 moduledir="$root/mes/module"
+
+# Shared scrubbed `env -i ... mescc.scm --` MesCC driver (byte-identical to the
+# hand-written form); this script keeps its own arch/arena/include policy.
+. "$repo/tools/lib/mescc.sh"
 lib="$repo/build/mescc-lib"          # shared with mescc-link.sh (crt1.o, libmescc)
 adir="$lib/x86-mes"
 bdir="$repo/build/tcc"               # all tcc intermediates live here
 inc="$bdir/include"                  # holds the synthesized config.h
 canon_rel="build/tcc/canon"          # repo-relative -o label (host-independent)
-refdir="$repo/tests/mescc-references/tcc"
+refdir="$repo/tests/references/mescc/tcc"
 
 # The 10 tcc translation units, in bootstrap.sh link order (link order affects
 # bytes — pin it).  i386 target => ${tcc_cpu}=i386.
 TCC_UNITS="tccpp tccgen tccelf tccrun i386-gen i386-link i386-asm tccasm libtcc tcc"
 
-# The fixed -D block (docs/mes-tcc-plan.md §2.2, transcribed from bootstrap.sh's
+# The fixed -D block (docs/mes-bootstrap.md, transcribed from bootstrap.sh's
 # x86 arm).  No HAVE_FLOAT/LONG_LONG/SETJMP/BITFIELD at the mescc stage.  No
 # machine-absolute path: the CONFIG_TCC_* literals are tcc's runtime defaults;
 # our harness always passes -B/-I/-L explicitly, so they never need to resolve.
@@ -102,7 +106,7 @@ EOF
 
 ensure_env() {
     [ -d "$moduledir/nyacc/lang/c99" ] || "$repo/tools/make-mesroot.sh" >/dev/null
-    # config.h: the one synthesized file (docs/mes-tcc-plan.md §1).  Written
+    # config.h: the one synthesized file (docs/mes-bootstrap.md).  Written
     # OUTSIDE the submodule, resolved via -I build/tcc/include — MesCC resolves
     # quoted #include "config.h" through the -I chain.
     mkdir -p "$inc"
@@ -135,21 +139,12 @@ compile_one() {
 '
     set -- $(tcc_defines)
     IFS=$_oldifs
-    ( cd "$repo" && exec env -i \
-        PATH="$PATH" \
-        LANG= \
-        MES_DEBUG=0 \
-        %version=0.27.1 \
-        MES_ARENA="${MES_ARENA-20000000}" \
-        MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" \
-        MES_STACK="${MES_STACK-10000000}" \
-        MES_PREFIX="$root" \
-        srcdest="$tp/" \
-        GUILE_LOAD_PATH="$moduledir" \
-        "$_host" \
-            --no-auto-compile \
-            -e main \
-            third_party/mes/module/mescc.scm \
+    # $@ now holds the -D block (quoted values preserved as single words).
+    ( cd "$repo" \
+      && export MES_PREFIX="$root" MES_SRCDEST="$tp/" MES_MODULEDIR="$moduledir" \
+                MES_ARENA="${MES_ARENA-20000000}" MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" \
+                MES_STACK="${MES_STACK-10000000}" \
+      && mescc_run "$_host" \
             -- \
             -S -m 32 --arch=x86 \
             "$@" \
@@ -169,6 +164,7 @@ sweep() {
     mkdir -p "$outdir" "$repo/$canon_rel"
     case "$host" in /*) : ;; *) host="$repo/$host" ;; esac
     outdir_abs=$(cd "$outdir" && pwd)
+    pids=""
     for u in $TCC_UNITS; do
         cout="$canon_rel/$u.s"
         out="$outdir_abs/$u.s"
@@ -176,11 +172,14 @@ sweep() {
         ( if compile_one "$host" "$u" >"$log" 2>&1; then
               mv -f "$repo/$cout" "$out"; echo "done $u"
           else
-              rm -f "$repo/$cout"; echo "FAIL $u (see $log)"
+              rm -f "$repo/$cout"; echo "FAIL $u (see $log)"; exit 1
           fi ) &
+        pids="$pids $!"
         while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
     done
-    wait
+    _fail=0
+    for p in $pids; do wait "$p" || _fail=1; done
+    [ "$_fail" = 0 ] || { echo "sweep: some units failed" >&2; return 1; }
 }
 
 # ---- mescc-tools driver (M1/hex2/blood-elf); same CC() as mescc-link.sh ------
@@ -209,7 +208,7 @@ CC() {
         "$repo/bin/mes-m2" --no-auto-compile -e main third_party/mes/module/mescc.scm -- "$@" )
 }
 
-# ---- libc+tcc (docs/mes-tcc-plan.md §2.3) ------------------------------------
+# ---- libc+tcc (docs/mes-bootstrap.md) ----------------------------------------
 # The libc+tcc SOURCES from configure-lib.sh, sourced like mescc-link.sh does.
 stubdir="$repo/build/fixpoint"
 sources_tcc() {
@@ -240,17 +239,22 @@ build_libc() {
     CC -c $CPPFLAGS_LIBC -L build/mescc-lib -o "$adir/crt1.o" "$tp/lib/linux/x86-mes-mescc/crt1.c" \
         >/dev/null 2>"$adir/crt1.log" || { echo "crt1 FAIL"; cat "$adir/crt1.log" >&2; exit 1; }
     build_group() {
-        _grp=$1
+        _grp=$1; _pids=""
         for c in $(sources_tcc "$_grp"); do
             b=$(echo "$c" | sed -e 's,^\./,,' -e 's,/,-,g' -e 's,\.c$,,')
-            ( compile_c "$tp/$c" "$adir/$b.o" && echo "done $c" || echo "FAIL $c" ) &
+            ( compile_c "$tp/$c" "$adir/$b.o" && echo "done $c" || { echo "FAIL $c"; exit 1; } ) &
+            _pids="$_pids $!"
             while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
         done
-        wait
+        _grpfail=0
+        for p in $_pids; do wait "$p" || _grpfail=1; done
+        return "$_grpfail"
     }
-    echo "  libc_mini ($(sources_tcc libc_mini | wc -l) units)" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1
-    echo "  libmescc  ($(sources_tcc libmescc  | wc -l) units)" >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1
-    echo "  libc+tcc  ($(sources_tcc libc_tcc  | wc -l) units)" >&2; build_group libc_tcc  >"$adir/tcc.progress" 2>&1
+    # Run all three groups (|| true so one failing group still lets the others
+    # report); the grep over the progress files below is the aggregate gate.
+    echo "  libc_mini ($(sources_tcc libc_mini | wc -l) units)" >&2; build_group libc_mini >"$adir/mini.progress" 2>&1 || true
+    echo "  libmescc  ($(sources_tcc libmescc  | wc -l) units)" >&2; build_group libmescc  >"$adir/mescc.progress" 2>&1 || true
+    echo "  libc+tcc  ($(sources_tcc libc_tcc  | wc -l) units)" >&2; build_group libc_tcc  >"$adir/tcc.progress" 2>&1 || true
     if grep -h '^FAIL' "$adir"/*.progress 2>/dev/null; then echo "build_libc: some units failed" >&2; exit 1; fi
     # mesar archive (cat): both libc+tcc.a and libc+tcc.s (the .s archive is NOT
     # optional — mescc linking from .s inputs resolves -l c+tcc to x86-mes/libc+tcc.s).
@@ -274,7 +278,7 @@ build_libc() {
     echo "build_libc: wrote $adir/{crt1.o,libc{,+tcc}.{a,s},libmescc.{a,s}}" >&2
 }
 
-# ---- link (docs/mes-tcc-plan.md §2.4) ----------------------------------------
+# ---- link (docs/mes-bootstrap.md) --------------------------------------------
 link_tcc() {
     sdir=$1; out=$2
     need_tools
@@ -298,7 +302,7 @@ link_tcc() {
     echo "link_tcc: wrote $out ($(wc -c <"$out") B)" >&2
 }
 
-# ---- stage (docs/mes-tcc-plan.md §2.5 steps 1-3) -----------------------------
+# ---- stage: build crt/libc/libtcc1 with the tcc under test (docs/mes-bootstrap.md) --
 # Build crt{1,i,n}.o, libc.a, libtcc1.a with the tcc under test, into
 # build/tcc/stage.  The tcc-built libc must be the compiler=gcc source variants
 # (gcc-style asm(); the mescc variants are M1 text and fail under tcc).
@@ -341,7 +345,7 @@ stage_tcc() {
     echo "stage_tcc: wrote $st/{lib/{crt1.o,crti.o,crtn.o,libc.a},libtcc1.a}" >&2
 }
 
-# ---- hello gate (docs/mes-tcc-plan.md §2.5 step 4) ---------------------------
+# ---- hello gate: compile+run hello.c, expect exit 42 (docs/mes-bootstrap.md) --
 hello_gate() {
     thetcc=$1
     st="$bdir/stage"
@@ -366,7 +370,7 @@ EOF
     echo "hello: OK (exit 42)"
 }
 
-# ---- self-host boot chain (docs/mes-tcc-plan.md §2.5 step 5) ------------------
+# ---- self-host boot chain (docs/mes-bootstrap.md) ----------------------------
 # boot N: TCC recompiles all 10 units + links tcc-boot<n>, driven by the same
 # invocations boot.sh uses, with our explicit -B/-L/-I and the stage libc.
 # The BOOT_CPPFLAGS advance per level exactly as boot.sh does.
@@ -534,7 +538,7 @@ do_fixpoint() {
     echo "==================== T3: tcc self-host fixpoint from the qmes tcc ===================="
     boot_chain "$bdir/tcc-mes.qmes" 6
     echo "============================================================================"
-    echo "TCC RUNG ACHIEVED (i386): T1 10/10 | T2 byte-identical tcc | T3 self-host fixpoint"
+    echo "TCC RUNG (i386): T1 10/10 | T2 byte-identical tcc | T3 self-host fixpoint"
 }
 
 # Verbs needing mescc-tools self-enter the nix shell before doing anything.

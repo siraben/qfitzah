@@ -1,5 +1,5 @@
-#!/bin/sh
-# mescc-fixpoint.sh — the S6 F1/F2/F3 fixpoint driver for GNU Mes on qfitzah.
+#!/usr/bin/env bash
+# mescc-fixpoint.sh — the F1/F2/F3 MesCC fixpoint driver for GNU Mes on qfitzah.
 #
 # F1 (path-independent MesCC assembly): for every compile unit in the MesCC
 # build of the `mes` binary (mes_SOURCES, build-aux/configure-lib.sh:454), run
@@ -19,7 +19,7 @@
 #                        (the tree ships no include/mes/config.h).
 #   * -S -m 32 --arch=x86    compile-only, i386.
 #
-# Determinism contract (mes-bootstrap-plan §5): env -i, LANG=, %version pinned,
+# Determinism contract (docs/mes-bootstrap.md): env -i, LANG=, %version pinned,
 # fixed MES_ARENA/STACK, MES_PREFIX = the merged mesroot, run from repo root so
 # any path string reaching the .s (notably the -o label MesCC embeds verbatim)
 # is host-independent.
@@ -34,6 +34,10 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 tp="$repo_root/third_party/mes"
 root="$repo_root/build/mesroot"
 moduledir="$root/mes/module"
+
+# Shared scrubbed `env -i ... mescc.scm --` driver (byte-identical to the
+# hand-written form).  This script keeps its own arch/arena/include policy.
+. "$repo_root/tools/lib/mescc.sh"
 
 # The MesCC compile units for the `mes` binary (configure-lib.sh mes_SOURCES).
 UNITS="
@@ -86,21 +90,11 @@ ensure_env() {
 compile_one() {
     _host=$1; _in=$2; _out=$3
     mkdir -p "$repo_root/$(dirname "$_out")"
-    ( cd "$repo_root" && exec env -i \
-        PATH="$PATH" \
-        LANG= \
-        MES_DEBUG=0 \
-        %version=0.27.1 \
-        MES_ARENA="${MES_ARENA-20000000}" \
-        MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" \
-        MES_STACK="${MES_STACK-5000000}" \
-        MES_PREFIX="$root" \
-        srcdest="$tp/" \
-        GUILE_LOAD_PATH="$moduledir" \
-        "$_host" \
-            --no-auto-compile \
-            -e main \
-            third_party/mes/module/mescc.scm \
+    ( cd "$repo_root" \
+      && export MES_PREFIX="$root" MES_SRCDEST="$tp/" MES_MODULEDIR="$moduledir" \
+                MES_ARENA="${MES_ARENA-20000000}" MES_MAX_ARENA="${MES_MAX_ARENA-20000000}" \
+                MES_STACK="${MES_STACK-5000000}" \
+      && mescc_run "$_host" \
             -- \
             -S -m 32 --arch=x86 \
             -D HAVE_CONFIG_H=1 \
@@ -139,28 +133,33 @@ case "${1-}" in
             cout="$canon_rel/$base.s"                # relative (for -o label)
             out="$outdir_abs/$base.s"
             log="$outdir_abs/$base.log"
+            # A worker that fails to compile its unit exits nonzero so the caller
+            # (via wait on each PID) can fail the whole sweep.
             ( if compile_one "$host" "third_party/mes/$u" "$cout" >"$log" 2>&1; then
                   mv -f "$repo_root/$cout" "$out"
                   echo "done $u"
               else
                   rm -f "$repo_root/$cout"
                   echo "FAIL $u (see $log)"
+                  exit 1
               fi ) &
             pids="$pids $!"
             n=$((n + 1))
             # throttle to $jobs concurrent
             while [ "$(jobs -r 2>/dev/null | wc -l)" -ge "$jobs" ]; do wait -n 2>/dev/null || break; done
         done
-        wait
+        fail=0
+        for p in $pids; do wait "$p" || fail=1; done
         echo "compile: $n units -> $outdir"
+        [ "$fail" = 0 ] || { echo "compile: some units failed" >&2; exit 1; }
         ;;
     verify)
         # Offline F1 gate: sweep qmes only and check every unit against the
-        # committed reference hashes (tests/mescc-references/fixpoint/f1.sha256).
+        # committed reference hashes (tests/references/mescc/fixpoint/f1.sha256).
         # Needs only ./qmes.elf + the vendored nyacc/mescc — no M2-Planet, no
         # mes-m2.  This is the checkable-anywhere form of the F1 claim.
         jobs=${2-8}
-        refhash="$repo_root/tests/mescc-references/fixpoint/f1.sha256"
+        refhash="$repo_root/tests/references/mescc/fixpoint/f1.sha256"
         [ -f "$refhash" ] || { echo "verify: missing $refhash" >&2; exit 2; }
         [ -x "$repo_root/qmes.elf" ] || { echo "verify: build qmes first (make qmes)" >&2; exit 2; }
         out="$repo_root/build/fixpoint/verify"
