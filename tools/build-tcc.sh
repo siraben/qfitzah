@@ -265,7 +265,13 @@ build_libc() {
     }
     archive "libc+tcc" $(sources_tcc libc_tcc)
     archive libmescc   $(sources_tcc libmescc)
-    echo "build_libc: wrote $adir/{crt1.o,libc+tcc.a,libc+tcc.s,libmescc.a,libmescc.s}" >&2
+    # mescc's default link (no -nostdlib) always appends `-l c`, resolving to
+    # x86-mes/libc.{a,s}.  Our libc+tcc is a superset of plain libc, so provide
+    # libc.{a,s} as copies — the link uses -l c (libc.a) + -l c+tcc (the tcc
+    # runtime superset); duplicate defs resolve first-wins in the hex2 link.
+    cp "$adir/libc+tcc.a" "$adir/libc.a"
+    cp "$adir/libc+tcc.s" "$adir/libc.s"
+    echo "build_libc: wrote $adir/{crt1.o,libc{,+tcc}.{a,s},libmescc.{a,s}}" >&2
 }
 
 # ---- link (docs/mes-tcc-plan.md §2.4) ----------------------------------------
@@ -281,14 +287,12 @@ link_tcc() {
     done
     mkdir -p "$(dirname "$out")"
     _log="$bdir/link-$(basename "$out").log"
-    # mescc's default link adds `-l c -l mescc` (libc.a + libmescc.a); we build
-    # only the libc+tcc flavor (a superset of libc), so link -nostdlib with the
-    # crt1.o + libc+tcc + libmescc passed explicitly (same shape as the F2 mes
-    # link in tools/mescc-link.sh, which also uses -nostdlib).  bootstrap.sh's
-    # own `-l c+tcc` relies on a full MES_SOURCE tree that ships a plain libc.a
-    # alongside; -nostdlib gives the identical link set without that duplicate.
-    CC -m 32 --arch=x86 -nostdlib -o "$out" -L build/mescc-lib \
-        "$adir/crt1.o" $sfiles -l c+tcc -l mescc \
+    # Proven recipe (Fable's working scratchpad link): let mescc's default link
+    # add crt1.o + the standard set; supply only -L build/mescc-lib and the
+    # libc+tcc superset via -l c+tcc.  The -nostdlib + explicit crt1.o + -l mescc
+    # shape (borrowed from the F2-mes link) does NOT produce a working tcc.
+    CC -m 32 --arch=x86 -o "$out" -L build/mescc-lib \
+        $sfiles -l c+tcc \
         >/dev/null 2>"$_log" || { echo "link FAIL (see $_log)"; tail -30 "$_log" >&2; exit 1; }
     chmod +x "$out"
     echo "link_tcc: wrote $out ($(wc -c <"$out") B)" >&2
