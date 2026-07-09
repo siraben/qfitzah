@@ -1,5 +1,14 @@
-; sc1: a Scheme-to-qfasm compiler written strictly in the scheme0 subset, so
-; it runs interpreted under scheme0 AND compiles itself to a native ELF.
+; sc1.scm -- Stage 3 of the bootstrap ladder: a Scheme-to-qfasm compiler
+; written strictly in the scheme0 subset, so it runs interpreted under the
+; scheme0 interpreter (Stage 2) AND compiles itself to a native ELF.
+;
+; The ascent works like this: scheme0 interprets sc1 to compile sc1's own
+; source, the seed assembles the result, and the native sc1.elf then
+; recompiles the same source.  The test suite checks that this closes -- the
+; interpreted compiler and the compiled compiler produce byte-identical
+; qfasm.  From then on nothing above this file depends on the interpreter's
+; speed, and the compiler is trusted because you can read this file and
+; because the fixpoint pins its behavior.
 ;
 ; Prepend bootstrap/sc1-reader.scm (the reader) before this file. The last
 ; top-level form, (main), reads the remaining stdin as the program to compile
@@ -20,6 +29,15 @@
 ;     env (EDI), and CALLs (non-tail) or JMPs (tail) the code. Tail calls do
 ;     not grow the machine stack, so tail recursion runs in constant space.
 ;   * Primitives are ordinary global closures built by the runtime's InitPrims.
+;
+; Value tagging (shared with scheme0; the constants below make sense only
+; against this table).  The low two bits of a 32-bit word give the type:
+;   00  pair pointer          01  fixnum (value = word >> 2)
+;   10  object pointer        11  immediate:
+;       0x03 '()   0x13 #t   0x23 #f   0x33 eof   0x43 unspecified
+;       (char c) = (c << 8) | 0x53
+; An object (tag 10) points at a header pair whose car is the payload pointer
+; with a subtype in ITS low bits: 0 symbol, 1 string, 2 closure.
 
 ; ---------------------------------------------------------------------------
 ; Small list helpers not provided by the reader.
@@ -64,8 +82,11 @@
              (emit-nibs-be (cdr lst)))))
 
 ; ---------------------------------------------------------------------------
-; Instruction chain emission. Each (Ins X ...) opens one paren that is closed
-; at the very end; ins-count tracks how many are open.
+; Instruction chain emission. The qfasm program is ONE right-nested term:
+; (Ins i1 (Ins i2 (... End))). Each (Ins X ...) opens one paren that is closed
+; at the very end; ins-count tracks how many are open. `ins` takes a literal
+; instruction string; `ins-dyn` takes a thunk for instructions with computed
+; operands.
 ; ---------------------------------------------------------------------------
 (define ins-count 0)
 (define (ins s)
@@ -86,6 +107,9 @@
 (define (emit-cdr-eax) (ins "(MovRMD EAX EAX 04)"))
 (define (emit-car-eax) (ins "(MovRM EAX EAX)"))
 
+; Immediates, straight from the tagging table above: #t = 0x13, #f = 0x23,
+; '() = 3, unspecified = 0x43.  (X8 ...) is qfasm's big-endian-nybble 32-bit
+; literal; (Small n) a small hex literal.
 (define (load-true) (ins "(MovRI EAX (X8 0 0 0 0 0 0 1 3))"))
 (define (load-false) (ins "(MovRI EAX (X8 0 0 0 0 0 0 2 3))"))
 (define (load-nil) (ins "(MovRI EAX (Small 3))"))
@@ -93,7 +117,9 @@
 (define cmp-false "(CmpEaxI32 (X8 0 0 0 0 0 0 2 3))")
 
 ; ---------------------------------------------------------------------------
-; Compile-time state.
+; Compile-time state.  All label numbering flows from `fresh`, so compilation
+; is deterministic: the same source always yields the same label numbers,
+; which is what makes the self-host fixpoint byte-identical.
 ; ---------------------------------------------------------------------------
 (define counter 0)
 (define (fresh) (set! counter (+ counter 1)) counter)
@@ -126,6 +152,9 @@
 
 ; ---------------------------------------------------------------------------
 ; Compile-time environment: a list of frames, each a list of parameter names.
+; It mirrors the run-time environment in EBP exactly, so a hit at frame d,
+; slot i compiles to d cdr-steps, a car, i cdr-steps, and a car.  A miss means
+; the name is a global (there is no intermediate scope in this Scheme).
 ; ---------------------------------------------------------------------------
 (define (ct-lookup name env) (ct-lookup2 name env 0))
 (define (ct-lookup2 name env d)
@@ -142,6 +171,10 @@
 ; Quoted data -> static values. A token is (kind . info):
 ;   imm     info = 32-bit tagged word    pairlbl info = (Lit n) label number
 ;   objlbl  info = (Lit n) label number (symbol/string object pointer)
+; Compound data is emitted as static cells in the data section (via the
+; pending-data worklist) and referenced by label, so quoting costs no run-time
+; allocation.  The imm encodings are the tagging table verbatim: fixnum n ->
+; 4n+1, #t -> 19, #f -> 35, char c -> 256c+83, '() -> 3.
 ; ---------------------------------------------------------------------------
 (define (quote-datum d)
   (cond ((number? d) (cons 'imm (+ (* d 4) 1)))
@@ -160,6 +193,11 @@
              (cons 'pairlbl n))))
         (else (cons 'imm 3))))
 
+; Quoted symbols are interned at compile time: one static object per distinct
+; symbol, remembered in sym-table so every 'foo in the program shares it (eq?
+; on symbols is then pointer equality).  static-syms additionally schedules
+; the symbol for GObList at startup, so string->symbol at run time finds the
+; static object instead of creating a duplicate.
 (define (intern-quoted-symbol sym)
   (let ((e (assq sym sym-table)))
     (if e
@@ -193,6 +231,11 @@
         (ins-dyn (lambda () (o-str "(Db ") (emit-hex-byte (char->integer (string-ref s i))) (o-str ")")))
         (emit-bytes-loop s (+ i 1) n))))
 
+; Static object layout (strings and symbols): first the raw bytes at label
+; (LitB n), then -- 8-byte aligned, since the tag bits of the pointer must be
+; free -- the header pair at (Lit n): car = byte pointer with the subtype in
+; its low bits (DConst adds 1: string; DLabel adds 0: symbol), cdr = the
+; length as a tagged fixnum (4*len+1).
 (define (emit-string-data s n)
   (ins "(Align8)")
   (ins-dyn (lambda () (o-str "(Label (LitB ") (o-num n) (o-str "))")))
@@ -219,7 +262,11 @@
   (ins-dyn (lambda () (emit-field tcdr))))
 
 ; ---------------------------------------------------------------------------
-; Desugaring.
+; Desugaring.  let and cond are the only sugar sc1 accepts; both rewrite to
+; core forms before compilation, exactly as R5RS 7.3 derives them:
+; (let ((v e) ...) body) => ((lambda (v ...) body) e ...), and cond => nested
+; ifs (an else clause becomes the final alternative; a cond that falls off
+; the end yields (if #f #f), the unspecified value).
 ; ---------------------------------------------------------------------------
 (define (let->lambda expr)
   (let ((binds (cadr expr)) (body (cddr expr)))
@@ -235,7 +282,10 @@
             (list 'if (car cl) (cons 'begin (cdr cl)) (cond->if (cdr clauses)))))))
 
 ; ---------------------------------------------------------------------------
-; Parameter lists: names, fixed count, rest presence.
+; Parameter lists: names, fixed count, rest presence.  A parameter list is
+; proper ((a b)), dotted ((a . r)), or a bare symbol (r); the rest name, if
+; any, is just the last entry of param-names, so it occupies the frame slot
+; after the fixed parameters.
 ; ---------------------------------------------------------------------------
 (define (param-names params)
   (cond ((symbol? params) (list params))
@@ -255,7 +305,10 @@
 
 ; ---------------------------------------------------------------------------
 ; Expression compilation. compile-expr leaves the value in EAX (non-tail);
-; compile-tail leaves via RET or a tail JMP.
+; compile-tail leaves via RET or a tail JMP.  The tail/non-tail split is the
+; whole tail-call discipline: every form that can end a procedure body has a
+; tail variant that never falls through, so a tail call compiles to JMP and
+; recursion in tail position runs in constant stack (R5RS 3.5).
 ; ---------------------------------------------------------------------------
 (define (compile-expr expr ctenv)
   (cond ((number? expr) (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-x8 (+ (* expr 4) 1)) (o-str ")"))))
@@ -300,6 +353,9 @@
               (else (compile-app expr ctenv #t))))
       (begin (compile-expr expr ctenv) (ins "(Ret)"))))
 
+; A lexical variable is a (depth . index) walk down the EBP environment; a
+; free variable is a global cell, created on first reference (a reference
+; before any definition simply reads the zero-initialised cell).
 (define (compile-var name ctenv)
   (let ((loc (ct-lookup name ctenv)))
     (if loc
@@ -310,6 +366,10 @@
                (emit-car-eax))
         (begin (register-global name) (gv-load name)))))
 
+; if: test, compare against #f (everything else is true), Jz to the else
+; label.  In tail position both arms leave via compile-tail/RET, so no join
+; label is needed; non-tail needs the usual jump over the else arm to a join.
+; A missing else arm yields the unspecified value.
 (define (compile-if expr ctenv tail?)
   (let ((test (cadr expr)) (then (caddr expr)) (haselse (pair? (cdddr expr))))
     (compile-expr test ctenv)
@@ -334,6 +394,9 @@
          (if tail? (compile-tail (car body) ctenv) (compile-expr (car body) ctenv)))
         (else (compile-expr (car body) ctenv) (compile-begin (cdr body) ctenv tail?))))
 
+; and/or: short-circuit on one shared exit label; the value of the deciding
+; subexpression is already in EAX when we jump, which is exactly the R5RS
+; result ((or a b) returns a itself when a is true, not #t).
 (define (compile-and args ctenv)
   (if (null? args) (load-true) (compile-and-loop args ctenv (fresh))))
 (define (compile-and-loop args ctenv end)
@@ -372,6 +435,10 @@
                  (gv-store name)
                  (load-unspec))))))
 
+; define: the (define (f args) body) shorthand rewrites to a lambda; the
+; value lands in a global cell.  Internal defines are not scoped -- a define
+; anywhere stores to the global, which is why the ladder's sources only use
+; top-level define.
 (define (compile-define expr ctenv)
   (let ((target (cadr expr)))
     (if (pair? target)
@@ -385,6 +452,13 @@
           (gv-store target)
           (load-unspec)))))
 
+; lambda: the body is deferred to the pending-procs worklist (emitted after
+; the top level, see emit-proc); here we just build the closure object:
+;   payload = Cons(code-label, EBP)      the pair (code . captured-env)
+;   OrI8 02                              mark payload as subtype 2 (closure)
+;   header  = Cons(payload|2, 1)         cdr is an untagged spare word
+;   OrI8 02                              tag the header pointer as an object
+; compile-app below undoes this layer for layer.
 (define (compile-lambda expr ctenv)
   (let ((params (cadr expr)) (body (cddr expr)) (p (fresh)))
     (set! pending-procs (cons (list p params body ctenv) pending-procs))
@@ -396,6 +470,19 @@
     (ins "(Call Cons)")
     (ins "(OrI8 EAX 02)")))
 
+; Application.  Evaluate the operator, park it on the machine stack, evaluate
+; the arguments left to right pushing each, then pop them off into a heap
+; list built back to front (so it comes out in order) in EDX.  Then take the
+; closure apart:
+;   SubI8 ESI 02   untag the object pointer
+;   MovRM  ESI     load the header's car (payload|subtype)
+;   AndI8  ESI F8  clear the subtype bits -> payload pair
+;   EDI = cdr      the captured environment (emit-prologue conses onto it)
+;   ESI = car      the code address
+; EAX carries the argument list into the callee.  Non-tail: save the caller's
+; EBP around a CALL.  Tail: JMP -- the stack is exactly as our own caller left
+; it, so tail calls consume no stack (this is what makes the compiler's own
+; recursive loops safe when it compiles itself).
 (define (compile-app expr ctenv tail?)
   (compile-expr (car expr) ctenv)
   (ins "(PushR EAX)")
@@ -429,18 +516,33 @@
              (build-arglist (- n 1)))))
 
 ; ---------------------------------------------------------------------------
-; Lambda-body (procedure) emission.
+; Lambda-body (procedure) emission.  A procedure entry receives its argument
+; list in EAX and its captured environment in EDI (set up by compile-app);
+; the prologue turns those into the new EBP environment, and the body is then
+; compiled in tail position against a compile-time env extended with the
+; parameter frame.
 ; ---------------------------------------------------------------------------
 (define (emit-proc p params body ctenv)
   (ins-dyn (lambda () (o-str "(Label (Proc ") (o-num p) (o-str "))")))
   (emit-prologue params)
   (compile-tail (cons 'begin body) (cons (param-names params) ctenv)))
 
+; EBP := (frame . captured-env), with the frame in EAX and EDI holding the
+; captured env.
 (define (bind-newenv)
   (ins "(MovRR ECX EDI)")
   (ins "(Call Cons)")
   (ins "(MovRR EBP EAX)"))
 
+; Prologue by parameter shape:
+;   (a b c)   the argument list IS the frame: just bind-newenv.
+;   r         wrap the whole argument list: frame = (arglist).
+;   (a b . r) walk ESI to the (k-1)th cell of the argument list, lift its
+;             cdr (the excess arguments) out, box it as a one-element tail
+;             (rest-list), and splice that back in, so the frame becomes
+;             (a1 .. ak rest-list) and r sits at index k.  This MUTATES the
+;             final cons of the caller-built argument list, which is fresh
+;             per call, so no sharing is violated.
 (define (emit-prologue params)
   (cond ((symbol? params)
          (ins "(MovRI ECX (Small 3))")
@@ -463,7 +565,10 @@
         (else (bind-newenv))))
 
 ; ---------------------------------------------------------------------------
-; Draining the worklists.
+; Draining the worklists.  pending-procs is drained LIFO -- and emit-proc may
+; push more (nested lambdas) which are then drained first; pending-data is
+; reversed so data appears in creation order.  Both orders are deterministic
+; functions of the source, part of the fixpoint contract.
 ; ---------------------------------------------------------------------------
 (define (drain-procs)
   (if (null? pending-procs)
@@ -478,6 +583,9 @@
 (define (drain-data2 lst)
   (if (null? lst) #f (begin ((car lst)) (drain-data2 (cdr lst)))))
 
+; InternStatics is called once at startup: it pushes every statically
+; emitted symbol onto the runtime's oblist (GObList) so run-time
+; string->symbol interns into the same identity space as compile time.
 (define (emit-internstatics)
   (ins "(Label InternStatics)")
   (emit-static-syms static-syms)
@@ -492,6 +600,7 @@
         (ins "(MovMemLR GObList EAX)")
         (emit-static-syms (cdr lst)))))
 
+; One zero-initialised 32-bit cell per user global, addressed as (GV name).
 (define (emit-globals lst)
   (if (null? lst)
       #f
@@ -502,7 +611,10 @@
         (emit-globals (cdr lst)))))
 
 ; ---------------------------------------------------------------------------
-; Top-level driver.
+; Top-level driver.  Reads forms from the rest of stdin with `rd` (from
+; sc1-reader.scm) and compiles each into the startup code path, one after
+; another; there is no separate "program" object, the top level IS the
+; program.
 ; ---------------------------------------------------------------------------
 (define (compile-toplevel-loop)
   (let ((form (rd)))
@@ -513,6 +625,15 @@
 (define (emit-n-parens n)
   (if (= n 0) #f (begin (o-str ")") (emit-n-parens (- n 1)))))
 
+; The output program's shape:
+;   (Assemble (Program Start <bss-size> <code chain> ))
+; (X8 1 0 0 0 0 0 0 0) is the bss size, 0x10000000 = 256 MiB, backing the
+; runtime's heaps.  Startup: init the heap, build the primitive closures,
+; intern the static symbols, set the empty environment (EBP = '() = 3), run
+; the compiled top level, then exit(0) via int 0x80 (EAX=1 is __NR_exit).
+; After the exit come the procedure bodies, the InternStatics routine, the
+; global cells, the static data, and finally the fixed runtime spliced in by
+; the (RuntimeCode (RuntimeData End)) macros of sc1-runtime.qf1.
 (define (main)
   (o-str "(Assemble (Program Start (X8 1 0 0 0 0 0 0 0) ")
   (ins "(Label Start)")
@@ -529,7 +650,7 @@
   (emit-globals user-globals)
   (drain-data)
   (o-str "(RuntimeCode (RuntimeData End))")
-  (emit-n-parens ins-count)
+  (emit-n-parens ins-count)             ; close every (Ins ... opened above
   (o-str "))")
   (newline)
   (exit 0))

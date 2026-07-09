@@ -1,10 +1,18 @@
-; asm.scm -- a native i386 assembler in the rsc dialect.
+; asm.scm -- a native i386 assembler in the rsc dialect (the ladder's escape
+; from the seed's assembly costs).
 ;
 ; Reads a qfasm program  (Assemble (Program entry bss code))  from stdin (the
 ; exact text rsc emits) and writes to stdout an ELF that is BYTE-IDENTICAL to
 ; what  [seed + qfasm.qf1 (+ rsc-runtime.qf1)]  produces.  This escapes the
 ; seed's rewrite-arena ceiling: assembly is O(program) memory with native
 ; arithmetic and a hash symbol table, two passes over the input.
+;
+; Trust framing: asm.elf is bootstrapped ONCE through the seed (this source
+; is small enough to stay under the seed's arena cliff), and the test suite
+; proves it byte-identical to the seed pipeline on every staged artifact plus
+; its own self-fixpoint (asm.elf reassembling asm.qfasm reproduces asm.elf).
+; So using it instead of the seed adds nothing to the trusted base -- it is
+; the same function, computed faster.
 ;
 ; The instruction encoding mirrors the qfasm assembler (bootstrap/qfasm.qf1,
 ; emitted by bootstrap/gen-qfasm.scm); the ELF header is its (ElfHeader ...)
@@ -45,7 +53,12 @@
 ;   cat PROG.qfasm | asm.elf              > PROG.elf      (bare programs)
 
 ; ===========================================================================
-; w32 constants for VBase-relative address arithmetic.
+; w32 constants for VBase-relative address arithmetic.  Dialect fixnums are
+; 30-bit tagged, so full 32-bit words (virtual addresses, immediates) live in
+; w32 boxes (the P1 runtime primitives w32-add/and/shl/...).  These boxes are
+; allocated in init!, BEFORE the reset floor, so they survive heap resets.
+; VBase = 0x08048058: the i386 ELF load address 0x08048000 plus the 0x58-byte
+; header, i.e. the virtual address of code offset 0.
 ; ===========================================================================
 (define w32-1 #f) (define w32-2 #f) (define w32-88 #f)
 (define w32-255 #f) (define w32-vbase #f)
@@ -76,10 +89,15 @@
 ; other token (label piece, hex/number operand) reads as a fresh byte-arena
 ; string.  Both are only ever used transiently, within one instruction.
 ; ===========================================================================
+; The point of pre-interning: string->symbol grows the runtime's oblist, so
+; interning label tokens while reading a 300k-instruction program would pin
+; unbounded storage above the reset floor.  With a fixed vocabulary hashed
+; here (open addressing, linear probing, never full at ~150/1024) the reader
+; allocates nothing persistent.
 (define VSZ 1024)
 (define vkeys (make-vector VSZ #f))
 (define vvals (make-vector VSZ #f))
-(define g-tok (make-string 512))
+(define g-tok (make-string 512))                ; current token's bytes (scratch)
 (define (str-hash s) (sh-loop s 0 (string-length s) 0))
 (define (sh-loop s i n acc)
   (if (= i n) acc
@@ -176,7 +194,10 @@
 (define (has-runtime?) (if (runtime-path) #t #f))
 
 ; ===========================================================================
-; Numbers and bytes.
+; Numbers and bytes.  qfasm writes numbers in hex: a bare atom like B8 is a
+; byte, (Small ff) a small word, (X8 d7 .. d0) a full 32-bit word as eight
+; big-endian nybbles (folded left through w32 shifts, so it can exceed the
+; fixnum range).
 ; ===========================================================================
 (define (hexdigit c)
   (cond ((and (>= c 48) (<= c 57)) (- c 48))
@@ -281,7 +302,11 @@
       (asm-error "asm: rel8 out of range")))
 
 ; ===========================================================================
-; Instruction accessors and sizes.
+; Instruction accessors and sizes.  insn-size is pass 1's whole job: label
+; offsets are the running sum of these sizes.  INVARIANT: each entry must
+; equal the number of bytes emit-instr writes for that mnemonic (and both
+; must match the Size rules in qfasm.qf1) -- one byte of disagreement would
+; shift every later label and break byte-identity with the seed pipeline.
 ; ===========================================================================
 (define (ihd x) (vector-ref x 0))
 (define (a1 x) (vector-ref x 1))
@@ -306,7 +331,17 @@
     (else (asm-error "asm: unknown instruction (size)"))))
 
 ; ===========================================================================
-; Encoding.
+; Encoding (Intel SDM vol. 2).  The ModRM byte is  mod<<6 | reg<<3 | rm:
+;   rm00  mod=00, memory operand [base], no displacement
+;   rm01  mod=01, memory operand [base+disp8]
+;   rm05  mod=00 rm=101, the special absolute-disp32 form [addr]
+;   +192  mod=11, register-direct (the m-* helpers below)
+; For opcodes that take no reg operand, that field carries an opcode
+; extension (`ext`) instead -- e.g. 0x83 /5 is SUB r/m32, imm8.  Numbers are
+; written in decimal because the dialect has no hex literals: 192 = 0xC0,
+; 184 = 0xB8 (MOV r32,imm32 is B8+reg), 15 = 0x0F (two-byte opcode escape).
+; Jump displacements are relative to the END of the instruction, hence
+; pc+2/pc+5/pc+6 for the three encodings.
 ; ===========================================================================
 (define (rm00 base reg) (+ (* 8 (reg-num reg)) (reg-num base)))
 (define (rm01 base reg) (+ 64 (* 8 (reg-num reg)) (reg-num base)))
@@ -319,6 +354,11 @@
 (define (j8 op x pc) (eb op) (emit-rel8 (- (hget (a1 x)) (+ pc 2))))
 (define (j32 op x pc) (eb op) (emit-w32 (w32-from-fixnum (- (hget (a1 x)) (+ pc 5)))))
 (define (jcc op x pc) (eb 15) (eb op) (emit-w32 (w32-from-fixnum (- (hget (a1 x)) (+ pc 6)))))
+; One case per mnemonic, ordered as in insn-size.  The label-flavored data
+; and immediate forms bake in the Scheme value tags: DConst / MovRIConst add
+; 1 to the address (a byte-payload pointer), DObj / MovRIObj add 2 (an
+; object pointer) -- these are how sc1/rsc's static strings, symbols and
+; closures get their tag bits at assembly time.
 (define (emit-instr x pc)
   (case (ihd x)
     ((Nop) (eb 144)) ((Ret) (eb 195)) ((Lodsb) (eb 172)) ((Stosb) (eb 170))
@@ -457,15 +497,22 @@
 (define (read-numtail h) (list->vector (cons h (reverse (read-elems '())))))
 
 ; ===========================================================================
-; ELF header (transliteration of (ElfHeader entryoff codesize bss)).
+; ELF header (transliteration of qfasm's (ElfHeader entryoff codesize bss)
+; rule): a 52-byte ELF32 ehdr + one 32-byte program header + 4 bytes of pad
+; = the 0x58 (88) byte image prefix.  The pad keeps file offsets congruent
+; to virtual addresses mod 8, so labels the runtime tags (Align8'd data)
+; stay tag-clean.  One RWX PT_LOAD maps the whole file at 0x08048000;
+; p_memsz = filesz + bss gives the runtime its zero heap space.
 ; ===========================================================================
 (define header-a (list 127 69 76 70 1 1 1 0 0 0 0 0 0 0 0 0  2 0 3 0 1 0 0 0))
-(define header-b (list 52 0 0 0 0 0 0 0 0 0 0 0))
-(define header-c (list 52 0 32 0 1 0 0 0 0 0 0 0))
-(define header-d (list 1 0 0 0 0 0 0 0))
-(define header-e (list 0 128 4 8 0 128 4 8))
-(define header-f (list 7 0 0 0 0 16 0 0))
-(define header-g (list 0 0 0 0))
+                                           ; \x7fELF, 32-bit LSB; ET_EXEC, EM_386, v1
+(define header-b (list 52 0 0 0 0 0 0 0 0 0 0 0))      ; e_phoff=52, no shdrs, no flags
+(define header-c (list 52 0 32 0 1 0 0 0 0 0 0 0))     ; ehsize=52 phentsize=32 phnum=1
+                                           ; (then PT_LOAD:)
+(define header-d (list 1 0 0 0 0 0 0 0))               ; p_type=LOAD, p_offset=0
+(define header-e (list 0 128 4 8 0 128 4 8))           ; vaddr=paddr=0x08048000
+(define header-f (list 7 0 0 0 0 16 0 0))              ; p_flags=RWX, p_align=0x1000
+(define header-g (list 0 0 0 0))                       ; pad to 0x58
 (define (emit-header)
   (emit-bytes header-a)
   (emit-w32 (vaddr (hget g-entry)))
@@ -476,7 +523,9 @@
   (emit-bytes header-f) (emit-bytes header-g))
 
 ; ===========================================================================
-; Driver.
+; Driver.  init-vocab! pre-interns every atom the two passes will ever
+; compare with eq?: the structural keywords, the registers, and the full
+; mnemonic set (one name per insn-size/emit-instr entry).
 ; ===========================================================================
 (define (init-vocab!)
   (for-each vocab-add!
@@ -497,6 +546,10 @@
           "Jmp32" "Call"
           "AddI32" "AndI32" "SubI32" "CmpI32" "MovRMemL" "MovMemLR"
           "Jz32" "Jnz32" "Jb32" "Jae32" "Jbe32" "Ja32" "Jl32" "Jge32" "Jle32" "Jg32")))
+; All persistent allocation happens HERE, before main takes the floor mark;
+; everything after this point only mutates these objects.  0x08048058 is
+; assembled from two halves (2052 = 0x0804, 32856 = 0x8058) because dialect
+; source has no hex literals and decimal literals must stay small.
 (define (init!)
   (set! w32-1 (w32-from-fixnum 1))
   (set! w32-2 (w32-from-fixnum 2))
@@ -511,6 +564,10 @@
   (set! t-klen (make-vector TSZ 0))
   (set! t-val (make-vector TSZ 0))
   (set! keybuf (make-string KEYBUF-CAP)))
+; The floor sits 64 bytes above the mark so the mark's own w32 box (and the
+; floor box itself) are below it and survive every reset.  Note the pass-2
+; re-floor: g-out is allocated AFTER pass 1, so the floor must move above it
+; or the first batch reset would free the output buffer.
 (define (main)
   (init!)
   (set! read-floor (w32-add (host-heap-mark) (w32-from-fixnum 64)))
@@ -522,7 +579,7 @@
   (parse-header!) (walk-spine)
   (set! g-codesize g-pc)
   (host-heap-reset! read-floor)
-  ; pass2
+  ; pass2: emit header + code into g-out, then write it out in one syscall
   (set! g-out (make-string (+ 88 g-codesize))) (set! g-out-pos 0)
   (parse-header!)                          ; re-read entry/bss
   (emit-header)

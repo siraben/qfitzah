@@ -386,6 +386,11 @@ proc assq                       # look up an item %eax in a dictionary %ecx
         ## (Gallygoogle ()) matches the same patterns (Gallygoogle x)
         ## would.
 
+        ## Structural equality, used by match when a pattern variable
+        ## occurs twice: the second occurrence must match a term equal
+        ## to the first binding.  Atoms are interned, so eq (the first
+        ## cmp) settles them; only pairs recurse -- on the cars, with a
+        ## tail jump for the cdrs.  Like match, reports via ZF.
 proc equal
         cmp %ecx, %eax
         je 1f
@@ -408,7 +413,11 @@ proc equal
 1:      ret
 
 proc match
-        ## Case for pattern being an unadorned var:
+        ## Case for pattern being an unadorned var: bind it -- unless
+        ## this var is already bound in env, in which case the term
+        ## must be `equal` to the previous binding (this is what makes
+        ## (Eq x x) match only equal arguments, per the examples in
+        ## the header).
         jnvar %cl, 2f           # If the pattern is a var,
         push %edx               # check for an existing binding first
         push %eax
@@ -603,11 +612,14 @@ proc ap
         ## instantiated template.
 1:      mov %eax, %ecx          # template is subst’s second argument
         pop %eax                # load saved rules
-        car %eax
-        cdr %eax
+        car %eax                # (car rules) is the matched rule,
+        cdr %eax                # its cdr the template
         pop %edx                # discard saved input t
         do subst
-        jmp ev
+        jmp ev                  # re-evaluate the instantiated template
+                                # (rewriting is call-by-value with
+                                # re-evaluation), through the memoizing
+                                # ev so the rewritten term is cached too
 
         subst_here
 
@@ -669,6 +681,12 @@ input_buffer:
         .balign 8   # atoms need to be 8-byte aligned to free tag bits
         ## Each entry is 16 bytes: string pointer, length, rule
         ## bucket, and one spare word.
+        ## An atom VALUE is a tagged pointer to its entry: entry|1 for
+        ## a constant, entry|2 for a variable (see read_constant and
+        ## read_var).  Interning makes structural equality of atoms a
+        ## single pointer compare, and gives every constant atom a home
+        ## for its rule bucket at entry+8 (see ev_core and add_rule) --
+        ## the head-indexed rule dispatch hangs off this table.
 atoms:  .fill 16*65536
         my inptr, input_buffer
         my lineptr, input_buffer
@@ -691,22 +709,38 @@ outbuf: .fill 4*1024*1024
 init
         mov $outbuf, %edi
 
+        ## ============================================================
+        ## THE TOP LEVEL.  The interpreter's outermost loop reads stdin
+        ## one byte at a time into input_buffer, watching just enough
+        ## syntax to find the end of a "logical record": a newline at
+        ## paren depth zero, outside a `;` comment (see the grammar
+        ## comment before handle_line).  The record is NUL-terminated in
+        ## place and handed to handle_line, which parses it and either
+        ## defines a rule (two S-expressions, or a (Rule ...) form) or
+        ## evaluates an expression and prints the normal form.
+        ##
+        ## input_buffer is append-only and never reclaimed: interned
+        ## atoms keep pointing at their first occurrence's bytes for the
+        ## life of the process, so parsing never copies a string.  This
+        ## is the whole I/O story of the trusted root -- everything else
+        ## in the ladder arrives as text through this loop.
+        ## ============================================================
 init
 repl:
 read_more:
-        sys3 $__NR_read, $0, inptr, $1
+        sys3 $__NR_read, $0, inptr, $1  # read 1 byte at *inptr
         test %eax, %eax         # EOF on input?
         jz eof
         mov inptr-globals(%ebp), %esi
         mov (%esi), %al
-        lea 1(%esi), %esi
+        lea 1(%esi), %esi       # advance inptr past the byte just read
         mov %esi, inptr-globals(%ebp)
         cmpl $0, in_comment-globals(%ebp)
-        je 1f
-        cmp $'\n, %al
+        je 1f                   # inside a ; comment,
+        cmp $'\n, %al           # only a newline is interesting:
         jne read_more
-        movl $0, in_comment-globals(%ebp)
-        jmp 2f
+        movl $0, in_comment-globals(%ebp) # it ends the comment
+        jmp 2f                  # (and may end the record too)
 1:      cmp $';, %al
         jne 1f
         movl $1, in_comment-globals(%ebp)
@@ -719,17 +753,19 @@ read_more:
         jne 2f
         decl paren_depth-globals(%ebp)
         jmp read_more
-2:      cmp $'\n, %al
+2:      cmp $'\n, %al           # a record ends only at a newline
         jne read_more
-        cmpl $0, paren_depth-globals(%ebp)
+        cmpl $0, paren_depth-globals(%ebp) # ... at depth 0
         jne read_more
         movb $0, -1(%esi)       # logical-record terminator
         mov lineptr-globals(%ebp), %esi # parse the complete line
         do handle_line
         do flush
-        mov inptr-globals(%ebp), %esi
-        mov %esi, lineptr-globals(%ebp)
+        mov inptr-globals(%ebp), %esi   # next record starts where this
+        mov %esi, lineptr-globals(%ebp) # one ended
         jmp repl
+        ## At EOF, a final record without a trailing newline still
+        ## counts (if it is balanced); then exit 0.
 eof:    mov inptr-globals(%ebp), %esi
         cmp lineptr-globals(%ebp), %esi
         je quit
@@ -740,6 +776,15 @@ eof:    mov inptr-globals(%ebp), %esi
         do handle_line
         do flush
 quit:   sys1 $__NR_exit, $0
+
+        ## ============================================================
+        ## PRINTING.  print writes a term into outbuf (via %edi and
+        ## stosb, per the register plan above) in the same surface
+        ## syntax the reader accepts: pairs as parenthesized lists,
+        ## atoms and vars by copying their interned name bytes straight
+        ## out of input_buffer.  flush then writes outbuf to stdout in
+        ## one syscall and rewinds %edi.
+        ## ============================================================
 
         ## XXX this needs a lot of attention for reducing code space
 proc print
@@ -787,54 +832,65 @@ proc flush                      # Send output buffer to actual stdout
         pop %edi                # reset output pointer
         ret
 
+        ## ============================================================
+        ## BINARY OUTPUT.  A term that normalizes to (Bytes b0 b1 ...)
+        ## is not printed as text: its tail is emitted as raw bytes,
+        ## each bi being a two-hex-digit atom like B8 or 0A, and nested
+        ## (Bytes ...) terms splicing in flat.  This one convention is
+        ## how the whole ladder gets binaries out of a term rewriter:
+        ## qfasm's (Assemble ...) rules normalize an assembly program to
+        ## a (Bytes ...) term of an entire ELF executable, and the seed
+        ## writes it to stdout verbatim.
+        ## ============================================================
+
 proc is_bytes                   # Does %eax contain (Bytes ...)? ZF says yes.
-        jnpair %al, 2f
+        jnpair %al, 2f          # must be a pair,
         car %eax
-        jpair %al, 2f
-        cmp $1, %eax
+        jpair %al, 2f           # whose head is an atom
+        cmp $1, %eax            # (and not nil, which has no table entry)
         je 2f
-        and $~3, %eax
-        cmpl $5, 4(%eax)
+        and $~3, %eax           # strip tag -> atom-table entry
+        cmpl $5, 4(%eax)        # print-name length 5?
         jne 2f
-        mov (%eax), %eax
-        cmpl $0x65747942, (%eax) # "Byte"
+        mov (%eax), %eax        # print-name bytes:
+        cmpl $0x65747942, (%eax) # "Byte" (little-endian)
         jne 2f
-        cmpb $'s, 4(%eax)
+        cmpb $'s, 4(%eax)       # + "s"; this cmp's ZF is the result
         ret
-2:      or $1, %al
+2:      or $1, %al              # clear ZF: not (Bytes ...)
         ret
 
 proc emit_bytes                 # Emit a list of hex atoms or nested (Bytes ...).
-        jnpair %al, 1f
+        jnpair %al, 1f          # end of list: done
         push %eax
         car %eax
         push %eax
-        call is_bytes
+        call is_bytes           # nested (Bytes ...)?
         pop %eax
         jne 2f
-        cdr %eax
+        cdr %eax                # yes: recurse over its tail (flattening)
         call emit_bytes
         jmp 3f
 2:
-        call emit_byte
+        call emit_byte          # no: a single hex-pair atom
 3:
         pop %eax
-        cdr %eax
+        cdr %eax                # loop down the list
         jmp emit_bytes
 1:      ret
 
 proc emit_byte                  # Emit the byte named by an atom like B8 or 0A.
         push %esi
-        and $~3, %eax
-        mov (%eax), %esi
+        and $~3, %eax           # atom-table entry
+        mov (%eax), %esi        # -> its print-name bytes
         lodsb
-        call nybble
+        call nybble             # high nybble from first hex digit,
         shl $4, %al
         mov %al, %bl
         lodsb
-        call nybble
+        call nybble             # low nybble from the second,
         or %bl, %al
-        stosb
+        stosb                   # combined byte into outbuf
         pop %esi
         ret
 
@@ -865,6 +921,15 @@ proc nybble                     # Convert ASCII hex digit in %al to a nybble.
 
         ## Here’s a crude parser.  Input pointer in %esi points
         ## into NUL-terminated input string.
+        ## handle_line dispatches one logical record (%esi -> its
+        ## NUL-terminated text):
+        ##   pattern template   two S-expressions: define a rewrite rule
+        ##   (Rule pat tmpl)    one S-expression of this shape: same
+        ##                      (being a single paren group, this form
+        ##                      may span lines, unlike the bare pair)
+        ##   expr               anything else: normalize with ev, then
+        ##                      print -- or, if the normal form is
+        ##                      (Bytes ...), emit raw bytes.
 proc handle_line
         cld        # XXX not really necessary since DF is always clear
         do read_factor
@@ -878,21 +943,21 @@ proc handle_line
         jnz 1f
         pop %eax
         push %eax
-        call try_rule_directive
+        call try_rule_directive # (Rule pat tmpl)?  if so, rule added;
         pop %eax
         jne 4f
         ret
 4:
-        do ev
+        do ev                   # otherwise evaluate to normal form
         push %eax
         call is_bytes
         pop %eax
         jne 2f
-        cdr %eax
+        cdr %eax                # (Bytes ...): emit the tail as raw bytes
         call emit_bytes
         ret
 2:
-        do print
+        do print                # anything else: print, newline
         mov $'\n, %al
         stosb
         ret
@@ -901,40 +966,44 @@ proc handle_line
         jnz parse_error
         ## XXX ignoring the possibility of more than two things on the line
         xchg %ecx, %eax
-        do cons
+        do cons                 # rule = (pattern . template)
         jmp add_rule
 
+        ## Recognize (Rule pattern template) the same way is_bytes
+        ## recognizes its head: pair, head a non-nil atom, print name
+        ## exactly "Rule".  If it matches, cons (pattern . template)
+        ## and add it just as a two-expression line would.
 proc try_rule_directive          # Add (Rule pattern template); ZF says success.
         jnpair %al, 2f
         push %eax
         car %eax
-        jpair %al, 1f
-        cmp $1, %eax
+        jpair %al, 1f            # head must be an atom,
+        cmp $1, %eax             # not nil,
         je 1f
-        and $~3, %eax
-        cmpl $4, 4(%eax)
+        and $~3, %eax            # (strip tag -> atom-table entry)
+        cmpl $4, 4(%eax)         # with print-name length 4
         jne 1f
         mov (%eax), %eax
-        cmpl $0x656c7552, (%eax) # "Rule"
+        cmpl $0x656c7552, (%eax) # "Rule" (little-endian)
         jne 1f
         pop %eax
-        cdr %eax
+        cdr %eax                 # down to (pattern template)
         jnpair %al, 2f
         push %eax
         car %eax
         xchg %eax, %edx          # pattern
         pop %eax
-        cdr %eax
+        cdr %eax                 # down to (template)
         jnpair %al, 2f
         car %eax                 # template
         xchg %eax, %ecx
         xchg %eax, %edx
-        do cons
+        do cons                  # (pattern . template)
         call add_rule
-        cmp %eax, %eax
+        cmp %eax, %eax           # set ZF: it was a Rule directive
         ret
 1:      pop %eax
-2:      or $1, %al
+2:      or $1, %al               # clear ZF: not one; caller evaluates
         ret
 
 proc add_rule
