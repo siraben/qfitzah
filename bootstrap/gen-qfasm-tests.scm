@@ -1,22 +1,51 @@
-; gen-qfasm-tests.scm -- dialect (rsc) generator, emitting the committed artifact from a single spec.
-; Reproduces CPython's Mersenne Twister
-; (MT19937) and the independent i386 byte model so the committed
-; tests/cases/qfasm-{exit42,arith,big} fixtures are byte-identical.
+; gen-qfasm-tests.scm --- emit the qfasm differential-test fixtures.
 ;
-; Multi-file generator: selects one artifact by argv:
+; A dev-time generator in the rsc dialect for the committed
+; tests/cases/qfasm-{exit42,arith,big} fixtures.  It replaced the retired
+; tools/generate_qfasm_tests.py; its outputs stay byte-identical to the
+; committed files (which are frozen; only this generator may be edited
+; for readability).
+;
+; The fixtures are DIFFERENTIAL tests: each pairs a generated .qfasm
+; source with the bytes an INDEPENDENT i386/ELF byte model says it must
+; assemble to (.hex = expected hexdump of the binary; .status = expected
+; exit code when it runs).  So qfasm.qf1 -- and asm.elf, which must
+; byte-match it -- is checked against a second implementation of the
+; encoding, never against itself.  `big` is a pseudo-random 80-block
+; program touching every instruction family, label kind and alignment
+; directive; `arith` feeds 80 Add32/Sub32 terms straight to the
+; nybble-arithmetic rules; `exit42` is the minimal end-to-end binary.
+;
+; The randomness reproduces CPython's `random` module EXACTLY -- MT19937
+; plus the derived _randbelow/choice/sample/randrange -- because the
+; retired Python generator drew from random.seed(7)/seed(42) and the
+; committed fixtures are frozen; hence the faithful transcription below.
+;
+; One artifact per run, selected by argv[1]:
 ;   exit42-qfasm exit42-hex exit42-status
 ;   arith-qfasm  arith-out
 ;   big-qfasm    big-hex    big-status
-; (see tools/regen.sh / the gen-verify gate).
+;
+; Regenerate:  tools/regen.sh gen qfasm-tests <which> > tests/cases/qfasm-...
+;              (`make regen` refreshes all eight)
+; Verify:      make regen-verify
+;              -> "all committed generated artifacts reproduced byte-identically"
 
+; All 32-bit quantities are w32 boxed words (dialect fixnums stop at
+; 2^30); w32-hex builds one from four byte values.
 (define (k n) (w32-from-fixnum n))
 (define (w32-hex b3 b2 b1 b0)
   (w32-or (w32-or (w32-shl (k b3) 24) (w32-shl (k b2) 16))
           (w32-or (w32-shl (k b1) 8) (k b0))))
 
 ; ---------------------------------------------------------------------------
-; MT19937.
+; MT19937, transcribed from the reference mt19937ar.c as CPython embeds it
+; (Modules/_randommodule.c).
 ; ---------------------------------------------------------------------------
+; State: the 624-word vector MT plus the output index mti (625 means
+; "not yet generated").  Every step is wrapping 32-bit arithmetic, hence
+; the w32 ops throughout.  The named constants below are the reference
+; code's magic numbers, spelled out as byte quadruples.
 (define N 624)
 (define MT (make-vector 624 #f))
 (define mti 625)
@@ -34,6 +63,7 @@
 (define TMASKC       (w32-hex 239 198 0 0))      ; 0xEFC60000
 (define W0           (k 0))
 
+; init_genrand: MT[i] = 1812433253 * (MT[i-1] ^ (MT[i-1] >> 30)) + i.
 (define (init-genrand s)
   (begin (mt-set! 0 s) (ig-loop 1) (set! mti 624)))
 (define (ig-loop i)
@@ -43,7 +73,11 @@
           (mt-set! i (w32-add (w32-mul C1812433253 (w32-xor p (w32-shr p 30))) (k i))))
         (ig-loop (+ i 1)))))
 
-; init_by_array with a single-word key (seed(7)/seed(42) both do this).
+; init_by_array with a single-word key: CPython's random.seed(n) for small
+; n calls init_by_array([n]), so this is exactly what seed(7)/seed(42)
+; ran.  iba1/iba2 are the two mixing loops of the reference code, index
+; wrap-around (i >= 624 -> MT[0] = MT[623]; i = 1) handled inline; the
+; loop counts are max(624, keylen)=624 and 623.  Finally MT[0] = 0x80000000.
 (define (init-by-array key0)
   (begin
     (init-genrand C19650218)
@@ -71,6 +105,10 @@
             (let ((i3 (if (>= i2 624) (begin (mt-set! 0 (mt-ref 623)) 1) i2)))
               (iba2 i3 (- kk 1))))))))
 
+; The twist regenerates all 624 words: y = (top bit of MT[kk], low 31 of
+; MT[kk+1]); MT[kk] = MT[kk+397] ^ (y >> 1) ^ (y odd ? 0x9908B0DF : 0).
+; twist-a covers kk < 227 (kk+397 still in range), twist-b the wrapped
+; middle, and `generate` finishes with the kk = 623 wrap by hand.
 (define (mag y) (if (= (w32->fixnum (w32-and y (k 1))) 1) MAG1 W0))
 (define (twist-at kk kk2)
   (let ((y (w32-or (w32-and (mt-ref kk) UPPER) (w32-and (mt-ref (+ kk 1)) LOWER))))
@@ -85,6 +123,8 @@
       (mt-set! 623 (w32-xor (w32-xor (mt-ref 396) (w32-shr y 1)) (mag y))))
     (set! mti 0)))
 
+; genrand_uint32: twist when the block is spent, then temper the next
+; word with the standard shift/mask cascade (11, <<7 & B, <<15 & C, 18).
 (define (genrand)
   (begin
     (if (>= mti 624) (generate) #f)
@@ -99,13 +139,17 @@
 
 (define (seed! n) (init-by-array (k n)))
 
-; getrandbits(32) -> w32 ; getrandbits-fix(k<=30) -> fixnum
+; getrandbits(32) -> w32 ; getrandbits-fix(k<=30) -> fixnum.  Like
+; CPython, getrandbits(k) keeps the TOP k bits of a fresh 32-bit word.
 (define (getrandbits32) (genrand))
 (define (getrandbits-fix nb) (w32->fixnum (w32-shr (genrand) (- 32 nb))))
 
 ; ---------------------------------------------------------------------------
-; number formatting.
+; Number formatting: qfasm's two numeral spellings.
 ; ---------------------------------------------------------------------------
+; (X8 ...) big-endian, for human-facing immediates in the .qfasm sources;
+; (N ...)  little-endian nybble list, the assembler's working form, used
+;          by the arith fixtures that feed Add32/Sub32 directly.
 (define HEXU "0123456789ABCDEF")
 (define (nibU w sh) (string (string-ref HEXU (w32->fixnum (w32-and (w32-shr w sh) (k 15))))))
 (define (x8-str w)
@@ -117,8 +161,11 @@
 (define (pl s) (begin (display s) (newline)))
 
 ; ---------------------------------------------------------------------------
-; arith fixtures.
+; arith fixtures: 40 random pairs from seed(7).
 ; ---------------------------------------------------------------------------
+; The .qfasm asks qfasm to reduce (Add32 a b) and (Sub32 a b) for each
+; pair; the .out is this model's answer in the same (N ...) spelling.
+; Tests the ripple-carry fact tables head-on, no ELF or labels involved.
 (define (arith-loop n emit)
   (if (= n 0) #f
       (let ((a (getrandbits32)))
@@ -140,6 +187,11 @@
 ; ---------------------------------------------------------------------------
 ; _randbelow / choice / sample / randrange (CPython algorithms).
 ; ---------------------------------------------------------------------------
+; These must match CPython's call-for-call, since every call advances the
+; shared MT19937 stream: _randbelow(n) is rejection sampling on
+; bit_length(n) bits; choice(seq) = seq[_randbelow(len)]; randrange(a,b) =
+; a + _randbelow(b-a); sample(pop, 2) uses the selection-pool branch
+; (copy the population, move the tail element into each chosen slot).
 (define (bitlen n) (if (= n 0) 0 (+ 1 (bitlen (quotient n 2)))))
 (define (randbelow n)
   (let ((kb (bitlen n)))
@@ -165,6 +217,11 @@
 ; ---------------------------------------------------------------------------
 ; Registers and byte helpers.
 ; ---------------------------------------------------------------------------
+; GP omits ESP/EBP (the random program never clobbers the stack pointer,
+; and EBP is no valid mod=00 base); BASE01 readmits EBP, which IS a valid
+; [base+disp8] base.  Mirrors the Python generator's pools exactly --
+; the pool CONTENTS and ORDER feed choice(), so they are part of the
+; frozen random stream.
 (define (rg name num) (cons name num))
 (define (rn r) (cdr r))
 (define (rnm r) (car r))
@@ -183,10 +240,22 @@
 (define VBASEW (w32-hex 8 4 128 88))   ; 0x08048058
 
 ; ---------------------------------------------------------------------------
-; Item model.  Each item is a tagged list; passes resolve labels + bytes.
-;   (lbl key) (al4) (al8) (fix src size bytelist)
-;   (rel8 src op key) (rel32 src prefix key adj) (abs32 src prefix key plus)
+; Item model: the independent byte model of an assembled program.
 ; ---------------------------------------------------------------------------
+; A fixture program is a list of tagged items, each carrying its qfasm
+; source text `src` alongside its own idea of the encoding:
+;   (lbl key)                   define label `key` at the current pc
+;   (al4) (al8)                 zero-pad the pc to a multiple of 4 / 8
+;   (fix src size bytes)        fully known encoding, bytes precomputed
+;   (rel8 src opcode key)       short jump: opcode, (key - (pc+2)) mod 256
+;   (rel32 src prefix key adj)  near jump/call: prefix ++ LE32(key-(pc+adj))
+;   (abs32 src prefix key plus) absolute ref: prefix ++ LE32(VBASE+key+plus)
+; Labels resolve in the classic two passes: pass1 sizes every item to map
+; label -> pc, pass2 emits bytes against the finished map (so forward
+; references work).  This MIRRORS qfasm's Pass1/Pass2 but shares no code
+; with it -- that independence is what makes the .hex comparison a test.
+; Label keys are strings holding qfasm TERMS, e.g. "(B 7)": the fixtures
+; deliberately exercise qfasm's term-structured symbol keys.
 (define items-rev '())
 (define (emit-item! it) (set! items-rev (cons it items-rev)))
 (define (it-lbl key) (emit-item! (list 'lbl key)))
@@ -251,7 +320,11 @@
         (begin (item-bytes! it pc labels)
           (pass2 (cdr items) (+ pc (item-size it pc)) labels)))))
 
-; ELF header bytes for entryoff=0, given code length and bss.
+; ELF header bytes for entryoff=0, given code length and bss.  Must match
+; qfasm's (ElfHeader ...) rule byte for byte: ELF32 + one RWE LOAD
+; program header, 0x58 bytes total (padded so file offset == vaddr mod 8),
+; e_entry = VBASE since Entry is the first label, p_filesz = 0x58 + code,
+; p_memsz = p_filesz + bss.
 (define (elf-header codelen bss)
   (append
     (list 127 69 76 70 1 1 1 0 0 0 0 0 0 0 0 0
@@ -264,7 +337,8 @@
     (le4 (k (+ (+ 88 codelen) bss)))   ; p_memsz
     (list 7 0 0 0 0 16 0 0 0 0 0 0)))
 
-; hexdump: 16 bytes/line, lowercase, space-separated, newline per line.
+; hexdump: the .hex fixture format the test harness compares against:
+; 16 bytes/line, lowercase, space-separated, newline per line.
 (define (hexdump-line bs) ; bs a list of up to 16 bytes
   (pl (hd-join bs)))
 (define (hd-join bs)
@@ -279,7 +353,9 @@
 (define (tk l n) (if (or (= n 0) (null? l)) '() (cons (car l) (tk (cdr l) (- n 1)))))
 (define (dp l n) (if (or (= n 0) (null? l)) l (dp (cdr l) (- n 1))))
 
-; Emit the qfasm source for the current items list, given bss w32.
+; Emit the .qfasm source for an items list, given bss as a w32: one
+; (Ins <src>) per line, all the closing parens batched after End --
+; the exact layout the Python generator printed.
 (define (emit-src items bssw)
   (begin
     (pl (string-append "(Assemble (Program Entry " (x8-str bssw)))
@@ -290,6 +366,9 @@
 ; ---------------------------------------------------------------------------
 ; exit42 fixture.
 ; ---------------------------------------------------------------------------
+; The smallest end-to-end binary: mov eax,1 (sys_exit); a short jump over
+; a junk byte -- one label, one rel8, one raw Db; mov ebx,42; int 0x80.
+; Exit status 42 proves the binary actually ran.
 (define (build-exit42)
   (begin
     (set! items-rev '())
@@ -310,8 +389,12 @@
         (append (elf-header (length code) bss) code)))))
 
 ; ---------------------------------------------------------------------------
-; big fixture.
+; big fixture: 80 pseudo-random blocks from seed(42), ~2.9k instructions.
 ; ---------------------------------------------------------------------------
+; Opcode tables for the random program: (mnemonic . number), where the
+; number is whatever the byte model needs -- the /digit opcode extension
+; (OP8/SHs/UNs/I32s), the full opcode byte (RRs, SJs) or the 0F-prefixed
+; condition byte (CCs).  Table order feeds choice(), so it is frozen.
 (define OP8 (list (rg "AddI8" 0) (rg "OrI8" 1) (rg "AndI8" 4) (rg "SubI8" 5) (rg "XorI8" 6) (rg "CmpI8" 7)))
 (define SHs (list (rg "ShlI8" 4) (rg "ShrI8" 5) (rg "SarI8" 7)))
 (define UNs (list (rg "NotR" 2) (rg "NegR" 3)))
@@ -323,6 +406,13 @@
 (define (bkey n) (string-append "(B " (number->string n) ")"))
 (define (dkey n) (string-append "(D " (number->string n) ")"))
 
+; One block: every instruction family with random registers, immediates
+; and displacements; four absolute data references into the (D n) table;
+; a random-condition short jump over a junk byte (both rel8 signs occur
+; across blocks); a 32-bit conditional jump to a RANDOM block (long
+; forward and backward displacements) plus a call into the (Fn n) pool;
+; and alignment directives on every 3rd/7th block.  Emission order is
+; load-bearing: it replays the Python generator's random draws.
 (define (big-block k)
   (let* ((s2 (sample2 GP)) (r1 (car s2)) (r2 (cdr s2))
          (imm (getrandbits32)))
@@ -375,6 +465,9 @@
           (if (= (remainder k 7) 0) (it-al8) #f))))))
 
 (define (big-blocks k) (if (= k 80) #f (begin (big-block k) (big-blocks (+ k 1)))))
+; Seven trivial nop/ret functions as Call targets, then 80 data records:
+; a random (Dd ...), DLabel/DConst back-references into the code (label
+; address and address+1), and a DNil terminator each.
 (define (big-fns f) (if (= f 7) #f (begin (it-lbl (string-append "(Fn " (number->string f) ")")) (it-fix "(Nop)" (list 144)) (it-fix "(Ret)" (list 195)) (big-fns (+ f 1)))))
 (define (big-data k)
   (if (= k 80) #f
@@ -400,13 +493,16 @@
     (it-fix (string-append "(MovRI EAX " (x8-str (k 1)) ")") (list 184 1 0 0 0))
     (it-fix (string-append "(MovRI EBX " (x8-str (k 42)) ")") (list 187 42 0 0 0))
     (it-fix "(Int 80)" (list 205 128))
-    ; items.insert(0, Entry label); items.insert(1, Jmp32 Done)
+    ; The Entry label and the initial jump to the exit(42) tail are
+    ; PREPENDED after everything else is built -- replaying the Python's
+    ; items.insert(0, ...) / insert(1, ...) so item order (and therefore
+    ; every pc) is identical.
     (let ((mainlist (reverse items-rev)))
       (cons (list 'lbl "Entry")
         (cons (list 'rel32 "(Jmp32 Done)" (list 233) "Done" 5) mainlist)))))
 
 ; ---------------------------------------------------------------------------
-; dispatch.
+; Dispatch: argv[1] selects the artifact (see the header).
 ; ---------------------------------------------------------------------------
 (define (arg1)
   (let ((a (command-line))) (if (and (pair? a) (pair? (cdr a))) (cadr a) #f)))
