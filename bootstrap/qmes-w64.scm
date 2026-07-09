@@ -9,9 +9,15 @@
 ;
 ; The w64 op layer is PURE SCHEME over the existing w32 primitives; a 64-bit
 ; value in flight is carried as two separate w32 boxes (hi lo), and helpers
-; that must yield both words return a host pair  (cons hi lo).  Target
+; that must yield both words return a host pair  (cons hi lo).  Those boxes
+; and pairs are transient host values, reclaimed by the next safepoint reset
+; — none is ever stored in a global; only raw words reach the arena.  Target
 ; semantics = amd64 C `long` as M2-Planet compiles src/math.c: wrap mod 2^64,
-; arithmetic right shift for signed, shift counts masked & 63.
+; arithmetic right shift for signed, shift counts masked & 63 (amd64 SHL/SAR
+; mask their count — the 64-bit analogue of qmes.scm's mod-32 masking).
+;
+; Design rationale, and why hi rides in the (previously zero) car word so the
+; collector is provably untouched: docs/qmes.md §8.
 ; ===========================================================================
 
 ; --- w32 constants ---------------------------------------------------------
@@ -92,12 +98,17 @@
         ((w32-eq? ahi bhi) (w32-ult? alo blo))
         (else #f)))
 (define (w64-slt? ahi alo bhi blo)           ; signed <
+  ; the standard two-word signed compare: hi signed, lo unsigned.
   (cond ((w32-lt? ahi bhi) #t)
         ((w32-eq? ahi bhi) (w32-ult? alo blo))
         (else #f)))
 (define (w64-zero? hi lo) (and (w32-eq? hi w64-k0) (w32-eq? lo w64-k0)))
 
 ; --- unsigned divmod -> (cons (qhi . qlo) (rhi . rlo)) ----------------------
+; Three cases, chosen by what the MesCC corpus actually divides by: (a) small
+; divisors (radix printing, hex2 immediates) get 4-limb long division; (b)
+; exactly 2^32 (hex2:immediate8's modulo #x100000000) is a word move; (c) the
+; general case — corpus-rare — pays the 64-iteration shift-subtract.
 ; case (a) small divisor d (0 < d < 2^16): long division over 4 16-bit limbs.
 (define (udm-small nhi nlo d)
   (let ((h1 (w32-shr nhi 16)) (h0 (w32-and nhi w64-kFFFF))
@@ -138,7 +149,9 @@
 (define (w64-urem  nhi nlo dhi dlo) (cdr (w64-udivmod nhi nlo dhi dlo)))
 
 ; ===========================================================================
-; The 13 math.c builtins, widened (mirrors the 32-bit transliteration).
+; The 13 math.c builtins, widened.  Each mirrors its 32-bit counterpart in
+; qmes.scm line for line (same fold shapes, same C-quirk seams — see the
+; "Arithmetic (math.c)" section there); only the value width changes.
 ; ===========================================================================
 (define (b-plus x) (plus-loop x w64-k0 w64-k0))
 (define (plus-loop x ahi alo)
