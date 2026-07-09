@@ -1,10 +1,32 @@
-; gen-qfasm.scm -- dialect (rsc) generator for bootstrap/qfasm.qf1 (the seed-hosted assembler).
-; Emits bootstrap/qfasm.qf1 (the seed-hosted i386 assembler), BYTE-IDENTICAL to
-; the Python.  Build/run with tools/regen.sh (see that script).
+; gen-qfasm.scm --- emit bootstrap/qfasm.qf1, the seed-hosted i386 assembler.
+;
+; A dev-time generator in the rsc dialect: it prints the whole Stage-1
+; assembler as one flat list of seed rewrite rules.  It replaced the retired
+; tools/generate_qfasm.py, and its output stays byte-identical to the
+; committed artifact (the artifact is frozen; only this generator may be
+; edited for readability).
+;
+; Why a generator at all: the seed evaluator has no arithmetic and its atoms
+; are opaque -- qfasm cannot compute "5 + 7" or synthesize the atom "C0" at
+; run time.  Every fact it needs (nybble sums with carry, complements,
+; nybble-pair -> byte atom, all the ModRM encodings, every instruction's
+; size) must exist as a precomputed rewrite rule.  Enumerating thousands of
+; such rules by hand is hopeless, and the two places that must agree on an
+; instruction -- its Size rule and its Pass2 byte template -- would drift.
+; Here everything derives from the one INSTRUCTIONS table below, so the
+; layout pass and the emission pass cannot disagree.
+;
+; Regenerate:  tools/regen.sh gen qfasm > bootstrap/qfasm.qf1
+;              (or `make regen`, which does all artifacts)
+; Verify:      make regen-verify
+;              -> "all committed generated artifacts reproduced byte-identically"
 
 ; ---------------------------------------------------------------------------
 ; Output helpers.
 ; ---------------------------------------------------------------------------
+; One seed rule per line: "PATTERN TEMPLATE".  `section` prints a comment
+; banner into the ARTIFACT itself (the seed reader skips `;` lines); the
+; comments in this file, by contrast, are never emitted.
 (define (pl s) (begin (display s) (newline)))
 (define (rule pat tmpl) (pl (string-append pat " " tmpl)))
 (define (section title) (begin (pl "") (pl (string-append "; " title))))
@@ -24,6 +46,12 @@
 ; ---------------------------------------------------------------------------
 ; Fact tables.
 ; ---------------------------------------------------------------------------
+; The seed's "ALU" as pure lookup: each table maps every possible input
+; combination to its result atom.  (AD c a b) is a 2x16x16 single-nybble
+; adder; (HB hi lo) fuses two nybble atoms into the two-character byte atom
+; "hilo" that ends up verbatim in the hex output; the RM* families are the
+; i386 ModRM byte for each mod/reg/rm combination that qfasm's instruction
+; set actually uses.
 (define (for-range lo hi f)   ; f over lo..hi inclusive
   (if (> lo hi) #f (begin (f lo) (for-range (+ lo 1) hi f))))
 
@@ -123,6 +151,14 @@
 ; ---------------------------------------------------------------------------
 ; 32-bit arithmetic over nybble lists.
 ; ---------------------------------------------------------------------------
+; Numbers are little-endian nybble lists (N d0 ... d7), d0 the low nybble;
+; (X8 ...) is the human-friendly big-endian spelling.  (Add32 a b) unfolds
+; into a ripple-carry chain (A1 ...) -> (A2 ...) -> ... -> (A8 ...): step
+; (Ai ...) carries the i-1 finished sum digits, one unresolved (AD c ai bi)
+; whose (P sum carry) result the next step splits, and the remaining digit
+; pairs.  Subtraction is two's complement via the (ND d) table.  The string
+; helpers below spell out the variable runs ("a3 b3 a4 b4 ...") used inside
+; those rule patterns.
 (define (pairs-from i)      ; " a{i} b{i} ... a7 b7"
   (if (> i 7) "" (string-append " a" (ns i) " b" (ns i) (pairs-from (+ i 1)))))
 (define (sums-help j hi)    ; "s{j} ... s{hi} " ascending, each with trailing space
@@ -160,6 +196,9 @@
         "(Bytes (HB d1 d0) (HB d3 d2) (HB d5 d4) (HB d7 d6))")
   (rule "(LowByte (N d0 d1 d2 d3 d4 d5 d6 d7))" "(HB d1 d0)")
 
+  ; A rel8 must fit in [-128,127]: the pattern demands upper nybbles all-0
+  ; (positive; R8P then insists d1 <= 7) or all-F (negative; R8N insists
+  ; d1 >= 8).  Anything else matches no rule and Assemble jams visibly.
   (section "Checked rel8: in-range offsets only, else the term stays stuck.")
   (rule "(Rel8 (N d0 d1 0 0 0 0 0 0))" "(R8Ck (R8P d1) (HB d1 d0))")
   (rule "(Rel8 (N d0 d1 F F F F F F))" "(R8Ck (R8N d1) (HB d1 d0))")
@@ -178,6 +217,16 @@
 ; ---------------------------------------------------------------------------
 ; Instruction spec: (head size body).  head already includes its parens/args.
 ; ---------------------------------------------------------------------------
+; The single source of truth.  For each instruction:
+;   head  its source form, operand variables included, e.g. "(MovRR d s)";
+;   size  its encoded length in bytes (what Pass1 adds to the pc);
+;   body  the byte template Pass2 emits: literal hex atoms plus calls into
+;         the encoder tables above ((RM11 s d), (LEB x), ...) and symbol
+;         table lookups for label operands.
+; Both the Size rules and the Pass2 rules are generated from the same entry,
+; so a declared size can never disagree with the bytes actually emitted.
+; Jumps live in separate tables because they share one body shape (opcode +
+; displacement computed from the label) and differ only in the opcode.
 (define (mk h s b) (list h s b))
 (define (ins-head x) (car x))
 (define (ins-size x) (cadr x))
@@ -246,13 +295,26 @@
         (cons "Jle32" "8E") (cons "Jg32" "8F")))
 
 ; ---------------------------------------------------------------------------
-; Rule-emitting passes.
+; The assembler proper: symbol table, layout, emission, ELF wrapper.
 ; ---------------------------------------------------------------------------
+; Classic two-pass assembly over the same (Ins ... (Ins ... End)) chain:
+; Pass1 folds (Size instr) into a running pc and Binds each (Label name) to
+; it; Pass2 re-walks the chain with the finished table, so forward
+; references cost nothing.  Symbol-table keys are arbitrary TERMS compared
+; by the seed's repeated-variable match -- which is why scoped labels like
+; (Label (Local Foo 1)) work with no extra machinery.
 (define (build-rest)
   (section "Symbol table: keys are arbitrary terms, matched structurally.")
+  ; The generic skip rule is emitted BEFORE the exact-match rule: the seed
+  ; prefers the newest rule, so "(Bind name ...)" with the name repeated
+  ; wins over the skip whenever the head binding matches.
   (rule "(Lookup name (Bind other pc rest))" "(Lookup name rest)")
   (rule "(Lookup name (Bind name pc rest))" "pc")
 
+  ; The load address is 0x08048000 + 0x58: the ELF+program headers occupy
+  ; 0x54 bytes but are PADDED to 0x58 so that file offset == vaddr (mod 8).
+  ; Labels whose addresses get tag bits or'd in (scheme0's prim entries)
+  ; rely on that congruence together with (Align8).
   (section "Virtual addresses and ELF layout arithmetic.")
   (rule "(VBase)" "(X8 0 8 0 4 8 0 5 8)")
   (rule "(VAddr off)" "(Add32 (VBase) off)")
@@ -282,6 +344,10 @@
   (rule "(CodeSize (Ins (Align4) rest) pc)" "(CodeSize rest (Add32 pc (Pad4 pc)))")
   (rule "(CodeSize (Ins (Align8) rest) pc)" "(CodeSize rest (Add32 pc (Pad8 pc)))")
 
+  ; Pass2 threads pc and the symbol table through the chain, emitting each
+  ; instruction's byte template.  Jump displacements are label - (pc +
+  ; size); short jumps go through the range-checked (Rel8 ...) so an
+  ; out-of-range Jcc leaves a visibly stuck term instead of bad bytes.
   (section "Emission pass.")
   (rule "(Pass2 End pc sym)" "(Bytes)")
   (rule "(Pass2 (Ins (Label name) rest) pc sym)" "(Pass2 rest pc sym)")
@@ -314,10 +380,14 @@
               " (LEB (Sub32 (Lookup l sym) (Add32 pc (Small 6)))) (Pass2 rest (Add32 pc (Small 6)) sym))")))
     LONG-CC)
 
+  ; The fixed ELF32 header + one program header, all literal except the
+  ; entry vaddr, p_filesz and p_memsz (= filesz + requested bss).
   (section "ELF emission: one RWE LOAD segment, optional extra bss memory.")
   (rule "(ElfHeader entryoff codesize bss)"
         "(Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (LEB (VAddr entryoff)) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (LEB (FileSz codesize)) (LEB (Add32 (FileSz codesize) bss)) 07 00 00 00 00 10 00 00 00 00 00 00)")
 
+  ; (Assemble (Program entry [bss] code)): Asm2 captures the Pass1 symbol
+  ; table and the total code size once, then emits header and body.
   (section "Top level.")
   (rule "(Assemble (Program entry code))" "(Assemble (Program entry (Small 0) code))")
   (rule "(Assemble (Program entry bss code))"
@@ -325,6 +395,7 @@
   (rule "(Asm2 entry bss code sym size)"
         "(Bytes (ElfHeader (Lookup entry sym) size bss) (Pass2 code (Small 0) sym))"))
 
+; Artifact header, then the three rule groups in their historical order.
 (define (main)
   (begin
     (pl "; General Qfitzah-hosted i386 assembler (Stage 1).")
