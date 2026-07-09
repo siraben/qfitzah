@@ -1,5 +1,5 @@
 #!/bin/sh
-# gen-boot-cuts.sh — generate truncated boot-5 "cut" files (FD §5.5).
+# gen-boot-cuts.sh — generate truncated boot-5 "cut" files (docs/qmes.md).
 #
 # Each cut is boot-5.scm truncated after loading a prefix of the module chain,
 # then a marker print + (exit 42).  Running mes (reference or qmes) with
@@ -13,7 +13,7 @@
 # module.mes includes resolve relative to that.  Copies are also kept in
 # build/boot-cuts/ for the sha256 manifest.
 #
-# Rungs (FD §5.5 gate table, mapped to boot-5.scm cut lines):
+# Rungs (the boot-cut gate table, mapped to boot-5.scm cut lines):
 #   B0  boot prelude (boot-00..03 head, no type-0)
 #   B1  + type-0.mes
 #   B2  + module.mes

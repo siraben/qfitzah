@@ -361,7 +361,7 @@ for rsc_case in $RSC_CASES; do
   run_rsc_case "$rsc_case"
 done
 
-## P1 Part B: syscalls + argv/env. Unlike run_rsc_case this drives the
+## runtime syscall/argv gate: syscalls + argv/env. Unlike run_rsc_case this drives the
 ## compiled program with a known env var, argv, and datafile so the
 ## transcript is deterministic (argv[0] is a temp path and is never printed).
 run_qmes_syscall() {
@@ -396,7 +396,7 @@ run_qmes_syscall() {
 
 run_qmes_syscall
 
-## P1 Part C gate: host-heap reclamation. A 50-million-iteration trampoline
+## host-heap reclamation gate. A 50-million-iteration trampoline
 ## soak that must complete in constant memory (it would OOM/SIGSEGV if the
 ## arena reset did not reclaim). Dedicated runner for a generous run timeout.
 run_qmes_soak() {
@@ -429,14 +429,14 @@ run_qmes_soak() {
 
 run_qmes_soak
 
-## P2 milestone gate: the qmes interpreter boot ladder.  Compile bootstrap/
+## qmes boot ladder gate: the qmes interpreter boot ladder.  Compile bootstrap/
 ## qmes.scm with rsc, assemble it under the seed, then run each of Mes's
 ## scaffold boot files 00-zero..14-exit under MES_BOOT and compare the exit
-## status of every one against the committed reference (tests/mes-reference-
+## status of every one against the committed reference (tests/references/
 ## bootstatus.txt, produced by bin/mes-m2).  A single divergence fails.
 # asm.elf: rsc compiles bootstrap/asm.scm; the seed assembles it once (~39k
 # instrs, under the seed's arena ceiling).  Built once, reused by the qmes boot
-# ladder and asm-validate.  qmes itself has outgrown the seed ceiling (S1's
+# ladder and asm-validate.  qmes itself has outgrown the seed ceiling (the Mes
 # fidelity refit pushed it well past ~66k qfasm instrs), so qmes.elf is
 # assembled by asm.elf, not the seed.
 asm_elf=""
@@ -490,7 +490,7 @@ run_qmes_boot_ladder() {
     set -e
     printf '%s -> %s\n' "$t" "$st" >> "$actual"
   done
-  if ! diff -u "$repo_root/tests/mes-reference-bootstatus.txt" "$actual" >&2; then
+  if ! diff -u "$repo_root/tests/references/bootstatus.txt" "$actual" >&2; then
     printf 'FAIL qmes-boot-ladder: exit statuses diverge from mes-m2 reference\n' >&2
     exit 1
   fi
@@ -499,7 +499,7 @@ run_qmes_boot_ladder() {
 
 run_qmes_boot_ladder
 
-## S2 gate: garbage collection.  Re-run the whole 00-3a boot ladder with
+## GC stress gate: garbage collection.  Re-run the whole 00-3a boot ladder with
 ## MES_GC_STRESS=1 (a full collection forced at every gc-check) and require the
 ## exit statuses to still match the mes-m2 reference byte-for-byte -- the
 ## strongest signal that the GC root set is complete (a missing root or stale
@@ -534,7 +534,7 @@ run_qmes_gc_stress() {
     set -e
     printf '%s -> %s\n' "$t" "$st" >> "$actual"
   done
-  if ! diff -u "$repo_root/tests/mes-reference-bootstatus.txt" "$actual" >&2; then
+  if ! diff -u "$repo_root/tests/references/bootstatus.txt" "$actual" >&2; then
     printf 'FAIL qmes-gc-stress: statuses under forced GC diverge (root-set bug)\n' >&2
     exit 1
   fi
@@ -552,7 +552,7 @@ run_qmes_gc_stress() {
       exit 1
     fi
   done
-  # S3 gate: capture a continuation, force collections (MES_GC_STRESS=1), then
+  # call/cc GC gate: capture a continuation, force collections (MES_GC_STRESS=1), then
   # invoke it -- the saved stack is a GC-traced TVECTOR, so a stale root or a
   # mis-relocated snapshot corrupts the resumed value under forced GC.  Require
   # qmes byte-exact against the mes-m2 reference (differential-first).
@@ -587,14 +587,14 @@ CCEOF
 
 run_qmes_gc_stress
 
-## S5 gate: MesCC.  Run GNU Mes's MesCC (-S) over scaffold/hello.c under the
+## MesCC hello gate.  Run GNU Mes's MesCC (-S) over scaffold/hello.c under the
 ## just-built qmes.elf and require the emitted assembly to be byte-identical to
 ## the committed mes-m2 reference (sha256).  Exercises the whole reader + module
 ## system + nyacc C99 parser + MesCC codegen + file-output path end to end.
 run_qmes_mescc_hello() {
   local elf ref want got
   elf=$scheme0_dir/qmes.elf                 # built by run_qmes_boot_ladder
-  ref=$repo_root/tests/mescc-references/hello.s.sha256
+  ref=$repo_root/tests/references/mescc/hello.s.sha256
   # The -o path is emitted verbatim as a string label, so it MUST match the
   # reference's ("build/mescc/hello.s", relative to repo_root).
   local out=$repo_root/build/mescc/hello.s

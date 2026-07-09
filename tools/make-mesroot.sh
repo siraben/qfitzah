@@ -1,5 +1,5 @@
 #!/bin/sh
-# make-mesroot.sh — synthesize the merged Mes module root (FD §5.4).
+# make-mesroot.sh — synthesize the merged Mes module root (docs/qmes.md).
 #
 # GNU Mes computes %datadir = $MES_PREFIX/mes and %moduledir = %datadir/module/
 # (mes.c open_boot + boot-5.scm:139).  The *installed* layout overlays two
@@ -41,7 +41,7 @@ overlay() {
   done
 }
 
-# nyacc (S5): the vendored nyacc submodule supplies the full C99 parser stack
+# vendored nyacc: the nyacc submodule supplies the full C99 parser stack
 # (nyacc/lang/c99/parser.scm, cpp.scm, version.scm, util.scm, ...) that MesCC's
 # preprocess.scm imports.  Mes's own tree ships only two nyacc files
 # (nyacc/compat18.scm and nyacc/lang/c99/pprint.scm — a Mes-customised pretty

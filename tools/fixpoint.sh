@@ -1,5 +1,5 @@
 #!/bin/sh
-# fixpoint.sh — S6 end-to-end: the working MesCC src/*.c fixpoint on i386.
+# fixpoint.sh — end-to-end: the working MesCC src/*.c fixpoint on i386.
 #
 #   F1  path-independent MesCC assembly: mescc -S over all 20 mes_SOURCES under
 #       BOTH ./qmes.elf and bin/mes-m2, byte-compared per unit.
@@ -15,8 +15,8 @@ set -eu
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 sc="$repo/build/fixpoint"
-refhash="$repo/tests/mescc-references/fixpoint/f1.sha256"
-binhash="$repo/tests/mescc-references/fixpoint/mes-mescc.sha256"
+refhash="$repo/tests/references/mescc/fixpoint/f1.sha256"
+binhash="$repo/tests/references/mescc/fixpoint/mes-mescc.sha256"
 JOBS=${JOBS-16}
 
 if ! command -v M1 >/dev/null 2>&1 || ! command -v hex2 >/dev/null 2>&1; then
@@ -70,5 +70,5 @@ bash "$repo/tools/mescc-fixpoint.sh" compile "$repo/bin/mes-mescc.qmes" "$sc/f3"
     || { echo "F3 FAILED: sweep on mes-mescc.qmes diverged from F1" >&2; exit 1; }
 
 echo "============================================================================"
-echo "S6 FIXPOINT ACHIEVED (i386): F1 20/20  |  F2 byte-identical binary  |  F3 20/20"
+echo "FIXPOINT (i386): F1 20/20  |  F2 byte-identical binary  |  F3 20/20"
 echo "No C compiler anywhere in this artifact's ancestry."

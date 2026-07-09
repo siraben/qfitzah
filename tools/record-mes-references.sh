@@ -1,8 +1,8 @@
 #!/bin/sh
 # record-mes-references.sh — capture reference behavior of bin/mes-m2 from the
-# merged root (FD §5.4/§5.5, roadmap S0), for offline differential gates.
+# merged Mes module root, for offline differential gates.
 #
-# Records, under tests/mes-references/:
+# Records, under tests/references/boot-gates/:
 #   help.out       mes --help          (usage banner)
 #   version.out    mes --version
 #   c-arith.out    mes -c '(display (+ 1 2))'
@@ -11,8 +11,8 @@
 #   B0.out B1.out B2.out   the boot-5 cut gates (MES_BOOT=<cut>)
 # plus <name>.status files holding each exit status.
 #
-# Then writes a sha256 manifest tests/mes-references.sha256 so later stages can
-# diff qmes output against these bytes without re-running the reference.
+# Then writes a sha256 manifest tests/references/boot-gates.sha256 so later
+# gates can diff qmes output against these bytes without re-running the reference.
 #
 # Usage: tools/record-mes-references.sh   (runs make-mesroot + gen-boot-cuts)
 set -eu
@@ -24,10 +24,10 @@ tools/make-mesroot.sh >/dev/null 2>&1
 tools/gen-boot-cuts.sh >/dev/null 2>&1
 
 mes=bin/mes-m2
-out=tests/mes-references
+out=tests/references/boot-gates
 rm -rf "$out"; mkdir -p "$out"
 
-# deterministic environment (roadmap standing rules / determinism scrub).
+# deterministic environment (the standing determinism scrub).
 run() {
   MES_PREFIX="$repo_root/build/mesroot" \
   MES_ARENA=20000000 MES_MAX_ARENA=20000000 MES_STACK=5000000 \
@@ -61,5 +61,5 @@ for g in B0 B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 B11; do
   echo "$st" > "$out/$g.status"
 done
 
-( cd "$out" && sha256sum ./*.out ./*.err ./*.status ) > tests/mes-references.sha256
-echo "[record-mes-references] wrote $out and tests/mes-references.sha256" >&2
+( cd "$out" && sha256sum ./*.out ./*.err ./*.status ) > tests/references/boot-gates.sha256
+echo "[record-mes-references] wrote $out and tests/references/boot-gates.sha256" >&2
