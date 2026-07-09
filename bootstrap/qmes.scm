@@ -16,6 +16,26 @@
 ;   it only reclaims rsc-level calling-convention garbage, never arena cells —
 ;   the two never interfere because the GC runs synchronously inside a single
 ;   VM dispatch and stores no host value into a qmes global.
+;
+; Section map (each banner below also cites its Mes C reference):
+;   cell type tags ................. include/mes/constants.h
+;   cell arena / value model ....... gc.c (alloc, make_cell), mes.h struct scm
+;   byte pool / strings ............ gc.c (make_bytes), string.c
+;   fixed cells / interning ........ symbol.c (init_symbols_), hash.c (obarray)
+;   vectors / structs / TREF ....... vector.c, struct.c
+;   variables / hash tables ........ variable.c, hash.c
+;   modules ........................ module.c
+;   builtin structs and ids ........ builtins.c
+;   reader ......................... reader.c
+;   VM registers / stack / call/cc . eval-apply.c, gc.c (frames), stack.c
+;   garbage collector .............. gc.c
+;   leaf helpers / expand_variable . eval-apply.c
+;   eq? / printer .................. core.c, lib.c, display.c
+;   arithmetic ..................... math.c
+;   ports .......................... posix.c
+;   builtin dispatch ............... eval-apply.c (apply_builtin)
+;   VM states (st-*) ............... eval-apply.c (eval_apply)
+;   startup ........................ mes.c (main, open_boot, mes_environment)
 
 ; ===========================================================================
 ; Cell type tags (include/mes/constants.h)
@@ -204,7 +224,13 @@
 
 ; ===========================================================================
 ; Fixed cells and symbols (transliteration of init_symbols_, symbol.c:45)
-; qmes need not reproduce Mes's numeric indices — only identities matter.
+; qmes need not reproduce Mes's numeric indices — only identities matter
+; (docs/qmes.md §7; nothing in the boot chain observes an index number).
+; The defines below are global slots filled by init-cells at startup; the
+; cells they name occupy the low arena indices [0, g-symbol-max).  The GC
+; copies that fixed region FIRST, in index order, so every one of these
+; globals stays numerically valid across collections without patching
+; (see "Garbage collection" below).
 ; ===========================================================================
 (define cell-nil 0)
 (define cell-f 0)
@@ -451,18 +477,29 @@
 
 ; ===========================================================================
 ; Vectors / structs / TREF (vector.c, struct.c)
+; A TVECTOR/TSTRUCT is a header cell [type | length | body-index] whose body
+; is `length` CONTIGUOUS cells allocated right after the header.  Body slots
+; hold entries by VALUE: a char/number is copied whole into the slot, any
+; other value is boxed behind a TREF so the slot stays a well-formed cell.
+; Reads undo this: a TREF is dereferenced, and a char/number is copied OUT
+; fresh, so a vector slot never aliases a caller's number cell.  The GC
+; copies header + body inline (gc-copy below), exactly as gc_copy does.
 ; ===========================================================================
+; vector_entry (vector.c:81): the by-value/boxed store decision.
 (define (vector-entry x)
   (let ((ty (cell-type x)))
     (if (or (= ty TCHAR) (= ty TNUMBER)) x (make-ref x))))
 
-(define (unwrap-entry e)                       ; ref/char/number unwrap on ref
+; vector_ref_'s unwrap half (vector.c:60-73): deref TREF, copy out char/number.
+; `e` is the body-slot CELL INDEX (header+1+i), not a wrapped value.
+(define (unwrap-entry e)
   (let ((ty (cell-type e)))
     (cond ((= ty TREF) (cell-car e))
           ((= ty TCHAR) (make-char (char-value e)))
           ((= ty TNUMBER) (copy-num e))
           (else e))))
 
+; make_vector_ (vector.c:25): header cell + k body cells, each filled from e.
 (define (make-vector- k e)
   (let ((x (alloc-n 1)) (v (alloc-n k)))
     (set-type! x TVECTOR)
@@ -486,6 +523,12 @@
   (if (= x cell-nil) 'ok
       (begin (vector-set-x- v i (cell-car x)) (l2v-loop v (+ i 1) (cell-cdr x)))))
 
+; make_struct (struct.c:25): a struct is a TSTRUCT-headed vector whose body is
+; [type, printer, field...] — hence size = 2 + field count, and every
+; struct-ref offset in this file is 2 more than the record field number.
+; The boot chain hardcodes these offsets (variable value at 3, hash size/
+; buckets at 3/4, module obarray at 3 — docs/qmes.md §7), so the two-slot
+; header prefix is part of the fidelity contract.
 (define (make-struct type fields printer)
   (let* ((size (+ 2 (length- fields)))
          (x (alloc-n 1))
@@ -655,7 +698,13 @@
           (hr-scan key b (cell-cdr b)))))
 
 ; ===========================================================================
-; Modules (module.c) — M1 = cell-f path (module system unbooted)
+; Modules (module.c).  Until scm.mes boots the module system, M1 = cell-f and
+; every global lives in M0, a hashq table symbol -> variable
+; (make_initial_module, module.c:26).  Once booted, M1 is a module struct and
+; lookup goes through its eval-closure; the two standard closures are
+; recognised by symbol and run as fast paths (module.c:103,111) instead of a
+; full VM apply.  Struct field offsets: OBARRAY 3, USES 4, EVAL_CLOSURE 6
+; (include/mes/constants.h:54-57).
 ; ===========================================================================
 (define (make-initial-module a)
   (let ((m (make-hash-table- 100)))
@@ -752,7 +801,13 @@
   (if (= qmes-debug-err 0) 'ok (emit-str g-stderr ";;; qmes-qfail\n"))
   (exit 1))    ; unreachable on the milestone forms
 
-; Builtin ids
+; --- Builtin ids -------------------------------------------------------------
+; The C builtin struct stores the C function's ADDRESS in field 5
+; (builtins.c:43, builtin_function :66); rsc has no function pointers, so
+; qmes stores a small integer id there instead and apply-builtin (below)
+; dispatches on it.  The numbers are arbitrary but frozen; the gaps are ids
+; retired during bring-up.  They are grouped by the boot-ladder tranche that
+; first needed them.  Arity -1 means "n args" (the C's ((arity . n))).
 (define ID-CONS 1)
 (define ID-CAR 2)
 (define ID-CDR 3)
@@ -877,7 +932,15 @@
 (define ID-SET-CURRENT-OUTPUT-PORT 144) ; posix.c set-current-output-port
 
 ; ===========================================================================
-; Initialisation
+; Initialisation.
+; init-cells transliterates init_symbols_ (symbol.c:45): the fixed TSPECIAL
+; cells and the pre-interned symbols, in allocation order — this order is what
+; freezes the fixed-region indices [0, g-symbol-max).  (The C runs
+; init_symbols_ twice because its obarray does not exist on the first pass;
+; qmes interns in one pass, which is unobservable — docs/qmes.md §1.)
+; init-builtins transliterates mes_environment (mes.c:46) + mes_builtins
+; (builtins.c:116), accumulating the (name . value) alist env-alist from
+; which qmain builds M0.
 ; ===========================================================================
 (define (init-cells)
   (set! cell-nil (special-rsc "()"))
@@ -1447,6 +1510,12 @@
   (set! r1 (stack-ref (+ stkp 2)))
   (set! r0 (stack-ref (+ stkp 3)))
   (set! stkp (+ stkp 5)))
+; push_cc (eval-apply.c:206): suspend the current state into a subcomputation.
+; The frame captures the caller's R0/R1 together with the NEW r2 (saved datum
+; p2) and NEW r3 (continuation state c); execution then proceeds with r1=p1,
+; r0=a and the caller's old r3 restored.  When the frame pops (st-vm-return),
+; vm-dispatch runs state c with r2=p2 back in place — this register dance is
+; the C's, verbatim, and every st-* state below relies on its exact shape.
 (define (push-cc! p1 p2 a c)
   (let ((x r3))
     (set! r3 c)
@@ -1525,14 +1594,25 @@
 (define (b-values x) (alloc TVALUES 0 x))
 
 ; ===========================================================================
-; Closures / bindings / macros (eval-apply.c, gc.c)
+; Closures / bindings / macros (eval-apply.c:151-204, gc.c:265)
 ; ===========================================================================
+; make_closure_ (eval-apply.c:160):
+;   [TCLOSURE | #f | ((*circular* . captured-env) formals . body)].
+; The captured env rides behind the *circular* marker (which lets the printer
+; cut the env cycle); st-apply-closure unpacks exactly this shape.
 (define (make-closure- args body a)
   (alloc TCLOSURE cell-f
          (qcons (qcons cell-circular a) (qcons args body))))
+; make_binding_ (eval-apply.c:166): [TBINDING | handle | lexical-p] — the
+; result of a variable lookup.  lexical-p=1: handle is the (name . value)
+; pair straight from the R0 alist; lexical-p=0: handle is (name . variable),
+; the variable being a module-level struct (variable.c).  expand-variable
+; plants these cells into program text; st-eval-binding derefs them.
 (define (make-binding- handle lexical-p) (alloc TBINDING handle lexical-p))
 (define (binding-handle b) (cell-car b))
 (define (binding-lexical-p b) (cell-cdr b))
+; make_macro (gc.c:265): [TMACRO | expander-closure | name-bytes]; the name's
+; TBYTES cell rides in the cdr purely for error/debug printing.
 (define (make-macro name x) (alloc TMACRO x (strlike-bytes name)))
 (define (macro-get-handle name)
   (if (= (cell-type name) TSYMBOL) (hashq-get-handle g-macros-table name) cell-f))
@@ -1764,7 +1844,12 @@
 
 ; ===========================================================================
 ; Leaf helpers (pairlis, append2, check-formals, check-apply, lookup, set!)
+; Pure functions over the arena, called from st-* states between dispatches;
+; per the tail-call rule (docs/qmes.md §2.2) none of them may enter the VM.
 ; ===========================================================================
+; pairlis (eval-apply.c:97): bind formals to args on top of alist a.  A
+; symbol tail (dotted or bare) binds the remaining argument LIST — this one
+; clause implements rest arguments.
 (define (pairlis x y a)
   (cond ((= x cell-nil) a)
         ((not (= (cell-type x) TPAIR)) (qcons (qcons x y) a))
@@ -1774,6 +1859,9 @@
 (define (append2 x y)
   (if (= x cell-nil) y (qcons (cell-car x) (append2 (cell-cdr x) y))))
 
+; check_formals (eval-apply.c:36): arity check before application.  formals
+; is a list (closure) or a TNUMBER (builtin arity); -1 on either side means
+; variadic and disables the check.
 (define (check-formals f formals args)
   (let ((flen (if (= (cell-type formals) TNUMBER)
                   (num-fixnum formals) (length- formals)))
@@ -1782,6 +1870,8 @@
         (qerror-args f)
         cell-unspec)))
 
+; check_apply (eval-apply.c:60): reject values that can never be applied
+; (booleans, nil, chars, numbers, strings, broken hearts, *unspecified*).
 (define (check-apply f e)
   (let ((bad
          (cond ((or (= f cell-f) (= f cell-t)) #t)
@@ -1793,6 +1883,12 @@
                            (= t TBROKEN-HEART)))))))
     (if bad (qerror-type e) cell-unspec)))
 
+; lookup_binding (eval-apply.c:219): the two-level environment (docs/qmes.md
+; §6).  The lexical alist in R0 wins (-> lexical TBINDING over its handle);
+; otherwise the current module supplies a variable (-> global TBINDING).
+; define-p (a Mes boolean) asks the module layer to CREATE a still-undefined
+; variable when the name is unbound — the forward-reference mechanism used by
+; eval_define and expand_variable.
 (define (lookup-binding name define-p)
   (let ((handle (qassq name r0)))
     (if (not (= handle cell-f))
@@ -1801,6 +1897,8 @@
           (if (= var cell-f) cell-f
               (make-binding- (qcons name var) 0))))))
 
+; lookup_value (eval-apply.c:233): lookup + deref (lexical -> handle cdr;
+; global -> variable-ref); cell-undefined when unbound.
 (define (lookup-value name)
   (let ((b (lookup-binding name cell-f)))
     (if (not (= b cell-f))
@@ -1812,6 +1910,12 @@
 (define (assert-defined x e)
   (if (= e cell-undefined) (qerror-unbound x) e))
 
+; set_x (eval-apply.c:125): store through a binding (x may already be a
+; TBINDING — expand-variable rewrites set! targets in place).  define-p=1
+; (called from eval_define) may store into a variable that is still
+; *undefined*; define-p=0 (plain set!) on one is an unbound-variable error.
+; The variable indirection is what makes a global set! visible to every
+; closure whose lookup went through the same M0 variable (docs/qmes.md §6).
 (define (set-x x e define-p)
   (let ((binding (if (= (cell-type x) TBINDING) x (lookup-binding x cell-f))))
     (if (= binding cell-f)
@@ -1824,10 +1928,17 @@
                   (begin (variable-set-x variable e) cell-unspec)))))))
 
 ; ===========================================================================
-; expand_variable (eval-apply.c:247-379, §3.6) — rewrite free symbols in place
-; into TBINDING cells (creating M0 variables for still-undefined names).
-; Runs as a leaf over the r1/r2/r3 globals, bracketed by push/pop-frame.
+; expand_variable (eval-apply.c:247-379) — rewrite free symbol occurrences in
+; a form IN PLACE into TBINDING cells (creating still-undefined M0 variables
+; for unbound names — the forward-reference mechanism), so later evaluation
+; skips the lookup.  It rides the r1/r2/r3 register globals with an explicit
+; worklist, bracketed by push/pop-frame (the C brackets with gc_push_frame:
+; C locals are not GC roots, so the registers must carry all live SCMs).
+; Register roles here: r1 = the form being walked, r2 = the formals set (names
+; that must NOT be rewritten), r3 = worklist of (subform . formals) pairs.
 ; ===========================================================================
+; add_formals (eval-apply.c:247): collect the symbols of a formals list
+; (including a dotted/bare rest symbol) onto `formals`.
 (define (add-formals formals x)
   (cond ((= (cell-type x) TPAIR)
          (add-formals (qcons (cell-car x) formals) (cell-cdr x)))
@@ -1839,6 +1950,11 @@
          (if (= (cell-car formals) x) 1 (formal-p x (cell-cdr formals))))
         (else 0)))
 
+; First loop of expand_variable_ (eval-apply.c:288-305): pre-scan the body's
+; sibling forms for (define …)/(define-macro …) heads and add THOSE names to
+; the formals set r2 — so mutually recursive local defines refer to each
+; other lexically instead of being rewritten into module bindings.  A quote
+; head aborts the scan (the C's `break`).
 (define (ev-loop1 v)
   (if (= (cell-type v) TPAIR)
       (let ((a (cell-car v)))
@@ -1854,6 +1970,14 @@
                   'ok)
               (ev-loop1 (cell-cdr v)))))
       'done))
+; Second loop of expand_variable_ (eval-apply.c:307-354), the expansion walk:
+;   - a PAIR element is deferred: (subform . current-formals) onto worklist r3;
+;   - a lambda/define head extends the formals set with its formals and skips
+;     them (top-p distinguishes (define (f . args) …) — only args are formals);
+;   - a quote head returns, leaving the quoted tail untouched;
+;   - a free TSYMBOL (not a formal, not current-environment) is rewritten IN
+;     PLACE via set-car! into a TBINDING — found, or force-created with
+;     define-p = #t so the cell stays valid if the name is defined later.
 (define (ev-loop2 top-p)
   (if (not (= (cell-type r1) TPAIR))
       'done
@@ -1890,6 +2014,8 @@
 (define (expand-variable- top-p)
   (ev-loop1 r1)
   (ev-loop2 top-p))
+; The worklist drain (eval-apply.c:368-374): each deferred subform is walked
+; with the formals set that was in force where it appeared.
 (define (ev-worklist)
   (if (= (cell-type r3) TPAIR)
       (begin
