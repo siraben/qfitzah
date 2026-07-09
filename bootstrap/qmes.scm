@@ -1,22 +1,21 @@
-; qmes.scm — a Mes-core-compatible Scheme interpreter in the rsc dialect.
+; qmes.scm — a full GNU Mes interpreter written in the rsc dialect.
 ;
-; Milestone P3a: a faithful-in-structure transliteration of GNU Mes's C core
-; (third_party/mes/src/*.c).  P2 ran scaffold/boot 00-14 with a recursive
-; evaluator; P3a (this file) grows the cell model (E1), the struct/vector/hash/
-; variable substrate (E2), and replaces the recursive evaluator with Mes's
-; explicit-stack VM (E3-E6) to run scaffold/boot 15-37.  See
-; docs/qmes-vm-design.md and docs/qmes-design.md.
+; A faithful-in-structure transliteration of GNU Mes's C core
+; (third_party/mes/src/*.c): it runs Mes's own boot chain to (top-main) and
+; runs MesCC (Mes's C compiler) unmodified, reaching the src/*.c
+; self-recompilation fixpoint and compiling a self-hosting TinyCC — with no C
+; and no Python beneath it.  See docs/qmes.md for the full design.
 ;
-; Representation (per docs/qmes-design.md):
+; Representation (docs/qmes.md):
 ;   A Mes value ("SCM") is an rsc FIXNUM = an index into the cell arena.
 ;   The cell arena is one rsc VECTOR `g-cells` of 3*NCELLS raw 32-bit words,
 ;   accessed with vec-raw-ref / vec-raw-set!.  Cell i occupies words 3i (type),
 ;   3i+1 (car), 3i+2 (cdr).  Allocation is a bump counter `cell-free`; when the
-;   arena fills, the S2 copy-up-slide-back collector (see "Garbage collection"
+;   arena fills, the copy-up-slide-back collector (see "Garbage collection"
 ;   below) compacts g-cells + the byte pool.  host-heap-reset! is orthogonal:
-;   it only reclaims rsc-level calling-convention garbage, never arena cells
-;   (§2.4) — the two never interfere because the GC runs synchronously inside a
-;   single VM dispatch and stores no host value into a qmes global.
+;   it only reclaims rsc-level calling-convention garbage, never arena cells —
+;   the two never interfere because the GC runs synchronously inside a single
+;   VM dispatch and stores no host value into a qmes global.
 
 ; ===========================================================================
 ; Cell type tags (include/mes/constants.h)
@@ -42,7 +41,7 @@
 
 ; ===========================================================================
 ; The cell arena (one rsc vector of raw 32-bit words).
-; Sizes are env-driven (D6): read MES_ARENA/MES_STACK/MES_MAX_STRING at startup
+; Sizes are env-driven: read MES_ARENA/MES_STACK/MES_MAX_STRING at startup
 ; (gc.c:67-87) and allocate g-cells / g-stack / the byte pool before the
 ; host-heap floor mark (§2.2).  Defaults match the pre-refit fixed sizes.
 ; ===========================================================================
@@ -167,7 +166,7 @@
 ; Byte pool: symbol names and string contents (in rsc's byte arena)
 ; ===========================================================================
 (define BYTE-POOL 16777216)                    ; 16 MiB; boot module files slurp here
-; Paired two-space byte pool (FD §2.3): two equal-size string spaces, a current
+; Paired two-space byte pool: two equal-size string spaces, a current
 ; pool `g-bytes` (bump `byte-free`), and — during a collection — a target pool
 ; `gc-to-pool` (bump `gc-to-byte-free`).  gc-copy copies each TBYTES run into
 ; the target as its cell is copied; gc-flip swaps the roles.  Sharing is
@@ -282,9 +281,9 @@
 (define cell-symbol-macro-expand 0)
 
 (define sym-table 0)         ; init-phase interning list (before g-symbols built)
-(define g-symbols 0)         ; D4: the obarray = hashq table size 500 (symbol.c)
+(define g-symbols 0)         ; the obarray = hashq table size 500 (symbol.c)
 
-; D1/D3 real type structs (builtins.c / hash.c / variable.c).  Symbols:
+; Real type structs (builtins.c / hash.c / variable.c).  Symbols:
 (define cell-symbol-builtin 0)      ; '<builtin>  (struct[2] tag of a builtin)
 (define cell-symbol-buckets 0)      ; 'buckets
 (define cell-symbol-size 0)         ; 'size
@@ -296,7 +295,7 @@
 (define cell-symbol-stack 0)        ; 'stack
 (define cell-symbol-frames 0)       ; 'frames
 (define frame-printer-sym 0)        ; 'frame-printer
-; The type structs themselves (make_*_type); GC roots for S2.
+; The type structs themselves (make_*_type); GC roots for.
 (define builtin-type-struct 0)
 (define variable-type-struct 0)
 (define hash-table-type-struct 0)
@@ -341,7 +340,7 @@
             (obarray-scan (cell-cdr bucket) start len)))))
 
 ; Intern a name whose bytes already occupy g-bytes[start, byte-free).  During
-; init (g-symbols == 0) use the list; the reader uses the obarray (D4).
+; init (g-symbols == 0) use the list; the reader uses the obarray.
 (define (intern start len)
   (if (= g-symbols 0) (intern-list start len) (intern-hash start len)))
 (define (intern-list start len)
@@ -396,7 +395,7 @@
     (copy-rsc-into-pool str)
     (make-strlike TSPECIAL start (- byte-free start))))
 
-; A Mes TSTRING from an rsc string (D5/D8 helpers).
+; A Mes TSTRING from an rsc string.
 (define (string-rsc str)
   (let ((start byte-free))
     (copy-rsc-into-pool str)
@@ -510,7 +509,7 @@
 (define (struct-set-x- x i e) (copy-cell! (+ (struct-body x) i) (vector-entry e)))
 
 ; ===========================================================================
-; Variables (variable.c) — D3.  make_variable_type = record-type struct with
+; Variables (variable.c).  make_variable_type = record-type struct with
 ; fields (<variable> (value)); make_variable = TSTRUCT of length 4:
 ; [variable-type, 'variable-printer, '<variable>, value].  variable? checks
 ; struct-ref 0 == variable-type.
@@ -715,7 +714,7 @@
   (let ((var (current-module-variable sym cell-f)))
     (if (= var cell-f) (begin (qerror-diag "global-lookup" sym) (qfail)) (variable-ref var))))
 
-; D1: a builtin is a TSTRUCT per builtins.c:29-64.
+; a builtin is a TSTRUCT per builtins.c:29-64.
 ;   make_builtin_type = record-type struct, fields (<builtin> (name arity address))
 ;   a builtin instance = [builtin-type, 'builtin-printer, '<builtin>,
 ;                         name-string, arity-number, id-number]
@@ -793,7 +792,7 @@
 (define ID-WRITE-CHAR 58)
 (define ID-DISPLAY-PORT 59)
 (define ID-WRITE-PORT 60)
-; D8 tranche B0-B2
+; core builtins
 (define ID-CORE-HASHQ-REF 61)
 (define ID-INITIAL-MODULE 62)
 (define ID-CORE-REVERSE 63)
@@ -837,14 +836,14 @@
 (define ID-READ-CHAR 101)
 (define ID-PEEK-CHAR 102)
 (define ID-READ-INPUT-FILE-ENV 103)
-(define ID-GC 104)              ; S2: gc / gc-stats / gc-check builtins
+(define ID-GC 104)              ; gc / gc-stats / gc-check builtins
 (define ID-GC-STATS 105)
 (define ID-GC-CHECK 106)
-(define ID-VALUES 107)          ; S3: values / stack.c (§3)
+(define ID-VALUES 107)          ; values / stack.c (§3)
 (define ID-MAKE-STACK 108)
 (define ID-STACK-LENGTH 109)
 (define ID-STACK-REF 110)
-(define ID-MULT 111)            ; S4/B4: math.c arithmetic tranche
+(define ID-MULT 111)            ; math.c arithmetic tranche
 (define ID-DIV 112)
 (define ID-LESS 113)
 (define ID-GREATER 114)
@@ -874,8 +873,8 @@
 (define ID-SET-CURRENT-MODULE 140)
 (define ID-MAKE-BINDING 141)    ; B12: eval-apply.c make-binding
 (define ID-ASSOC 142)           ; B12: core.c assoc
-(define ID-OPEN-OUTPUT-FILE 143)       ; S5: posix.c open-output-file (MesCC -o)
-(define ID-SET-CURRENT-OUTPUT-PORT 144) ; S5: posix.c set-current-output-port
+(define ID-OPEN-OUTPUT-FILE 143)       ; posix.c open-output-file (MesCC -o)
+(define ID-SET-CURRENT-OUTPUT-PORT 144) ; posix.c set-current-output-port
 
 ; ===========================================================================
 ; Initialisation
@@ -1080,7 +1079,7 @@
   (bind-builtin "core:display-port" ID-DISPLAY-PORT 2)
   (bind-builtin "core:write-port" ID-WRITE-PORT 2)
   (bind-builtin "exit" ID-EXIT 1)
-  ; D8 tranche B0-B2 (builtins.c names/arities)
+  ; core builtins (builtins.c names/arities)
   (bind-builtin "core:hashq-ref" ID-CORE-HASHQ-REF 3)
   (bind-builtin "hashq-get-handle" ID-HASHQ-GET-HANDLE 2)
   (bind-builtin "hashq-set!" ID-HASHQ-SET 3)
@@ -1129,7 +1128,7 @@
   (bind-builtin "vector-set!" ID-VECTOR-SET 3)
   (bind-builtin "make-vector" ID-MAKE-VECTOR -1)
   (bind-builtin "current-error-port" ID-CURRENT-ERROR-PORT 0)
-  ; D7: primitive-load + port reader
+  ; primitive-load + port reader
   (bind-builtin "primitive-load" ID-PRIMITIVE-LOAD 1)
   (bind-builtin "open-input-file" ID-OPEN-INPUT-FILE 1)
   (bind-builtin "access?" ID-ACCESS 2)
@@ -1137,16 +1136,16 @@
   (bind-builtin "read-char" ID-READ-CHAR -1)
   (bind-builtin "peek-char" ID-PEEK-CHAR 0)
   (bind-builtin "read-input-file-env" ID-READ-INPUT-FILE-ENV 1)
-  ; S2: garbage collector (gc.c / builtins.c:176-179)
+  ; garbage collector (gc.c / builtins.c:176-179)
   (bind-builtin "gc" ID-GC 0)
   (bind-builtin "gc-stats" ID-GC-STATS 0)
   (bind-builtin "gc-check" ID-GC-CHECK 0)
-  ; S3: values + stack introspection (core.c / stack.c; builtins.c:151,287-289)
+  ; values + stack introspection (core.c / stack.c; builtins.c:151,287-289)
   (bind-builtin "values" ID-VALUES -1)
   (bind-builtin "make-stack" ID-MAKE-STACK -1)
   (bind-builtin "stack-length" ID-STACK-LENGTH 1)
   (bind-builtin "stack-ref" ID-STACK-REF 2)
-  ; D5: config/env bindings (init_symbols + mes_environment)
+  ; config/env bindings (init_symbols + mes_environment)
   (bind-value (intern-rsc "%version") (string-rsc "0.27.1"))
   (bind-value (intern-rsc "%datadir") (string-rsc g-datadir))
   (bind-value (intern-rsc "%compiler") (string-rsc "gnuc"))
@@ -1158,7 +1157,7 @@
 
 ; ===========================================================================
 ; Reader (src/reader.c) — port-based: readchar/peekchar/unreadchar over the
-; current input port (D7).  A single-char pushback (rd-pb) implements
+; current input port.  A single-char pushback (rd-pb) implements
 ; unreadchar/peekchar; every input port is a string port (files are slurped
 ; into the byte pool), so the reader is uniform.  read_input_file_env stops on
 ; cell-nil (a top-level EOF or `)`), matching reader.c.
@@ -1316,7 +1315,7 @@
 ; reader_read_hash (reader.c:200): faithful dispatch.  (Radix #x/#b/#o and the
 ; syntax quotes #'/#`/#, are not yet needed by boot-5 head..B4; they fall to the
 ; else->read-next-sexp path as placeholders and are added when a rung needs
-; them — MesCC/S5 for radix.)
+; them — MesCC for radix.)
 (define (reader-read-hash c)
   (cond ((= c 33) (reader-read-block-comment c (getchar-)) (reader-read-sexp (getchar-)))  ; #!...!#
         ((= c 124) (reader-read-block-comment c (getchar-)) (reader-read-sexp (getchar-))) ; #|...|#
@@ -1539,10 +1538,10 @@
   (if (= (cell-type name) TSYMBOL) (hashq-get-handle g-macros-table name) cell-f))
 
 ; ===========================================================================
-; Garbage collection (src/gc.c) — S2.
+; Garbage collection (src/gc.c).
 ;
 ; A literal transliteration of Mes's single-arena copy-up-then-slide-back
-; Cheney collector over g-cells (FD §2).  The arena vector is allocated with
+; Cheney collector over g-cells.  The arena vector is allocated with
 ; JAM-CELLS of slack above ARENA-CELLS (qmain); a collection copies the live
 ; set up into that slack ("news"), then slides it back to the base.  The FIXED
 ; region [0, g-symbol-max) is copied FIRST, cell by cell in index order, so
@@ -2149,16 +2148,21 @@
 ; while (n<0) n+=w;  u = (n!=0)? n%w : 0;  if divisor<0 negate.
 (define (b-modulo a b)
   (let ((n (num-value a)) (v (num-value b)))
-    (let* ((sign-p (w32-lt? v w32-0))
-           (w (if sign-p (w32-neg v) v)))
-      (let ((n2 (mod-raise n w)))
-        (let ((u (if (w32-eq? n2 w32-0) w32-0 (w32-urem n2 w))))
-          (make-number-w (if sign-p (w32-neg u) u)))))))
+    ; guard modulo-by-zero (as `/` does): a zero divisor would send mod-raise
+    ; into an infinite (n += 0) loop for negative dividends.
+    (if (w32-eq? v w32-0) (qerror-type b)
+        (let* ((sign-p (w32-lt? v w32-0))
+               (w (if sign-p (w32-neg v) v)))
+          (let ((n2 (mod-raise n w)))
+            (let ((u (if (w32-eq? n2 w32-0) w32-0 (w32-urem n2 w))))
+              (make-number-w (if sign-p (w32-neg u) u))))))))
 (define (mod-raise n w)                          ; while (n<0) n = n + w
   (if (w32-lt? n w32-0) (mod-raise (w32-add n w) w) n))
 ; divide (math.c:143): unsigned magnitude division, sign folded across args.
 ; n starts 1; first arg sets n; then for each arg: sign_p toggles per C rule,
-; and u = u / |v| (skipped when |v|==1 or u==0), div-by-zero errors.
+; and u = u / v as a RAW unsigned divisor (skipped when v==1 or u==0),
+; div-by-zero errors.  The divisor is the raw word, not |v| — this mirrors the
+; M2-Planet-compiled reference's unsigned divide (see qmes-w64.scm b-div).
 (define (b-div x)
   (if (= x cell-nil) (make-number-fx 1)
       (let* ((n0 (num-value (cell-car x)))
@@ -2300,7 +2304,7 @@
           (num-fixnum c))
     c))
 
-; --- D8 leaf helpers (lib.c / posix.c / string.c / struct.c) ---
+; --- leaf helpers (lib.c / posix.c / string.c / struct.c) ---
 (define (reverse-x- x tail)                    ; core:reverse! (destructive)
   (if (= x cell-nil) tail
       (let ((next (cell-cdr x))) (set-cdr! x tail) (reverse-x- next x))))
@@ -2555,7 +2559,7 @@
 ; megabytes of transient host (rsc) frames.  If those accumulate across the
 ; forms of a file — and across the nested primitive-load chain — the 512 MiB
 ; host pair heap overflows into g-cells and silently smashes the low cells
-; (docs/qmes-define-module-diagnosis.md).  So read-forms-loop is a NILADIC
+; (docs/qmes.md).  So read-forms-loop is a NILADIC
 ; self-tail loop with all surviving state in globals (rd-forms is a g-cells
 ; list index — immediate; the parsed datum lives in g-cells), and the host
 ; heap is reset to a floor captured at read-all-forms entry (mark+64) once per
@@ -2584,7 +2588,7 @@
 ; ===========================================================================
 (define qmes-no-reset 0)             ; bisect switch (design §4.3.4)
 
-; --- nested trampoline / floor stack (FD §4) -------------------------------
+; --- nested trampoline / floor stack -------------------------------
 ; vm-run-nested is the ONLY way to re-enter the VM (primitive-load, and later
 ; error->throw / eval-closures / struct printers).  It pushes a new floor
 ; (mark+64) so the nested run's dispatch resets reclaim only what the nested
@@ -2609,7 +2613,7 @@
 ; slurp of the file into the byte pool) are reclaimed before the nested eval
 ; captures its floor — otherwise every deeper load's floor ratchets upward on
 ; top of this file's read garbage and the pair heap never gets reclaimed until
-; the outermost dispatch (docs/qmes-define-module-diagnosis.md §4.1(2)).  forms
+; the outermost dispatch (docs/qmes.md)).  forms
 ; and input are g-cells / immediate, so the reset to mark+64 keeps them.
 (define (b-primitive-load fname)
   (let ((mark (host-heap-mark))
@@ -2632,7 +2636,7 @@
       (pop-frame!)                             ; gc_pop_frame (restore outer r0-r3)
       result)))
 ; apply (eval-apply.c:1030-1036): re-enter the VM to apply f to the argument
-; list x in environment a, via the nested trampoline (FD §4 error->throw path).
+; list x in environment a, via the nested trampoline (docs/qmes.md error->throw path).
 (define (apply-proc f args a)
   (push-frame!)
   (push-cc! (qcons f args) cell-unspec a cell-unspec)  ; sentinel (r3=unspec)
@@ -2666,7 +2670,7 @@
         (let ((strcell (slurp-file-to-pool fd)))
           (sys-close fd)
           (b-open-input-string strcell)))))
-(define (b-read-char) (make-char (getchar-)))  ; D2: EOF = char -1
+(define (b-read-char) (make-char (getchar-)))  ; EOF = char -1
 (define (b-peek-char) (make-char (peekchar)))
 
 (define (vm-dispatch)
@@ -3105,7 +3109,7 @@
   (set! g-stdin 0)
   (set! g-stdout 1)
   (set! g-stderr 2)
-  ; D6/S2: env-driven arena/stack/byte-pool, allocated below the host-heap
+  ; env-driven arena/stack/byte-pool, allocated below the host-heap
   ; floor.  The cell arena carries JAM-CELLS of slack above ARENA-CELLS for the
   ; copy-up news space (gc.c:89); the byte pool is doubled for two-space
   ; compaction (§2.3).  GC-SAFETY / JAM-CELLS track gc.c:74,78.
@@ -3114,6 +3118,11 @@
   (set! JAM-CELLS (env-num "MES_JAM" (quotient ARENA-CELLS 10)))
   (set! cell-cap (+ ARENA-CELLS JAM-CELLS))
   (set! GC-SAFETY (quotient ARENA-CELLS 100))
+  ; Development toggles, all OFF by default: MES_GC_STRESS forces a collection
+  ; per allocation (GC soak), QMES_DEBUG_ERR prints error detail to stderr,
+  ; QMES_NO_RESET disables the host-heap safepoint reset.  The byte-exact gates
+  ; run every host under `env -i` (see tools/*.sh), so these never perturb a
+  ; fixpoint/tcc comparison; they exist only for bring-up and the GC-stress test.
   (set! qmes-gc-stress (env-num "MES_GC_STRESS" 0))
   (set! qmes-debug-err (env-num "QMES_DEBUG_ERR" 0))
   (set! qmes-no-reset (env-num "QMES_NO_RESET" 0))
@@ -3136,7 +3145,7 @@
     (if (< fd 0)
         (exit 1)
         (fd->current-input-port! fd)))          ; boot fd -> current input port
-  (build-obarray!)                              ; D4: switch interning to g-symbols
+  (build-obarray!)                              ; switch interning to g-symbols
   ; Drop the init-phase scratch lists: their pairs live above g-symbol-max but
   ; are not roots (the symbols they held are reachable via g-symbols / m0).
   ; Nil-ing them keeps them from being stale indices after the first GC.

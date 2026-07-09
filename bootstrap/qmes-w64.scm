@@ -221,6 +221,7 @@
 ; modulo (math.c:190): w=|v|; while(n<0) n+=w; u=(n?n%w:0); if v<0 negate.
 (define (b-modulo a b)
   (let ((nhi (num-hi a)) (nlo (num-value a)) (vhi (num-hi b)) (vlo (num-value b)))
+    (if (w64-zero? vhi vlo) (qerror-type b)      ; guard modulo-by-zero (see qmes.scm)
     (let ((sign-p (w32-lt? vhi w64-k0)))
       (let ((w (if sign-p (w64-neg-p vhi vlo) (cons vhi vlo))))
         (let ((whi (car w)) (wlo (cdr w)))
@@ -228,7 +229,7 @@
             (let ((u (if (w64-zero? (car n2) (cdr n2)) (cons w64-k0 w64-k0)
                          (w64-urem (car n2) (cdr n2) whi wlo))))
               (if sign-p (make-number-p (w64-neg-p (car u) (cdr u)))
-                  (make-number-2w (car u) (cdr u))))))))))
+                  (make-number-2w (car u) (cdr u)))))))))))
 (define (mod-raise nhi nlo whi wlo)
   (if (w32-lt? nhi w64-k0)
       (let ((s (w64+ nhi nlo whi wlo))) (mod-raise (car s) (cdr s) whi wlo))

@@ -1,5 +1,5 @@
-; gen-qfasm-tests.scm -- dialect (rsc) reimplementation of
-; tools/generate_qfasm_tests.py.  Reproduces CPython's Mersenne Twister
+; gen-qfasm-tests.scm -- dialect (rsc) generator, emitting the committed artifact from a single spec.
+; Reproduces CPython's Mersenne Twister
 ; (MT19937) and the independent i386 byte model so the committed
 ; tests/cases/qfasm-{exit42,arith,big} fixtures are byte-identical.
 ;

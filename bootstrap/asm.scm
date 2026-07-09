@@ -6,15 +6,16 @@
 ; seed's rewrite-arena ceiling: assembly is O(program) memory with native
 ; arithmetic and a hash symbol table, two passes over the input.
 ;
-; The instruction encoding is a direct transliteration of
-; tools/generate_qfasm.py; the ELF header is its (ElfHeader ...) rule; the two
-; extra directives DObj / MovRIObj come from tools/generate_rsc_runtime.py.
+; The instruction encoding mirrors the qfasm assembler (bootstrap/qfasm.qf1,
+; emitted by bootstrap/gen-qfasm.scm); the ELF header is its (ElfHeader ...)
+; rule; the two extra directives DObj / MovRIObj come from the rsc runtime
+; (bootstrap/gen-rsc-runtime.scm).
 ;
 ; Runtime splice: rsc output ends its code chain with (RuntimeCode (RuntimeData
 ; End)); the seed expands those (rsc-runtime.qf1 macros) into the fixed runtime
 ; code/data instruction chains.  asm.elf recognises the two forms and splices
 ; in the SAME instructions, read at startup from a flat runtime file (argv[1],
-; produced by `python3 tools/generate_rsc_runtime.py --flat`).  A bare program
+; produced by `bootstrap/gen-rsc-runtime.scm --flat`).  A bare program
 ; (a qfasm fixture) needs no runtime file.
 ;
 ; MEMORY.  rsc has no GC: every Scheme call conses an env frame / arglist, and

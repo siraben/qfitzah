@@ -1,15 +1,22 @@
-; sc1: a Scheme-to-qfasm compiler written strictly in the scheme0 subset, so
-; it runs interpreted under scheme0 AND compiles itself to a native ELF.
+; rsc: an R5RS-subset Scheme-to-qfasm compiler written strictly in the sc1
+; subset, so sc1 compiles it AND it self-hosts (rsc recompiles its own source
+; to a byte-identical fixpoint).  It is sc1's codegen preceded by a hygienic
+; macro-expansion pass, adding over sc1: syntax-rules macros, quasiquote, the
+; derived special forms (let*/letrec/named-let/case/when/unless/do/cond=>),
+; vectors, and tail-proper apply/varargs.
 ;
-; Prepend bootstrap/sc1-reader.scm (the reader) before this file. The last
+; Prepend bootstrap/sc1-reader.scm (the reader) before this file.  Programs
+; that rsc compiles are prepended with bootstrap/rsc-prelude.scm (the Scheme
+; standard-library layer); rsc.scm itself stays in the sc1 subset and uses none
+; of the prelude, so its fixpoint re-exercises sc1's codegen.  The last
 ; top-level form, (main), reads the remaining stdin as the program to compile
 ; and emits a complete qfasm program on stdout:
 ;
 ;   (Assemble (Program Start (X8 ...) <instruction chain> ))
 ;
-; whose fixed runtime is supplied by bootstrap/sc1-runtime.qf1 via the
-; (RuntimeCode ...) / (RuntimeData ...) macros. Assemble the emitted text with:
-;   cat qfasm.qf1 sc1-runtime.qf1 out.qfasm | qfitzah > out.elf
+; whose fixed runtime is supplied by bootstrap/rsc-runtime.qf1 via the
+; (RuntimeCode ...) / (RuntimeData ...) macros.  Assemble the emitted text with:
+;   cat qfasm.qf1 rsc-runtime.qf1 out.qfasm | qfitzah > out.elf
 ;
 ; Compilation model (see sc1-runtime.qf1 for the value representation):
 ;   * EBP holds the current environment: a heap list of frames, each frame a
