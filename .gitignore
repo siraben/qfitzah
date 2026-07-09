@@ -1,14 +1,15 @@
+# Generated top-level outputs
 /result
-/qfitzah
-/qfitzah.bloated
-*.o
-/build
+/build/
 /qmes.elf
-build/
-bin/mes-mescc.ref
-bin/mes-mescc.qmes
-qmes64.elf
-bin/mes-mescc64.qmes
-bin/mes-mescc64.ref
-bin/tcc-mes.qmes
-bin/tcc-mes.ref
+/qmes64.elf
+*.o
+
+# Generated bin/ build outputs.  bin/mes-m2 and bin/mes-m2-64 are the committed
+# reference baselines and stay TRACKED (they are deliberately not listed here).
+/bin/mes-mescc.ref
+/bin/mes-mescc.qmes
+/bin/mes-mescc64.ref
+/bin/mes-mescc64.qmes
+/bin/tcc-mes.ref
+/bin/tcc-mes.qmes

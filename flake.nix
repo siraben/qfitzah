@@ -1,5 +1,5 @@
 {
-  description = "Qfitzah, a tiny i386 term-rewriting language interpreter";
+  description = "Qfitzah — a tiny i386 term-rewriting language interpreter; the 1.7 KiB seed of a no-C, no-Python bootstrap up to GNU Mes and TinyCC (this flake builds only the seed; the Makefile drives the rest of the ladder)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
