@@ -1,12 +1,35 @@
-; gen-rsc-runtime.scm -- dialect (rsc) generator, emitting the committed artifact from a single spec.
-; Emits bootstrap/rsc-runtime.qf1 (default) or
-; bootstrap/asm-runtime.flat (with --flat), BYTE-IDENTICAL to the Python.
+; gen-rsc-runtime.scm --- emit the Stage-4 fixed runtime (two spellings).
 ;
-; Build/run like any rsc program:
-;   cat rsc-prelude.scm gen-rsc-runtime.scm | rscA.elf > g.qfasm
-;   asm.elf asm-runtime.flat < g.qfasm > g.elf
-;   ./g.elf           > rsc-runtime.qf1
-;   ./g.elf --flat    > asm-runtime.flat
+; A dev-time generator in the rsc dialect for the assembly library that
+; sits under every program compiled by rsc.scm -- including this very
+; generator and rsc itself.  It replaced the retired
+; tools/generate_rsc_runtime.py; its outputs stay byte-identical to the
+; committed artifacts (the artifacts are frozen; only this generator may
+; be edited for readability).
+;
+; Two output modes, ONE pair of instruction lists (see gen-sc1-runtime.scm
+; for the mechanics -- macros, DObj/MovRIObj, RTSPLIT):
+;   (no args)  bootstrap/rsc-runtime.qf1   (seed-assembled macro form)
+;   --flat     bootstrap/asm-runtime.flat  (spliced by asm.elf)
+;
+; This is gen-sc1-runtime.scm's runtime (itself scheme0's core; the shared
+; routines are annotated in gen-scheme0.scm) plus the rsc extensions:
+;   * vectors (object SUBTYPE 4: payload is a word buffer, cdr the element
+;     count), mutable strings (make-string/string-set!), and a tail-proper
+;     apply that JMPs into the callee;
+;   * w32 (P1 Part A): boxed 32-bit words with wrapping arithmetic --
+;     dialect fixnums stop at 2^30, but the generators, asm.scm and qmes
+;     need true 32-bit wraparound;
+;   * syscalls + process environment (P1 Part B): sys-open/close/read/
+;     write, getenv, command-line;
+;   * host-heap mark/reset (P1 Part C): expose the cell-arena frontier so
+;     long-running programs (asm.scm, qmes) can reclaim transient conses
+;     -- the runtime has no GC, so this is the only reclamation there is.
+;
+; Regenerate:  tools/regen.sh gen rsc-runtime        > bootstrap/rsc-runtime.qf1
+;              tools/regen.sh gen rsc-runtime --flat > bootstrap/asm-runtime.flat
+; Verify:      make regen-verify
+;              -> "all committed generated artifacts reproduced byte-identically"
 
 ; ---------------------------------------------------------------------------
 ; Number formatting: x8 (big-endian 8 hex digits) and imm (Small or X8).
@@ -35,6 +58,10 @@
 ; ---------------------------------------------------------------------------
 ; C / D accumulators.  cur selects which list I appends to.
 ; ---------------------------------------------------------------------------
+; Code and data are collected separately: the qf1 output wraps them in the
+; RuntimeCode / RuntimeData macros, the flat output splits them at
+; RTSPLIT.  PL = label behind (Align8), for entry addresses that get tag
+; bits or'd in.
 (define c-rev '())
 (define d-rev '())
 (define cur 'c)
@@ -60,7 +87,16 @@
     (I (string-append "(JmpS (" p " F))"))
     (ret-bool p)))
 
-; w32 helper emitters (P1 Part A).
+; w32 helper emitters (P1 Part A).  A w32 is an object cell [5, raw-word]:
+; the literal 5 in the car marks the subtype and the cdr holds the raw
+; 32-bit word (NOT a tagged fixnum -- that is the whole point).  The odd
+; (MovRMD r r 02) loads: r holds the tagged (|2) object pointer, so
+; offset +2 lands on the cdr at +4 of the untagged cell.
+;   w32-load2  fetch args 1 -> EAX, 2 -> ECX as raw words;
+;   w32-binop  load2 + one ALU op + rebox via MakeW32;
+;   w32-shift  shift-by-one repeated ECX times (no variable-count shift
+;              instruction in the qfasm subset);
+;   w32-cmp    load2 + Jcc into the shared ret-bool tails.
 (define (w32-load2)
   (begin
     (I "(MovRMD ECX EAX 04)")
@@ -101,7 +137,10 @@
     (I (string-append "(JmpS (" prefix " F))"))
     (ret-bool prefix)))
 
-; PRIMS: (scheme-name . code-label)
+; PRIMS: (scheme-name . code-label).  Defines the (GV name) data cells and
+; the InitPrims loop; names must match rsc.scm's prim-names list (compiled
+; code reaches globals by name).  The sc1 set comes first, the rsc
+; extensions after.
 (define PRIMS
   (list
     (cons "cons" "PrCons") (cons "car" "PrCar") (cons "cdr" "PrCdr")
@@ -158,7 +197,12 @@
 ; ---------------------------------------------------------------------------
 (define (build-code)
   (set-cur! 'c)
-  ; HeapInit
+  ; HeapInit: first capture argc/argv/envp from the kernel's initial
+  ; stack (ESP points at argc on entry) for command-line/getenv; then
+  ; carve the bump arenas after CodeEnd: 512 MiB cell arena, 1 GiB byte
+  ; arena, 16 MiB stdin read buffer, 16 MiB token buffer -- and brk
+  ; (syscall 45) the program break up to the end so the span is mapped.
+  ; No GC: host-heap-reset! rewinding GCellFree is the only reclamation.
   (L "HeapInit")
   (I "(MovRR EAX ESP)")
   (I "(MovRMD ECX EAX 04)")
@@ -186,7 +230,8 @@
   (MOVRI "EAX" (k 45))
   (I "(Int 80)")
   (I "(Ret)")
-  ; InitPrims
+  ; InitPrims: wrap every Pr* entry point as a closure object (subtype-2
+  ; payload (code . nil)) in its (GV name) cell -- see gen-sc1-runtime.scm.
   (L "InitPrims")
   (for-each
     (lambda (p)
@@ -201,7 +246,9 @@
         (I (string-append "(MovMemLR " (gv (car p)) " EAX)"))))
     PRIMS)
   (I "(Ret)")
-  ; Cons
+  ; Cons: bump an 8-byte cell off GCellFree; car=EAX, cdr=ECX.  There is
+  ; deliberately NO bounds check -- the arena limit is a known cliff (see
+  ; docs/qmes-define-module-diagnosis.md).
   (L "Cons")
   (I "(PushR EDX)")
   (I "(MovRMemL EDX GCellFree)")
@@ -212,7 +259,8 @@
   (I "(MovMemLR GCellFree EDX)")
   (I "(PopR EDX)")
   (I "(Ret)")
-  ; AllocObj
+  ; AllocObj: EAX = source bytes, ECX = length, EDX = subtype; copy into
+  ; the byte arena and build the object cell [payload|subtype, len<<2|1].
   (L "AllocObj")
   (I "(PushR EDX)")
   (I "(MovRMemL EDI GByteFree)")
@@ -237,7 +285,8 @@
   (call "Cons")
   (I "(OrI8 EAX 02)")
   (I "(Ret)")
-  ; ReadCh
+  ; ReadCh / PeekCh / Emit / PrintRaw / Intern: scheme0's character input,
+  ; byte output and symbol interning, annotated in gen-scheme0.scm.
   (L "ReadCh")
   (I "(MovRMemL EAX GPeek)")
   (CMPEAX wm1)
@@ -351,6 +400,8 @@
   (I "(MovRMD EDX EDX 04)")
   (I "(JmpS (IN 1))")
   ; --- Primitives ---
+  ; Argument list in EAX, result in EAX; the sc1-shared bodies are as in
+  ; gen-scheme0.scm (including the tagged-arithmetic re-tag tricks).
   (PL "PrCons")
   (I "(MovRMD ECX EAX 04)")
   (I "(MovRM ECX ECX)")
@@ -722,6 +773,10 @@
   (I "(Jmp32 AllocObj)")
 
   ; --- make-string / string-set! (mutable byte buffers) ---
+  ; PrMakeStr allocates its fill bytes (default space) straight in the
+  ; byte arena -- unlike AllocObj there is no source to copy -- and note
+  ; the payload is tagged |1 (string subtype).  PrStrSet pokes one byte
+  ; into that buffer in place.
   (PL "PrMakeStr")
   (I "(MovRM ECX EAX)")
   (I "(SarI8 ECX 02)")
@@ -779,6 +834,10 @@
   (I "(Ret)")
 
   ; --- apply ---
+  ; (apply f a b ... lst): AppendArgs rebuilds the argument list, splicing
+  ; the final list argument on unchanged; PrApply then unwraps the closure
+  ; and JmpR's into its code -- a JMP, not a CALL, so apply itself is
+  ; tail-proper (the callee returns straight to apply's caller).
   (L "AppendArgs")
   (I "(MovRMD ECX EAX 04)")
   (I "(TestRI8 ECX 03)")
@@ -814,6 +873,12 @@
   (I "(JmpR ESI)")
 
   ; --- vectors ---
+  ; A vector is an object of SUBTYPE 4: payload = a buffer of 32-bit value
+  ; words in the byte arena (tagged |4), cdr = element count as a fixnum.
+  ; Indexing needs no shift: a tagged fixnum i is 4i+1, so just masking
+  ; its tag off (AndI8 .. FC) yields the byte offset of word i directly;
+  ; AndI8 .. F8 likewise strips the payload's subtype bits.  VecFromList
+  ; first measures the list, then copies it into a fresh buffer.
   (PL "PrMakeVec")
   (I "(MovRM ECX EAX)")
   (I "(SarI8 ECX 02)")
@@ -1003,6 +1068,8 @@
   (I "(Int 80)")
 
   ; --- Printer ---
+  ; write notation, dispatched on the tag (see gen-scheme0.scm); this
+  ; version also renders vectors as #(elt ...) in (PO 3) below.
   (L "Print")
   (I "(MovRR ECX EAX)")
   (I "(AndI8 ECX 03)")
@@ -1180,6 +1247,8 @@
   (I "(Jmp32 Emit)")
 
   ; --- P1 PART A: w32 values ---
+  ; MakeW32: box the raw word in ECX as an object cell [5, word]; the
+  ; bare 5 in the car is the w32 subtype marker (PrW32Q checks it).
   (L "MakeW32")
   (MOVRI "EAX" (k 5))
   (call "Cons")
@@ -1263,6 +1332,8 @@
   (w32-cmp "PrW32LtQ" "Jl" "WLT")
   (w32-cmp "PrW32UltQ" "Jb" "WULT")
 
+  ; vec-raw-ref / vec-raw-set!: vector words as raw w32s, no fixnum
+  ; boxing -- the fast path asm.scm's byte buffers are built on.
   (PL "PrVecRawRef")
   (I "(MovRMD ECX EAX 04)")
   (I "(MovRM ECX ECX)")
@@ -1292,6 +1363,14 @@
   (I "(Ret)")
 
   ; --- P1 PART B: syscalls + process environment ---
+  ; CStrToStr: measure a NUL-terminated C string and AllocObj it as a
+  ; Scheme string.  PrGetenv walks the envp array captured by HeapInit,
+  ; comparing name bytes then insisting on '=' at the name's length;
+  ; BuildArgv conses up (command-line) from argc/argv the same way.
+  ; The sys-* prims are thin int-0x80 wrappers: fds and counts are
+  ; fixnums, buffers are Scheme strings (sys-open copies the path into
+  ; GPathBuf to NUL-terminate it), and each returns the raw kernel result
+  ; as a fixnum (negative errno included).
   (L "CStrToStr")
   (I "(MovRR EDX EAX)")
   (L "(CS 1)")
@@ -1448,6 +1527,11 @@
   (I "(Ret)")
 
   ; --- P1 PART C: host-heap reclamation ---
+  ; The cell-arena frontier as a w32: mark it, cons freely, reset! back.
+  ; Sound only if nothing allocated above the mark is still referenced --
+  ; the "floor discipline" asm.scm and qmes are built around (all state
+  ; that must survive a reset lives below the floor, in globals or in
+  ; pre-allocated buffers).
   (PL "PrHostHeapMark")
   (I "(MovRMemL ECX GCellFree)")
   (I "(Jmp32 MakeW32)")
@@ -1462,6 +1546,15 @@
 ; ---------------------------------------------------------------------------
 ; DATA
 ; ---------------------------------------------------------------------------
+; Global cells (GObList starts as nil = 0x03, GPeek as -1 = pushback
+; empty), the one-byte write buffer, a 4 KiB GPathBuf for sys-open's
+; NUL-terminated path copies, and one (GV name) cell per primitive for
+; InitPrims to fill.  CodeEnd marks where HeapInit's arenas begin.
+;
+; SEED-SEMANTICS NOTE: compiled programs may bind some of these (GV ...)
+; labels a second time in their own data section; the seed's newest-first
+; Lookup then returns the LAST binding.  asm.scm's symbol table mimics
+; that by overwriting on duplicate keys.
 (define (n-times n thunk)
   (if (= n 0) #t (begin (thunk) (n-times (- n 1) thunk))))
 
@@ -1496,6 +1589,9 @@
 ; ---------------------------------------------------------------------------
 ; Emission.
 ; ---------------------------------------------------------------------------
+; (RTC n)/(RTD n) block chaining with the compiler's continuation threaded
+; through -- see gen-sc1-runtime.scm for the full story.  --flat prints
+; the same lists one instruction per line around RTSPLIT for asm.elf.
 (define (repeat-str s n) (if (= n 0) "" (string-append s (repeat-str s (- n 1)))))
 (define (take-n lst n) (if (or (= n 0) (null? lst)) '() (cons (car lst) (take-n (cdr lst) (- n 1)))))
 (define (drop-n lst n) (if (or (= n 0) (null? lst)) lst (drop-n (cdr lst) (- n 1))))
