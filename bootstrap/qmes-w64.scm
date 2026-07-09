@@ -216,8 +216,8 @@
 (define (b-ash a b)
   (let ((nhi (num-hi a)) (nlo (num-value a)) (c (w32->fixnum (num-value b))))
     (if (>= c 0)
-        (make-number-p (w64-shl-p nhi nlo c))
-        (make-number-p (w64-sar-p nhi nlo (- 0 c))))))
+        (make-number-p (w64-shl-p nhi nlo (remainder c 64)))
+        (make-number-p (w64-sar-p nhi nlo (remainder (- 0 c) 64))))))
 ; modulo (math.c:190): w=|v|; while(n<0) n+=w; u=(n?n%w:0); if v<0 negate.
 (define (b-modulo a b)
   (let ((nhi (num-hi a)) (nlo (num-value a)) (vhi (num-hi b)) (vlo (num-value b)))

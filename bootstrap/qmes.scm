@@ -2143,8 +2143,8 @@
 (define (b-ash a b)
   (let ((n (num-value a)) (c (w32->fixnum (num-value b))))
     (if (>= c 0)
-        (make-number-w (w32-shl n c))
-        (make-number-w (w32-sar n (- 0 c))))))
+        (make-number-w (w32-shl n (remainder c 32)))
+        (make-number-w (w32-sar n (remainder (- 0 c) 32))))))
 ; modulo (math.c:188): result has sign of the divisor's magnitude algorithm;
 ; while (n<0) n+=w;  u = (n!=0)? n%w : 0;  if divisor<0 negate.
 (define (b-modulo a b)
