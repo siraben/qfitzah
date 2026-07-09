@@ -351,7 +351,9 @@
             s
             (intern-scan (cell-cdr lst) start len)))))
 
-; hash_cstring (hash.c:8): first two name bytes -> bucket index mod size.
+; hash_cstring (hash.c:28): first two name bytes -> bucket index mod size.
+; Hashing bytes (never an address) is why intern order and GC motion are
+; unobservable to hash tables (docs/qmes.md §7).
 (define (hash-cstring start len size)
   (let* ((b0 (char->integer (string-ref g-bytes start)))
          (b1 (if (> len 1) (char->integer (string-ref g-bytes (+ start 1))) 0))
@@ -1250,11 +1252,11 @@
 (define (whitespace? c)
   (or (= c 32) (= c 9) (= c 10) (= c 13) (= c 12) (= c 11)))
 (define (digit? c) (and (>= c 48) (<= c 57)))
-; reader_identifier_p: c > ' ' && c <= '~' && not "();  (reader.c:57)
+; reader_identifier_p: c > ' ' && c <= '~' && not "();  (reader.c:60)
 (define (identifier-char? c)
   (and (> c 32) (<= c 126)
        (not (= c 34)) (not (= c 59)) (not (= c 40)) (not (= c 41))))
-; reader_end_of_word_p (reader.c:63)
+; reader_end_of_word_p (reader.c:66)
 (define (end-of-word? c)
   (or (= c 34) (= c 59) (= c 40) (= c 41) (whitespace? c) (< c 0)))
 
@@ -1266,7 +1268,7 @@
         ((and (or (= s 124) (= s 33)) (= c 35)) 'done)
         (else (reader-read-block-comment c (getchar-)))))
 
-; reader_read_sexp_ (reader.c:110): dispatch on the already-read char c.
+; reader_read_sexp_ (reader.c:114): dispatch on the already-read char c.
 (define (reader-read-sexp c)
   (cond
     ((< c 0) cell-nil)
@@ -1377,7 +1379,7 @@
        (bytes-put! (integer->char (w32->fixnum (radix-loop 16 4 (w32-from-fixnum 0))))))
       (else (bytes-put! (integer->char c))))))
 
-; reader_read_hash (reader.c:200): faithful dispatch.  (Radix #x/#b/#o and the
+; reader_read_hash (reader.c:212): faithful dispatch.  (Radix #x/#b/#o and the
 ; syntax quotes #'/#`/#, are not yet needed by boot-5 head..B4; they fall to the
 ; else->read-next-sexp path as placeholders and are added when a rung needs
 ; them — MesCC for radix.)
@@ -2037,7 +2039,11 @@
   cell-unspec)
 
 ; ===========================================================================
-; eq? and the printer (subset of core.c eq_p, display.c)
+; eq? and the printer (core.c eq_p, lib.c memq/equal2_p, display.c).
+; The printer is the display_helper (display.c:104) subset the boot chain
+; exercises; w=0 is display mode, w=1 write mode (quoted strings, #\ chars).
+; A qmes output port is just an fd (see "Ports" below), so every printer
+; procedure takes the fd directly, as the C's fdputc/fdputs do.
 ; ===========================================================================
 ; string_equal_p (string.c:66) over TSTRING/TKEYWORD.
 (define (string-eq-p a b)
@@ -2116,6 +2122,9 @@
                cell-t cell-f))
           (else cell-f)))))
 
+; Byte-at-a-time output through one preallocated 1-byte buffer (the C's
+; fdputc).  g-outc is pre-mark storage, so the printer never caches a host
+; string across a safepoint (audit rule 3, docs/qmes.md §4.3).
 (define g-outc (make-string 1))
 (define (emit fd code)
   (string-set! g-outc 0 (integer->char code))
@@ -2198,6 +2207,11 @@
 
 ; ===========================================================================
 ; Arithmetic (math.c) — fold over w32 TNUMBER payloads.
+; These builtins are C-quirk emulation seams (docs/qmes.md §9): the fixpoint
+; gate compares against an M2-Planet-compiled x86 reference, so the folds
+; keep the C's exact shapes — sign folds, the modulo raise loop, RAW unsigned
+; divisors, x86 shift-count masking — rather than "nicer" Scheme arithmetic.
+; qmes-w64.scm overrides this whole tranche with two-word 64-bit versions.
 ; ===========================================================================
 (define w32-0 0)   ; set in init to (w32-from-fixnum 0)
 (define (w32-neg a) (w32-sub w32-0 a))
@@ -2266,8 +2280,13 @@
   (if (= x cell-nil) acc (logxor-loop (cell-cdr x) (w32-xor acc (num-value (cell-car x))))))
 ; lognot (math.c): ~n.  Seam so qmes-w64.scm can widen it.
 (define (b-lognot x) (make-number-w (w32-not (num-value (cell-car x)))))
-; ash (math.c): n<<count if count>=0 else n>>(-count) (arithmetic).
+; ash (math.c:293): n<<count if count>=0 else n>>(-count) (arithmetic).
 ; w32-shl/shr/sar take a plain fixnum shift count (not a w32 box).
+; The count is masked mod 32 (mod 64 in the w64 layer): x86 SHL/SAR mask the
+; count register, and the reference is compiled x86 code.  MesCC's
+; offsetof-via-(ash x 32) static initializers depend on this — an unmasked
+; b-ash zeroed the high word of libtcc.c's offsetof initializers and was the
+; one divergence in the tcc T1 sweep (docs/qmes.md §9).
 (define (b-ash a b)
   (let ((n (num-value a)) (c (w32->fixnum (num-value b))))
     (if (>= c 0)
