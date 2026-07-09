@@ -1,12 +1,38 @@
-; gen-sc1-runtime.scm -- dialect (rsc) generator, emitting the committed artifact from a single spec.
-; Emits bootstrap/sc1-runtime.qf1 (default) or
-; bootstrap/sc1-asm-runtime.flat (with --flat), BYTE-IDENTICAL to the Python.
+; gen-sc1-runtime.scm --- emit the Stage-3 fixed runtime (two spellings).
 ;
-; Build/run like any rsc program:
-;   cat rsc-prelude.scm gen-sc1-runtime.scm | rscA.elf > g.qfasm
-;   asm.elf asm-runtime.flat < g.qfasm > g.elf
-;   ./g.elf           > sc1-runtime.qf1
-;   ./g.elf --flat    > sc1-asm-runtime.flat
+; A dev-time generator in the rsc dialect for the assembly library that
+; sits under every program compiled by sc1.scm.  It replaced the retired
+; tools/generate_sc1_runtime.py; its outputs stay byte-identical to the
+; committed artifacts (the artifacts are frozen; only this generator may
+; be edited for readability).
+;
+; Two output modes, ONE pair of instruction lists, so they cannot drift:
+;   (no args)  bootstrap/sc1-runtime.qf1 -- qfasm rule text: the
+;              (RuntimeCode rest)/(RuntimeData rest) macros that the tail
+;              of every compiled program expands, plus Size/Pass2 rules
+;              teaching qfasm the DObj/MovRIObj directives (object-pointer
+;              constants: label address + 2) used for compiled literals;
+;   --flat     bootstrap/sc1-asm-runtime.flat -- the SAME code and data
+;              instruction lists as a flat "<code...> RTSPLIT <data...>"
+;              file, which the native assembler asm.elf takes as argv[1]
+;              and splices at the (RuntimeCode (RuntimeData End)) tail
+;              (asm.elf implements DObj/MovRIObj natively, hence no rules).
+;
+; Why a generator: the primitive table appears in several guises -- the
+; InitPrims closure-shell loop, the code entry points, the (GV name) data
+; cells -- and sc1.scm's own prim-name list must agree with all of them;
+; one PRIMS table here keeps the runtime's copies in step.
+;
+; The routines are scheme0's runtime core -- allocator, character input,
+; intern, printer, primitives; see gen-scheme0.scm for the annotated
+; versions and the tagged object model -- WITHOUT the reader/evaluator:
+; sc1 compiles to machine code, so only the support library remains.
+; Primitives receive the evaluated argument list in EAX.
+;
+; Regenerate:  tools/regen.sh gen sc1-runtime        > bootstrap/sc1-runtime.qf1
+;              tools/regen.sh gen sc1-runtime --flat > bootstrap/sc1-asm-runtime.flat
+; Verify:      make regen-verify
+;              -> "all committed generated artifacts reproduced byte-identically"
 
 ; ---------------------------------------------------------------------------
 ; Number formatting: x8 (big-endian 8 hex digits) and imm (Small or X8).
@@ -29,12 +55,18 @@
 ; ---------------------------------------------------------------------------
 ; Value constants.
 ; ---------------------------------------------------------------------------
+; The scheme0/sc1 immediates (tag 11): (), #t, #f, eof, unspecified.
+; See gen-scheme0.scm for the full tag scheme.
 (define NIL 3)      (define TRUE 19)   (define FALSE 35)
 (define EOFV 51)    (define UNSPEC 67)
 
 ; ---------------------------------------------------------------------------
 ; C / D accumulators.  cur selects which list I appends to.
 ; ---------------------------------------------------------------------------
+; Code and data are collected separately because the qf1 output wraps them
+; in two different macros (RuntimeCode / RuntimeData) and the flat output
+; splits them at the RTSPLIT marker.  PL = label behind (Align8): prim
+; entry addresses get tag bits or'd in and must be 8-byte aligned.
 (define c-rev '())
 (define d-rev '())
 (define cur 'c)
@@ -60,7 +92,10 @@
     (I (string-append "(JmpS (" p " F))"))
     (ret-bool p)))
 
-; PRIMS: (scheme-name . code-label)
+; PRIMS: (scheme-name . code-label).  Defines the (GV name) data cells and
+; the InitPrims loop; the names must match sc1.scm's prim-names list, which
+; is how compiled code finds them (globals are looked up by name, not by
+; index, so only the SET of names matters to the compiler).
 (define PRIMS
   (list
     (cons "cons" "PrCons") (cons "car" "PrCar") (cons "cdr" "PrCdr")
@@ -90,7 +125,10 @@
 ; ---------------------------------------------------------------------------
 (define (build-code)
   (set-cur! 'c)
-  ; HeapInit
+  ; HeapInit: carve bump arenas out of the flat bss after CodeEnd (no GC):
+  ; cell arena at CodeEnd (8-aligned), byte arena +0x0C000000 (192 MiB in),
+  ; 16 MiB stdin read buffer +0x02000000 further, token buffer +0x01000000
+  ; beyond that.  Compiled code calls this first.
   (L "HeapInit")
   (I "(MovRILabel EAX CodeEnd)")
   (I "(AddI8 EAX 07)")
@@ -105,7 +143,10 @@
   (I (string-append "(AddI32 EAX " (x8-str (w32-shl (k 1) 24)) ")"))    ; 0x01000000
   (I "(MovMemLR GTokBuf EAX)")
   (I "(Ret)")
-  ; InitPrims
+  ; InitPrims: wrap every Pr* entry point as a CLOSURE object -- subtype-2
+  ; payload (code . nil) -- and store it in the prim's (GV name) cell, so
+  ; compiled code applies primitives exactly like user closures (sc1 has
+  ; no separate primitive calling convention).
   (L "InitPrims")
   (for-each
     (lambda (p)
@@ -120,7 +161,7 @@
         (I (string-append "(MovMemLR " (gv (car p)) " EAX)"))))
     PRIMS)
   (I "(Ret)")
-  ; Cons
+  ; Cons: bump an 8-byte cell off GCellFree; car=EAX, cdr=ECX.
   (L "Cons")
   (I "(PushR EDX)")
   (I "(MovRMemL EDX GCellFree)")
@@ -131,7 +172,8 @@
   (I "(MovMemLR GCellFree EDX)")
   (I "(PopR EDX)")
   (I "(Ret)")
-  ; AllocObj
+  ; AllocObj: EAX = source bytes, ECX = length, EDX = subtype; copy into
+  ; the byte arena and build the object cell [payload|subtype, len<<2|1].
   (L "AllocObj")
   (I "(PushR EDX)")
   (I "(MovRMemL EDI GByteFree)")
@@ -156,7 +198,8 @@
   (call "Cons")
   (I "(OrI8 EAX 02)")
   (I "(Ret)")
-  ; ReadCh
+  ; ReadCh: one character in EAX, or -1 at eof; GPeek is the one-slot
+  ; pushback (-1 = empty) behind peek-char.  PeekCh reads and re-arms it.
   (L "ReadCh")
   (I "(MovRMemL EAX GPeek)")
   (CMPEAX wm1)
@@ -206,7 +249,8 @@
   (call "ReadCh")
   (I "(MovMemLR GPeek EAX)")
   (I "(Ret)")
-  ; Emit
+  ; Emit: write(1, WriteChBuf, 1) with the byte from AL; PrintRaw:
+  ; write(1, ECX, EDX).
   (L "Emit")
   (I "(PushR EBX)")
   (I "(PushR ECX)")
@@ -236,7 +280,9 @@
   (MOVRI "EAX" (k 1))
   (MOVRI "EBX" (k 1))
   (I "(Int 80)")
-  ; Intern
+  ; Intern: EAX = bytes, ECX = length; linear oblist scan (length, then
+  ; RepeCmpsb), allocating a fresh subtype-0 symbol on a miss.  Kept in
+  ; the runtime for string->symbol and for compiled symbol literals.
   (L "Intern")
   (I "(MovRMemL EDX GObList)")
   (L "(IN 1)")
@@ -270,6 +316,8 @@
   (I "(MovRMD EDX EDX 04)")
   (I "(JmpS (IN 1))")
   ; --- Primitives ---
+  ; Argument list in EAX, result in EAX; bodies as in gen-scheme0.scm
+  ; (including the tagged-arithmetic re-tag tricks in PrAdd/PrSub).
   (PL "PrCons")
   (I "(MovRMD ECX EAX 04)")
   (I "(MovRM ECX ECX)")
@@ -672,6 +720,7 @@
   (I "(Int 80)")
 
   ; --- Printer ---
+  ; write notation, dispatched on the tag; see gen-scheme0.scm.
   (L "Print")
   (I "(MovRR ECX EAX)")
   (I "(AndI8 ECX 03)")
@@ -816,6 +865,9 @@
 ; ---------------------------------------------------------------------------
 ; DATA
 ; ---------------------------------------------------------------------------
+; Global cells (GObList starts as nil = 0x03, GPeek as -1 = pushback
+; empty), the one-byte write buffer, and one (GV name) cell per primitive
+; for InitPrims to fill.  CodeEnd marks where HeapInit's arenas begin.
 (define (build-data)
   (set-cur! 'd)
   (I "(Align4)")
@@ -844,6 +896,13 @@
 ; ---------------------------------------------------------------------------
 ; Emission.
 ; ---------------------------------------------------------------------------
+; Block chaining, the same trick as gen-scheme0's (Z n) rules but with the
+; compiler's continuation threaded through: the macro head (RuntimeCode
+; rest) expands to 24 (Ins ...) wrappers ending in (RTC 1 rest), and so on
+; down the chain until the last block tails into `rest` itself.  Compiled
+; programs therefore just end "... (RuntimeCode (RuntimeData End))" and
+; the whole runtime unfolds in place.  In --flat mode the same lists are
+; printed one instruction per line around an RTSPLIT marker for asm.elf.
 (define (repeat-str s n) (if (= n 0) "" (string-append s (repeat-str s (- n 1)))))
 (define (take-n lst n) (if (or (= n 0) (null? lst)) '() (cons (car lst) (take-n (cdr lst) (- n 1)))))
 (define (drop-n lst n) (if (or (= n 0) (null? lst)) lst (drop-n (cdr lst) (- n 1))))
