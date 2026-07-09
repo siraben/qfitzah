@@ -11,18 +11,28 @@ Stage 1  qfasm.qf1      general symbolic assembler (rewrite rules)
 Stage 2  scheme0.qfasm  minimal Scheme interpreter (qfasm -> native ELF)
 Stage 3  sc1.scm        Scheme-subset compiler, written in the scheme0 subset
 Stage 4  rsc.scm        R5RS-subset-to-asm compiler, written in the sc1 subset
+Stage 5  asm.scm        native i386 assembler in rsc (escapes the seed's arena)
+Stage 6  qmes.scm       GNU Mes 0.27.1 interpreter in rsc (runs MesCC, TinyCC)
 ```
 
 Every artifact is produced by running the stage below it — the seed assembles
 the assembler's output, the assembler builds the interpreter, the interpreter
-runs the compiler, the compiler compiles the next compiler. Host tools
-(`python3`) only generate *source* (rule tables, fixtures); they never emit
-object bytes. Two stages close the loop by rebuilding their own source to a
-byte-identical fixpoint.
+runs the compiler, the compiler compiles the next compiler, and the top rungs
+reach the GNU Mes MesCC self-recompilation fixpoint and a byte-identical
+self-hosting TinyCC. The only trusted binary is the 1680-byte committed seed,
+byte-reproducible from `qfitzah.s`. There is no C and no Python anywhere in the
+build path: the source generators (`bootstrap/gen-*.scm`) are in-dialect
+programs, proven to reproduce every committed artifact byte-identically by
+`make regen-verify`. Several stages close the loop by rebuilding their own
+source to a byte-identical fixpoint.
 
 ## Stage 0: Seed (`qfitzah.s`)
 
-A ~1.7 KiB static i386 ELF implementing the rewrite language: an S-expression
+The qfitzah seed language and its i386 interpreter (`qfitzah.s`) are the work of
+Kragen Javier Sitaker; this project builds a bootstrapping ladder on top of that
+seed.
+
+A 1680-byte static i386 ELF implementing the rewrite language: an S-expression
 reader, atom interning, newest-first rewrite rules, structural matching with
 repeated-variable equality, substitution that preserves unmatched template
 variables, `(Bytes ...)` byte output, and normal-form printing. This is the
@@ -156,12 +166,99 @@ tower, floats and rationals, `call/cc` and `dynamic-wind`, first-class `eval`,
 `delay`/`force`, and `#(...)` vector read syntax (vectors are built with the
 constructors above).
 
+## Stage 5: Native assembler (`bootstrap/asm.scm`)
+
+The seed's term rewriter is the wrong tool for assembling *large* programs. Its
+cost is O(assembly work), not O(program size): each rewrite step conses match
+environments and copies templates, everything it allocates stays forever (no
+GC), and the newest-first symbol table is a linear `(Bind …)` chain whose
+lookups are quadratic in the reference-heavy programs the upper ladder emits.
+Measured, that is ~2,600 8-byte pairs per assembled instruction with a
+quadratically-growing lookup term, capping near ~70k instructions on the
+committed arena and ~100k even at the maximum 32-bit address space. A full qmes
+is an estimated 110–160k instructions — it does not fit.
+
+The ladder-shaped escape is to stop assembling big programs with the seed at
+all. `bootstrap/asm.scm` is a native i386 assembler written in the rsc subset:
+it reads the same `(Assemble (Program entry bss code))` s-expression rsc already
+emits, builds a **hash** symbol table (O(1) lookup, not a linear rewrite),
+computes addresses with native integer arithmetic (replacing the seed's
+nybble-list `Add32`/`Sub32` machinery), and emits the identical ELF bytes in two
+passes. Its live memory is O(program) — a few cells per instruction, no
+transient explosion — so it holds programs far larger than a full qmes inside
+the rsc runtime, with no GC needed.
+
+The seed is not modified. `asm.elf` is a *derived* artifact: rsc compiles
+`asm.scm` to `asm.qfasm` (~20–40k instructions), and the seed assembles that
+**once** (comfortably under its cliff), just as it assembles scheme0. Thereafter
+the heavy builds — qmes, MesCC output, everything downstream — use `asm.elf`.
+Sophistication migrates upward; the 1680-byte root stays frozen and
+hand-auditable. Two gates hold it: byte-identity with `[seed + qfasm.qf1]` on
+everything both can assemble (the qfasm differential fixtures, scheme0, sc1,
+rsc, qmes), and a self-fixpoint (`asm.elf` reassembling its own `asm.qfasm` to
+itself), exactly the way sc1 and rsc validate themselves.
+
+## Stage 6: Mes interpreter (`bootstrap/qmes.scm`)
+
+`qmes.scm` is a transliteration of GNU Mes 0.27.1's C core (`src/*.c`) into the
+rsc dialect — the cell arena, the explicit-stack eval-apply VM, a
+copy-up-slide-back garbage collector, call/cc, and a host-heap safepoint that
+recycles per-step rsc garbage while the interpreter's own state persists. It
+runs Mes's own boot chain to `(top-main)` and MesCC unmodified. An x86_64 number
+variant (`+ bootstrap/qmes-w64.scm`, `[TNUMBER|hi|lo]` with a pure-Scheme 64-bit
+op layer) lets it host MesCC targeting x86_64 while staying an i386 process. The
+full design — value model, VM, GC, safepoint disciplines, fidelity contract, the
+x86_64 variant, and the C-quirk emulations — is in `docs/qmes.md`.
+
+## The MesCC fixpoint and TinyCC
+
+With qmes, the ladder reaches Mes's own thesis from the qfitzah seed. MesCC
+(Mes's C compiler, interpreted Scheme, adding zero assembled instructions)
+compiles Mes's own `src/*.c` to a byte-identical self-recompilation fixpoint,
+and then compiles TinyCC:
+
+- **F1/F2/F3 (i386)** over the 20 `mes_SOURCES`: F1 = MesCC `.s` byte-identical
+  between qmes and the M2-Planet reference `bin/mes-m2` (20/20); F2 = the linked
+  `mes` binary byte-identical from each path; F3 = self-recompilation on the
+  qmes-lineage binary (20/20). Closed.
+- **F1-64/F2-64 (x86_64)** via qmes-64: 20/20 assembly and a byte-identical
+  linked amd64 binary vs `bin/mes-m2-64`. F3-64 is *not* closed — the linked
+  amd64 binary segfaults recompiling `src/*.c`, but the reference-path binary is
+  byte-identical and crashes identically, so this is a GNU Mes 0.27.1 amd64
+  limitation, not a qfitzah one.
+- **T0–T3 (TinyCC)**: qmes's MesCC compiles TinyCC (janneke/tinycc `mes-0.27`
+  @ `0bbd2af3`) to a binary byte-identical to the reference (T1 10/10, T2), and
+  that tcc self-hosts to `boot5 == boot6` (T3) — a genuine self-hosting TinyCC
+  with no C compiler in its ancestry.
+
+The differential strategy, the determinism contract, the reference/hash
+workflow, and the results (including the F3-64 caveat verbatim) are in
+`docs/mes-bootstrap.md`.
+
 ## Verification
 
-`tests/run.sh` is the single entry point (`nix flake check` runs it). It
-exercises the seed's rewrite semantics, then assembles and runs each stage:
-the Stage 1 assembler against an independent byte-level model (including an
-8 KiB, 2868-instruction program), the scheme0 interpreter and sc1 compiler over
-their corpora, the R5RS corpus through rsc, and both self-host fixpoints. Every
-boundary that has a byte-identical check is checked: the assembler's
-differential fixtures, sc1's self-compilation, and rsc's fixpoint.
+The build has no trusted binary but the seed. `make verify-seed` rebuilds the
+seed from `qfitzah.s` (via host binutils, else Nix) and byte-compares it against
+the committed `bootstrap/seed/qfitzah`. `make regen-verify` proves every
+committed generated artifact (`qfasm.qf1`, `scheme0.qfasm`, the `*-runtime`
+files, the assembler test fixtures) is reproduced byte-identically by its
+in-dialect generator `bootstrap/gen-*.scm` — the standing proof that no Python
+is in the loop.
+
+`make check` (`tests/run.sh`, also runnable via `nix flake check`) is the main
+gate. It exercises the seed's rewrite semantics, then assembles and runs each
+stage: the Stage 1 assembler against an independent byte-level model (including
+an 8 KiB, 2868-instruction program), the scheme0 interpreter and sc1 compiler
+over their corpora, the R5RS corpus through rsc, the sc1 and rsc self-host
+fixpoints, then it builds `asm.elf` (with its differential and self-fixpoint),
+runs the qmes boot ladder and GC-stress ladder, the MesCC hello gate, and the
+`asm.elf` self-fixpoint.
+
+Above `make check`, the expensive gates split into two tiers. The offline,
+hash-pinned `-verify` targets need only the committed seed and qmes:
+`fixpoint-verify` runs the qmes MesCC sweep against committed hashes, and
+`tcc-verify` does the same for the qmes tcc sweep. The full, reference-rebuilding
+targets — `mes-reference`, `fixpoint`, `fixpoint-64`, `tcc-reference`, `tcc` —
+run the complete cross-host comparison and require the M2-Planet reference plus
+mescc-tools (Nix-gated). Every boundary that has a byte-identical check is
+checked, from the assembler's differential fixtures up to the tcc self-host.
