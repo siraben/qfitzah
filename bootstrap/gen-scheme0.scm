@@ -1,14 +1,35 @@
-; gen-scheme0.scm -- dialect (rsc) generator for bootstrap/scheme0.qfasm (the minimal interpreter).
-; Emits bootstrap/scheme0.qfasm, BYTE-IDENTICAL to the Python builder.
+; gen-scheme0.scm --- emit bootstrap/scheme0.qfasm, the Stage-2 interpreter.
 ;
-; Build/run like any rsc program:
-;   cat rsc-prelude.scm gen-scheme0.scm | rscA.elf > g.qfasm
-;   asm.elf asm-runtime.flat < g.qfasm > g.elf
-;   ./g.elf > scheme0.qfasm
+; A dev-time generator in the rsc dialect.  scheme0 is a minimal Scheme
+; interpreter -- reader, environment-passing evaluator with proper tail
+; calls, printer, ~40 primitives -- written directly in qfasm macro
+; assembly; this program prints that assembly.  It replaced the retired
+; tools/build_scheme0.py and its output stays byte-identical to the
+; committed artifact (the artifact is frozen; only this generator may be
+; edited for readability).
+;
+; It is a FORMATTER, not a compiler: every instruction below appears in the
+; artifact 1:1, in order.  What generating buys is (a) the SPECIALS/PRIMS
+; tables are each walked from several places (startup interning, evaluator
+; dispatch, name-string data), and one table keeps those in step, and
+; (b) the (Z n) block chaining that keeps the emitted qfasm digestible by
+; the seed (see emit-blocks at the bottom).
+;
+; Regenerate:  tools/regen.sh gen scheme0 > bootstrap/scheme0.qfasm
+; Verify:      make regen-verify
+;              -> "all committed generated artifacts reproduced byte-identically"
+;
+; Note scheme0.qfasm is the one program the native asm.elf can NOT
+; assemble: it is (Z n) block macros, not a flat (Ins ...) chain.  It stays
+; seed-assembled -- the bootstrap root below asm.elf.
 
 ; ---------------------------------------------------------------------------
 ; Number formatting: x8 (big-endian 8 hex digits) and imm (Small or X8).
 ; ---------------------------------------------------------------------------
+; Immediates are printed as (Small d) when they fit one nybble, else as the
+; full (X8 ...) spelling -- matching what qfasm's number sugar accepts.
+; All 32-bit constants are built with the w32 prims: dialect fixnums stop
+; at 2^30, so values like 0xFFFFFFFF need boxed words.
 (define (k n) (w32-from-fixnum n))
 (define wm1 (w32-not (k 0)))
 (define w16 (k 16))
@@ -26,14 +47,25 @@
 (define (byte-hex n) (string-append (hexU (quotient n 16)) (hexU (remainder n 16))))
 
 ; ---------------------------------------------------------------------------
-; Value constants.
+; Value constants: the scheme0 object model.
 ; ---------------------------------------------------------------------------
+; A value is a 32-bit word tagged in its low two bits:
+;   00  pair pointer (8-byte cell: car at +0, cdr at +4);
+;   01  fixnum, n << 2 | 1;
+;   10  object pointer: a cell whose car is a payload pointer carrying a
+;       SUBTYPE in its low 3 bits (0 symbol, 1 string, 2 closure, 3
+;       primitive) and whose cdr is the payload length as a fixnum;
+;   11  immediate: 0x03 (), 0x13 #t, 0x23 #f, 0x33 eof, 0x43 unspecified,
+;       and characters as code << 8 | 0x53.
 (define NIL 3)      (define TRUE 19)   (define FALSE 35)
 (define EOFV 51)    (define UNSPEC 67)
 
 ; ---------------------------------------------------------------------------
 ; Single accumulator S.  (I s) conses onto s-rev; reverse at the end.
 ; ---------------------------------------------------------------------------
+; Each helper pushes one qfasm instruction string.  PL is L behind an
+; (Align8): a label whose ADDRESS gets tag bits or'd into it (every prim
+; entry point) must be 8-byte aligned or the tag would corrupt the address.
 (define s-rev '())
 (define (I s) (set! s-rev (cons s s-rev)))
 (define (L name) (I (string-append "(Label " name ")")))
@@ -41,6 +73,9 @@
 (define (MOVRI r w) (I (string-append "(MovRI " r " " (imm-str w) ")")))
 (define (CMPEAX w) (I (string-append "(CmpEaxI32 " (imm-str w) ")")))
 (define (call t) (I (string-append "(Call " t ")")))
+; ret-bool: the shared (p T)/(p F) return tails every predicate jumps to.
+; cmp-prim: a whole two-fixnum comparison primitive; they differ only in
+; the conditional jump used (tagged fixnums compare like raw integers).
 (define (ret-bool p)
   (begin
     (L (string-append "(" p " T)")) (MOVRI "EAX" (k TRUE)) (I "(Ret)")
@@ -57,6 +92,12 @@
 ; ---------------------------------------------------------------------------
 ; SPECIALS and PRIMS (order matters).
 ; ---------------------------------------------------------------------------
+; SPECIALS: (global-cell name-bytes-label text).  Startup interns text and
+; stores the symbol in the global cell; the evaluator compares form heads
+; against those cells.  PRIMS: (scheme-name . code-label).  Order matters
+; because the name-byte data labels pair with these lists by POSITION:
+; (LPN i) is the i-th prim's name, so startup-prims and string-data-prims
+; must walk the same list in the same order.
 (define SPECIALS
   (list (list "GSymQuote" "LQuote" "quote") (list "GSymIf" "LIf" "if")
         (list "GSymDefine" "LDefine" "define") (list "GSymSet" "LSet" "set!")
@@ -92,6 +133,9 @@
 ; ---------------------------------------------------------------------------
 ; Startup loops.
 ; ---------------------------------------------------------------------------
+; Intern each special form's name into its G-cell; then bind each primitive
+; in the global environment (DefPrim wraps the code label as a subtype-3
+; object and conses (sym . prim) onto GEnv).
 (define (startup-specials lst)
   (if (null? lst) #t
       (begin
@@ -118,6 +162,12 @@
 ; ---------------------------------------------------------------------------
 ; (EV 4) pair-dispatch loop.
 ; ---------------------------------------------------------------------------
+; Combination dispatch: EDX holds the (already fetched) head of the form;
+; compare it against each interned special-form symbol, falling through
+; (EV 5 <sym>) labels to the next candidate.  quote (the #f entry) is
+; handled inline -- return the cadr unevaluated; every other special form
+; tail-jumps to its Ev* routine.  `else` is deliberately absent: it is only
+; recognized inside cond.
 (define EV-SPECIALS
   (list (cons "GSymQuote" #f) (cons "GSymIf" "EvIf")
         (cons "GSymDefine" "EvDefine") (cons "GSymSet" "EvSet")
@@ -143,8 +193,11 @@
         (ev-dispatch (cdr lst)))))
 
 ; ---------------------------------------------------------------------------
-; DATA helpers.
+; DATA helpers: global cells and the interned name strings.
 ; ---------------------------------------------------------------------------
+; Globals start zeroed except the two list heads (GObList, GEnv) which
+; start as nil (0x03).  Name strings are raw (Db ..) bytes; startup code
+; knows their lengths from the tables above.
 (define (emit-str-bytes text i n)
   (if (< i n)
       (begin
@@ -185,10 +238,23 @@
         (string-data-prims (cdr lst) (+ pi 1)))))
 
 ; ---------------------------------------------------------------------------
-; Build S in order.
+; Build S in order: the interpreter itself, one instruction per line.
 ; ---------------------------------------------------------------------------
+; Register conventions:
+;   EAX  value: first argument and result;
+;   ECX  the environment -- an assoc list of (sym . val) pairs, locals in
+;        front; LookupPair falls back to the global GEnv list;
+;   EDX, EBX, EDI, ESI  scratch.
+; Calls are plain Call/Ret on the machine stack; tail positions Jmp32 to
+; EvalTop/SeqTail instead of calling, which is what gives scheme0 proper
+; tail calls.  Memory is three bump arenas carved after CodeEnd (cells,
+; object bytes, input buffer) -- there is no GC.
 (define (build)
   ; --- Startup ---
+  ; Arena layout: cell arena at CodeEnd (8-byte aligned), byte arena
+  ; +0x0C000000, 16 MiB stdin buffer +0x02000000, token buffer +0x01000000
+  ; further.  The (Program ... bss ...) request at the bottom reserves the
+  ; whole span as ELF memsz.
   (L "Start")
   (I "(MovRILabel EAX CodeEnd)")
   (I "(AddI8 EAX 07)")
@@ -205,6 +271,8 @@
   (startup-specials SPECIALS)
   (startup-prims PRIMS 0)
 
+  ; Read-eval-print until eof (then exit 0); unspecified results are not
+  ; printed, so definitions stay silent.
   (L "MainLoop")
   (call "ReadExpr")
   (CMPEAX (k EOFV))
@@ -223,7 +291,9 @@
   (L "MainLoop2")
   (I "(Jmp32 MainLoop)")
 
-  ; DefPrim
+  ; DefPrim: EAX = name symbol, ECX = code entry address.  Builds the
+  ; subtype-3 object (address|3 payload, length 0) and conses the binding
+  ; onto the global environment.
   (L "DefPrim")
   (I "(PushR EAX)")
   (I "(MovRR EAX ECX)")
@@ -240,6 +310,8 @@
   (I "(Ret)")
 
   ; --- Output ---
+  ; Emit: write(1, WriteChBuf, 1) with the byte from AL; PrintRaw: write(1,
+  ; ECX, EDX); ErrTok: print "!\n" and exit 1 (reader syntax error).
   (L "Emit")
   (I "(PushR EBX)")
   (I "(PushR ECX)")
@@ -271,6 +343,7 @@
   (I "(Int 80)")
 
   ; --- Allocation ---
+  ; Cons: bump an 8-byte cell off GCellFree; car=EAX, cdr=ECX.
   (L "Cons")
   (I "(PushR EDX)")
   (I "(MovRMemL EDX GCellFree)")
@@ -282,6 +355,10 @@
   (I "(PopR EDX)")
   (I "(Ret)")
 
+  ; AllocObj: EAX = source bytes, ECX = length, EDX = subtype.  Copies the
+  ; bytes into the byte arena (8-aligned so the payload pointer has room
+  ; for the subtype in its low bits), builds the object cell
+  ; [payload|subtype, len<<2|1] and returns the tagged (|2) pointer.
   (L "AllocObj")
   (I "(PushR EDX)")
   (I "(MovRMemL EDI GByteFree)")
@@ -308,6 +385,9 @@
   (I "(Ret)")
 
   ; --- Input ---
+  ; ReadCh: one character in EAX, or -1 at eof.  GPeek is a one-slot
+  ; pushback (-1 = empty) serving peek-char and the reader's lookahead;
+  ; when the buffer runs dry, one big read(0, GReadBuf, 16 MiB) refills it.
   (L "ReadCh")
   (I "(MovRMemL EAX GPeek)")
   (CMPEAX wm1)
@@ -358,6 +438,8 @@
   (I "(MovMemLR GPeek EAX)")
   (I "(Ret)")
 
+  ; SkipWS: also swallows ;-comments to end of line; the terminating
+  ; non-blank character is pushed back via GPeek at (SW 3).
   (L "SkipWS")
   (L "(SW 1)")
   (call "ReadCh")
@@ -384,6 +466,9 @@
   (I "(Ret)")
 
   ; --- Reader ---
+  ; Recursive descent on the first character: ( list, ' quote sugar,
+  ; # hash syntax, " string, digits (or - digit) number, anything else a
+  ; symbol.  A stray ) is a syntax error.
   (L "ReadExpr")
   (call "SkipWS")
   (call "ReadCh")
@@ -441,6 +526,8 @@
   (L "(RE 9)")
   (I "(Jmp32 ReadSym)")
 
+  ; ReadNum: ECX on entry = negate flag.  acc*10 as (acc<<3)+(acc<<1);
+  ; result returned as a tagged fixnum.
   (L "ReadNum")
   (I "(PushR ECX)")
   (I "(SubI8 EAX 30)")
@@ -470,6 +557,10 @@
   (I "(OrI8 EAX 01)")
   (I "(Ret)")
 
+  ; ReadList: builds the list by stack recursion.  A `.` counts as the
+  ; dotted-pair dot only when FOLLOWED by a delimiter ((RL 2)..(RL 3)), so
+  ; symbols starting with a dot still read; exactly one expr then `)` may
+  ; follow it.
   (L "ReadList")
   (call "SkipWS")
   (call "PeekCh")
@@ -517,6 +608,9 @@
   (I "(PopR EAX)")
   (I "(Jmp32 Cons)")
 
+  ; ReadHash: #t, #f, and #\char.  For #\ a run of lowercase letters is
+  ; consumed greedily and the FIRST letter decides: s(pace), n(ewline),
+  ; t(ab); a single character stands for itself ((RH 5)).
   (L "ReadHash")
   (call "ReadCh")
   (I "(CmpALI8 74)")
@@ -572,6 +666,8 @@
   (I "(OrI8 EAX 53)")
   (I "(Ret)")
 
+  ; ReadString: bytes into GTokBuf until the closing quote; only \n is a
+  ; recognized escape (any other backslashed char is taken literally).
   (L "ReadString")
   (I "(MovRMemL EDX GTokBuf)")
   (L "(RS 1)")
@@ -599,6 +695,8 @@
   (MOVRI "EDX" (k 1))
   (I "(Jmp32 AllocObj)")
 
+  ; ReadSym: collect to the next delimiter (pushed back via GPeek), then
+  ; intern the token.
   (L "ReadSym")
   (I "(MovRMemL EDX GTokBuf)")
   (I "(MovbMR EDX EAX)")
@@ -633,6 +731,11 @@
   (I "(SubRR ECX EAX)")
   (I "(Jmp32 Intern)")
 
+  ; Intern: EAX = token bytes, ECX = length.  Linear scan of the GObList
+  ; oblist comparing length first, bytes second (RepeCmpsb); on a miss,
+  ; allocate a fresh subtype-0 (symbol) object and push it on.  Symbol
+  ; identity is therefore pointer identity, which is what Eval and eq?
+  ; compare.
   (L "Intern")
   (I "(MovRMemL EDX GObList)")
   (L "(IN 1)")
@@ -667,6 +770,11 @@
   (I "(JmpS (IN 1))")
 
   ; --- Evaluator ---
+  ; Eval(EAX = expr, ECX = env), dispatch on the tag: fixnums and
+  ; immediates self-evaluate; objects are looked up when they are symbols
+  ; (payload subtype 0) and self-evaluate otherwise; pairs fall into the
+  ; special-form dispatch at (EV 4), else head and arguments are evaluated
+  ; and Apply is tail-jumped.  EvalTop is the tail-call re-entry point.
   (L "Eval")
   (L "EvalTop")
   (I "(MovRR EBX EAX)")
@@ -707,6 +815,9 @@
   (I "(PopR EAX)")
   (I "(Jmp32 Apply)")
 
+  ; LookupPair: find the (sym . val) binding cell for EAX; two rounds
+  ; (EBX = round flag): the local env in ECX, then the global GEnv.
+  ; Unbound -> print the symbol, "?", exit 1.
   (L "LookupPair")
   (I "(XorRR EBX EBX)")
   (L "(LK 1)")
@@ -737,6 +848,7 @@
   (MOVRI "EBX" (k 1))
   (I "(Int 80)")
 
+  ; EvList: evaluate an argument list left to right into a fresh list.
   (L "EvList")
   (I "(TestRI8 EAX 03)")
   (I "(Jz (EL 1))")
@@ -756,6 +868,8 @@
   (I "(PopR EAX)")
   (I "(Jmp32 Cons)")
 
+  ; EvIf: only #f is false; a missing else branch yields unspecified.
+  ; Both branches are entered by Jmp32 EvalTop -- tail position.
   (L "EvIf")
   (I "(MovRMD EDX EAX 04)")
   (I "(PushR ECX)")
@@ -779,6 +893,9 @@
   (I "(MovRM EAX EDX)")
   (I "(Jmp32 EvalTop)")
 
+  ; EvDefine: (define x e) conses a global binding.  The (DF 1) branch is
+  ; the (define (f . args) body...) sugar: it builds (lambda args body...)
+  ; in place and evaluates that instead.
   (L "EvDefine")
   (I "(MovRMD EDX EAX 04)")
   (I "(MovRM EBX EDX)")
@@ -819,6 +936,7 @@
   (MOVRI "EAX" (k UNSPEC))
   (I "(Ret)")
 
+  ; EvSet: find the binding cell, then overwrite its cdr in place.
   (L "EvSet")
   (I "(MovRMD EDX EAX 04)")
   (I "(PushR EDX)")
@@ -836,6 +954,9 @@
   (MOVRI "EAX" (k UNSPEC))
   (I "(Ret)")
 
+  ; EvLambda: a closure is an object of subtype 2 whose payload is
+  ; (params . (body... . env)) -- the defining environment captured by
+  ; reference.
   (L "EvLambda")
   (I "(MovRMD EDX EAX 04)")
   (I "(MovRMD EAX EDX 04)")
@@ -853,6 +974,9 @@
   (I "(MovRMD EAX EAX 04)")
   (I "(Jmp32 SeqTail)")
 
+  ; SeqTail: evaluate a body sequence, Jmp32-ing into the LAST form --
+  ; the single place that makes closure bodies, let, cond and begin all
+  ; properly tail recursive.
   (L "SeqTail")
   (I "(TestRI8 EAX 03)")
   (I "(Jz (SQ 1))")
@@ -873,6 +997,8 @@
   (I "(MovRM EAX EAX)")
   (I "(Jmp32 EvalTop)")
 
+  ; EvLet: evaluate each init in the ORIGINAL env (kept on the stack),
+  ; consing (var . val) pairs onto the new env, then SeqTail the body.
   (L "EvLet")
   (I "(MovRMD EDX EAX 04)")
   (I "(MovRM EBX EDX)")
@@ -908,6 +1034,8 @@
   (I "(MovRMD EAX EAX 04)")
   (I "(Jmp32 SeqTail)")
 
+  ; EvCond: walk the clauses; `else` matches by symbol identity; a clause
+  ; with no body ((CO 3)) returns the test's value; no clause -> unspec.
   (L "EvCond")
   (I "(MovRMD EBX EAX 04)")
   (L "(CO 1)")
@@ -944,6 +1072,7 @@
   (MOVRI "EAX" (k UNSPEC))
   (I "(Ret)")
 
+  ; EvAnd / EvOr: short-circuit, last operand in tail position.
   (L "EvAnd")
   (I "(MovRMD EBX EAX 04)")
   (I "(TestRI8 EBX 03)")
@@ -996,6 +1125,13 @@
   (I "(MovRM EAX EBX)")
   (I "(Jmp32 EvalTop)")
 
+  ; Apply: EAX = procedure object, EDX = evaluated argument list.
+  ; Subtype 3 (primitive): mask the tag off the payload and JmpR straight
+  ; into the code with the arg list in EAX.  Subtype 2 (closure): bind
+  ; params to args in the (AP 4) loop -- a SYMBOL in parameter position
+  ; ((AP 5), including an improper tail) takes the whole remaining arg
+  ; list, giving rest parameters -- then SeqTail the body in the extended
+  ; environment.  Arity mismatch -> ErrApply.
   (L "Apply")
   (I "(MovRR EBX EAX)")
   (I "(AndI8 EBX 03)")
@@ -1075,6 +1211,10 @@
   (I "(Int 80)")
 
   ; --- Primitives ---
+  ; Every primitive receives the evaluated ARGUMENT LIST in EAX and returns
+  ; its result in EAX.  All entry points are PL (8-byte aligned): DefPrim
+  ; ors subtype bits into their addresses.  The type predicates all funnel
+  ; through ret-bool's shared #t/#f tails.
   (PL "PrCons")
   (I "(MovRMD ECX EAX 04)")
   (I "(MovRM ECX ECX)")
@@ -1214,6 +1354,9 @@
   (I "(JmpS (NO F))")
   (ret-bool "NO")
 
+  ; PrAdd: n-ary, on TAGGED fixnums.  ECX starts at 1 (tagged 0); adding a
+  ; tagged value gives 4(a+b)+2, so a DecR after each add restores the |1
+  ; tag -- no untagging needed.
   (PL "PrAdd")
   (MOVRI "ECX" (k 1))
   (L "(AD 1)")
@@ -1228,6 +1371,9 @@
   (I "(MovRR EAX ECX)")
   (I "(Ret)")
 
+  ; PrSub: one argument negates: 2 - (4n+1) = 4(-n)+1, so tagged negation
+  ; is a subtraction from 2.  More arguments fold with the IncR re-tag
+  ; trick (mirror image of PrAdd's DecR).
   (PL "PrSub")
   (I "(MovRM ECX EAX)")
   (I "(MovRMD EAX EAX 04)")
@@ -1295,6 +1441,8 @@
   (cmp-prim "PrLe" "LEP" "Jle")
   (cmp-prim "PrGe" "GEP" "Jge")
 
+  ; PrDisplay: strings print raw (no quotes) and characters raw (no #\
+  ; prefix); everything else shares Print, i.e. write's notation.
   (PL "PrDisplay")
   (I "(MovRM EAX EAX)")
   (I "(MovRR ECX EAX)")
@@ -1477,6 +1625,9 @@
   (I "(Int 80)")
 
   ; --- Printer ---
+  ; Print: write notation, dispatched on the tag.  Symbols print their
+  ; bytes raw, strings quoted, chars as #\c, unknown subtypes as `?`;
+  ; PrintPair renders improper tails as " . x".
   (L "Print")
   (I "(MovRR ECX EAX)")
   (I "(AndI8 ECX 03)")
@@ -1494,6 +1645,8 @@
   (L "(PR 3)")
   (I "(Jmp32 PrintPair)")
 
+  ; PrintNum: decimal via repeated div-by-10, digits pushed on the machine
+  ; stack and popped back out (EBX counts them).
   (L "PrintNum")
   (I "(SarI8 EAX 02)")
   (I "(TestRR EAX EAX)")
@@ -1619,6 +1772,9 @@
   (I "(Jmp32 Emit)")
 
   ; --- Data ---
+  ; Global cells, the one-byte write buffer, and the special/prim name
+  ; strings.  GPeek starts at -1 (pushback empty); CodeEnd marks where the
+  ; bump arenas begin.
   (I "(Align4)")
   (data-gnames DATA-GNAMES)
   (L "GPeek")
@@ -1631,8 +1787,16 @@
   (L "CodeEnd"))
 
 ; ---------------------------------------------------------------------------
-; Emission.
+; Emission: the (Z n) block chain.
 ; ---------------------------------------------------------------------------
+; A single right-nested (Ins ... (Ins ... End)) source term would nest
+; thousands of parens deep -- unreadable and hostile to the seed reader.
+; Instead the program is cut into 24-instruction blocks: block n becomes a
+; rewrite rule (Rule (Z n) (Ins ... (Z n+1))), the last block ends in End,
+; and the trailing (Assemble (Program Start bss (Z 0))) names only the
+; head.  The seed's CBV evaluator expands the chain into the full
+; instruction list before Assemble runs.  repeat-str closes each block's
+; stack of open (Ins parens.
 (define (repeat-str s n) (if (= n 0) "" (string-append s (repeat-str s (- n 1)))))
 (define (take-n lst n) (if (or (= n 0) (null? lst)) '() (cons (car lst) (take-n (cdr lst) (- n 1)))))
 (define (drop-n lst n) (if (or (= n 0) (null? lst)) lst (drop-n (cdr lst) (- n 1))))
@@ -1652,6 +1816,8 @@
                     (repeat-str ")" (length blk)) ")")))
           (emit-blocks rest (+ bi 1))))))
 
+; Artifact header, the block chain, then the Assemble driver (bss = 256 MiB
+; covering all three arenas).
 (define (main)
   (begin
     (build)
