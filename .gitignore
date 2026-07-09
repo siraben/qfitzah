@@ -10,3 +10,5 @@ bin/mes-mescc.qmes
 qmes64.elf
 bin/mes-mescc64.qmes
 bin/mes-mescc64.ref
+bin/tcc-mes.qmes
+bin/tcc-mes.ref
