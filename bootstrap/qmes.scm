@@ -63,7 +63,8 @@
 ; The cell arena (one rsc vector of raw 32-bit words).
 ; Sizes are env-driven: read MES_ARENA/MES_STACK/MES_MAX_STRING at startup
 ; (gc.c:67-87) and allocate g-cells / g-stack / the byte pool before the
-; host-heap floor mark (§2.2).  Defaults match the pre-refit fixed sizes.
+; host-heap floor mark (docs/qmes.md §4.1: durable state lives in pre-mark
+; storage).  Defaults match the pre-refit fixed sizes.
 ; ===========================================================================
 (define ARENA-CELLS 1000000)                   ; MES_ARENA (cells)
 (define g-cells 0)                             ; allocated in qmain
@@ -83,7 +84,7 @@
 (define (alloc-n n)
   (let ((i cell-free))
     (set! cell-free (+ cell-free n))
-    ; Unconditional cell-arena tripwire (C Mes asserts in make_cell; §3/#3).
+    ; Unconditional cell-arena tripwire (the C asserts in alloc, gc.c:160).
     (if (> cell-free cell-cap)
         (begin (emit-str g-stderr ";;; ARENA OVERFLOW cell-free=") (emit-number g-stderr cell-free)
                (emit-str g-stderr " cap=") (emit-number g-stderr cell-cap)
@@ -94,7 +95,7 @@
 (define cell-cap 999999999)                      ; = ARENA-CELLS+JAM-CELLS (qmain)
 (define in-gc-flag 0)
 
-; --- GC chunked host-heap reclamation (§2.4 follow-up: MesCC scale) ----------
+; --- GC chunked host-heap reclamation (docs/qmes.md §4; needed at MesCC scale)
 ; A single collection scans/relocates the whole live set (millions of cells);
 ; each cell processed conses transient host (rsc) w32 boxes.  Across one gc-
 ; call these overflow the ~512 MiB host cell heap and corrupt it.  Mirror the
@@ -119,7 +120,7 @@
       (begin (host-heap-reset! gc-floor) (set! gc-k GC-RESET-K))
       'ok))
 
-; --- host pair-heap ceiling tripwire (§3/#3) --------------------------------
+; --- host pair-heap ceiling tripwire (docs/qmes.md §10) ---------------------
 ; The rsc host pair heap is a 512 MiB bump allocator with no bounds check in
 ; Cons; overflowing it silently smashes g-cells.  qmain records the base mark
 ; and a ceiling = base + cap (default 496 MiB, i.e. 16 MiB slack under the real
@@ -178,7 +179,8 @@
 (define (make-ref x) (alloc TREF x 0))
 
 ; make_continuation (gc.c:258-262): TCONTINUATION cell [car = n, cdr = g_stack].
-; The cdr placeholder is overwritten with the snapshot vector at capture (§3.1).
+; The cdr placeholder (the C stores g_stack) is overwritten with the snapshot
+; vector at capture (docs/qmes.md §5).
 (define g-continuations 0)
 (define (make-continuation n) (alloc TCONTINUATION n stkp))
 
@@ -894,7 +896,7 @@
 (define ID-GC 104)              ; gc / gc-stats / gc-check builtins
 (define ID-GC-STATS 105)
 (define ID-GC-CHECK 106)
-(define ID-VALUES 107)          ; values / stack.c (§3)
+(define ID-VALUES 107)          ; values (core.c) / stack.c introspection
 (define ID-MAKE-STACK 108)
 (define ID-STACK-LENGTH 109)
 (define ID-STACK-REF 110)
@@ -1528,9 +1530,10 @@
 (define GC-FRAME-SIZE 5)
 (define GC-FRAME-PROCEDURE 4)
 
-; --- continuation capture/restore (§3.1, eval-apply.c:996-1010, 543-555) ------
-; A snapshot is a TVECTOR of the live stack [stkp, STACK-SIZE); the slots are
-; ordinary SCMs, so gc-copy relocates them like any vector (§3.2).  Capture uses
+; --- continuation capture/restore (docs/qmes.md §5; eval-apply.c:996-1010,
+; 543-555).  A snapshot is a TVECTOR of the live stack [stkp, STACK-SIZE); the
+; slots are ordinary SCMs, so gc-copy relocates them like any vector — the
+; collector needs no continuation special case.  Capture uses
 ; vector-set-x- (the C vector_set_x_) and restore uses vector-ref- (vector_ref_)
 ; so the wrap/unwrap round-trip is behaviour-identical to Mes.
 (define (snapshot-stack)
@@ -1549,7 +1552,7 @@
              (restore-stack v len (+ i 1)))
       'ok))
 
-; --- stack.c port (§3.1 item 4): make-stack / stack-length / stack-ref -------
+; --- stack introspection (stack.c): make-stack / stack-length / stack-ref ---
 ; A fresh frame/stack record type per call, exactly as stack.c does (no root).
 (define (make-frame-type)
   (make-struct cell-symbol-record-type
@@ -1630,7 +1633,7 @@
 ; stable across GC and never need patching.  Forwarding uses TBROKEN-HEART:
 ; a copied cell's old slot becomes [TBROKEN-HEART | new-index | *].
 ;
-; Collection runs ONLY at the three gc-check sites (§2.4 rule 1); all live
+; Collection runs ONLY at the three gc-check sites (docs/qmes.md §3.1); all live
 ; SCMs are then reachable from the root set, so precise copying needs no host
 ; frame scan.  Cell INDICES are small fixnums; TNUMBER/TCHAR payloads are raw
 ; w32 words — the flip therefore relocates only pointer fields (small indices)
@@ -1803,7 +1806,7 @@
   cell-unspec)
 
 ; gc-check (gc.c:582-589): collect when the arena is within GC-SAFETY of full,
-; or the byte pool is under pressure, or gc-stress forces it (§2.4).
+; or the byte pool is under pressure, or gc-stress forces it (docs/qmes.md §4.3).
 (define (gc-want?)
   (cond ((not (= qmes-gc-stress 0))
          (set! gc-stress-ctr (+ gc-stress-ctr 1))
@@ -2675,12 +2678,15 @@
   (let ((fd (sys-open (string-append "mes/module/mes/" boot) 0 0)))
     (if (>= fd 0) fd (sys-open boot 0 0))))  ; <boot> direct; g-datadir stays "mes"
 
+; The current host-heap floor for vm-dispatch's reset.  Logically a stack:
+; vm-run-nested pushes a new floor for each VM re-entry and pops it on return
+; (docs/qmes.md §4.4); qmain installs the outermost floor before dispatching.
 (define floor 0)
 
 ; read_input_file_env (reader.c:38): read forms until a top-level cell-nil
 ; (EOF or `)`), resetting the reader pushback for a fresh port.
 ;
-; Chunked host-heap reclamation (mirrors the GC loops, §2.4, and asm.scm's
+; Chunked host-heap reclamation (mirrors the GC loops and asm.scm's
 ; slurp-loop): reading a whole file (e.g. nyacc's 100 KiB c99-tab.scm) conses
 ; megabytes of transient host (rsc) frames.  If those accumulate across the
 ; forms of a file — and across the nested primitive-load chain — the 512 MiB
@@ -2709,10 +2715,11 @@
 
 ; ===========================================================================
 ; The VM dispatcher (eval-apply.c:442-504) and the state machine.
-; The host-heap safepoint runs first, once per dispatch (design §4).
-; Every st-* procedure is only ever tail-called (design §4.4).
+; The host-heap safepoint runs first, once per dispatch (docs/qmes.md §4).
+; Every st-* procedure is only ever tail-called — the tail-call rule of
+; docs/qmes.md §2.2, which is what makes the safepoint reset sound.
 ; ===========================================================================
-(define qmes-no-reset 0)             ; bisect switch (design §4.3.4)
+(define qmes-no-reset 0)             ; bisect switch (docs/qmes.md §4.3)
 
 ; --- nested trampoline / floor stack -------------------------------
 ; vm-run-nested is the ONLY way to re-enter the VM (primitive-load, and later
@@ -2799,6 +2806,13 @@
 (define (b-read-char) (make-char (getchar-)))  ; EOF = char -1
 (define (b-peek-char) (make-char (peekchar)))
 
+; The eval_apply: dispatch chain (eval-apply.c:442-503), in the C's order
+; (roughly frequency-sorted — the hot evlis/eval/apply continuations first).
+; vm-dispatch is entered at every frame pop, i.e. at every subexpression
+; completion, which is why the host-heap reset lives here and only here
+; (docs/qmes.md §4.1).  It has no parameters and no free lexical variables:
+; after the reset it touches nothing but globals.  r3 == cell-unspec is the
+; sentinel state — return R1 to the host caller (qmain / vm-run-nested).
 (define (vm-dispatch)
   (if (= qmes-no-reset 0) (host-heap-reset! floor) 'nop)
   (cond
@@ -2834,13 +2848,21 @@
     ((= r3 cell-unspec)                   r1)
     (else (qfail))))
 
+; vm_return (eval-apply.c:1023-1027): pop the frame but keep R1 — the frame's
+; saved r1 is discarded in favour of the value just produced.  The restored
+; r3 then selects the continuation state on the next dispatch.
 (define (st-vm-return)
   (let ((x r1))
     (pop-frame!)
     (set! r1 x))
   (vm-dispatch))
 
-; --- evlis (C 506-518) ---
+; --- evlis (C 506-518): evaluate an argument list left-to-right ---
+; evlis: eval the car with continuation evlis2 (a non-pair tail — improper
+; arg list — falls into eval whole).  evlis2 runs with r1 = the evaluated
+; car and r2 = the original list; it saves the value as the next frame's r2
+; and recurses on the cdr.  evlis3 conses the saved value onto the evaluated
+; rest, rebuilding the list in order as the frames unwind.
 (define (st-evlis)
   (cond ((= r1 cell-nil) (st-vm-return))
         ((not (= (cell-type r1) TPAIR)) (st-eval))
@@ -2852,7 +2874,11 @@
   (set! r1 (qcons r2 r1))
   (st-vm-return))
 
-; --- apply (C 520-614) ---
+; --- apply (C 522-614): dispatch on the operator's type ---
+; On entry r1 = (operator . evaluated-args).  The operator is first stored
+; into the current frame's procedure slot (GC_FRAME_PROCEDURE): it is both a
+; GC root for the duration of the application and what make-stack's frames
+; later report as the procedure.
 (define (st-apply)
   (stack-set! (+ stkp 4) (cell-car r1))
   (let* ((f (cell-car r1)) (t (cell-type f)))
@@ -2868,6 +2894,12 @@
       ((= t TSYMBOL) (st-apply-symbol f))
       ((= t TPAIR) (st-apply-pair f))
       (else (st-apply-fallthrough)))))
+; Closure application (C 532-545).  cl = ((*circular* . env) formals . body);
+; NOTE the deliberate double cdr computing aa: (cell-cdr (cell-car cl)) is
+; the captured env, and its OWN cdr drops the env's head entry before pairlis
+; extends it (the C's `aa = cl->car->cdr; aa = aa->cdr;`).  call_lambda
+; (C 151) then conses a fresh (*closure* . p) head.  This head-drop is a C
+; quirk the transliteration must keep — do not "fix" (docs/qmes.md §2.3).
 (define (st-apply-closure f)
   (let* ((cl (cell-cdr f))
          (body (cell-cdr (cell-cdr cl)))
@@ -2879,6 +2911,11 @@
       (set! r1 body)
       (set! r0 (qcons (qcons cell-closure p) p))
       (st-begin))))
+; TSPECIAL operators (C 552-576): the three VM-state cells that double as
+; user-visible procedures — core:apply (cell-vm-apply), core:eval-expanded
+; (cell-vm-eval), core:eval (cell-vm-begin-expand, i.e. eval WITH macro
+; expansion).  Each pushes a vm-return frame and enters its state directly;
+; the eval/begin-expand forms take the target environment as second argument.
 (define (st-apply-special f)
   (cond
     ((= f cell-vm-apply)
@@ -2897,6 +2934,8 @@
                  r1 (cell-car (cell-cdr (cell-cdr r1))) cell-vm-return)
        (st-begin-expand)))
     (else (begin (check-apply cell-f f) (st-apply-fallthrough)))))
+; Self-bound TSYMBOL operators (C 577-594): call/cc and call-with-values
+; enter their goto-only labels below; current-environment returns R0 itself.
 (define (st-apply-symbol f)
   (cond
     ((= f cell-symbol-call-with-current-continuation)
@@ -2916,8 +2955,13 @@
     (set! r1 (cell-car (cell-cdr r1)))
     (st-vm-return)))
 
-; --- capture (eval-apply.c:996-1010): the double snapshot (§3.1 item 1).  R2 =
-; the continuation x roots the in-progress snapshot across the applied thunk.
+; --- capture (eval-apply.c:996-1010): the double snapshot (docs/qmes.md §5).
+; First snapshot: the stack as of the call, stored before applying the
+; receiver.  Then in cc2, AFTER the receiver's frame was pushed, the stack is
+; re-snapshotted into the continuation — this second snapshot (which includes
+; the cc2 frame itself) is what makes returning THROUGH the capture point
+; work when the continuation is invoked later.  R2 = the continuation x
+; roots the in-progress snapshot across the applied thunk.
 (define (st-call-with-current-continuation)
   (let ((x (make-continuation g-continuations)))
     (set! g-continuations (+ g-continuations 1))
@@ -2939,6 +2983,10 @@
       (set! r1 (qcons r1 cell-nil)))
   (set! r1 (qcons (cell-car (cell-cdr r2)) r1))
   (st-apply))
+; Literal (lambda …) in operator position (C 595-607): like a closure body
+; entry, but the body env extends the CURRENT env R0 — the C calls
+; call_lambda (body, p, p), not (body, p, aa) — since there is no captured
+; env to unpack.  Anything else falls through to operator evaluation.
 (define (st-apply-pair f)
   (if (= (cell-car f) cell-symbol-lambda)
       (let* ((formals (cell-car (cell-cdr f)))
@@ -2950,6 +2998,8 @@
         (set! r0 (qcons (qcons cell-closure p) p))
         (st-begin))
       (st-apply-fallthrough)))
+; Operator not directly applicable (C 608-614): evaluate it and retry the
+; apply with the result; apply2 rejects non-procedures via check_apply.
 (define (st-apply-fallthrough)
   (push-cc! (cell-car r1) r1 r0 cell-vm-apply2)
   (st-eval))
@@ -2958,7 +3008,10 @@
   (set! r1 (qcons r1 (cell-cdr r2)))
   (st-apply))
 
-; --- eval (C 616-802) ---
+; --- eval (C 616-802): dispatch on the expression's type ---
+; Pairs dispatch on the head form; TSYMBOL/TBINDING are variable references;
+; a TBROKEN-HEART means a stale pre-GC index escaped (system-error in the C);
+; everything else is self-evaluating.
 (define (st-eval)
   (let ((t (cell-type r1)))
     (cond
@@ -2967,6 +3020,11 @@
       ((= t TBINDING) (st-eval-binding))
       ((= t TBROKEN-HEART) (qfail))
       (else (st-vm-return)))))
+; A TBINDING head (planted by expand-variable) is resolved IN PLACE first
+; (C 621-634): the program cell's car is overwritten with the bound value, so
+; re-executions of this cell dispatch straight on the value.  Then the head
+; dispatch: quote/begin/lambda/if/set!/core:macro-expand/define, else a
+; procedure application via eval_check_func.
 (define (st-eval-pair)
   (let ((c0 (cell-car r1)))
     (if (= (cell-type c0) TBINDING)
@@ -2997,6 +3055,10 @@
       ((or (= c cell-symbol-define) (= c cell-symbol-define-macro))
        (st-eval-define-entry))
       (else
+       ; Application (C 763-765).  This gc-check is one of the three
+       ; designated collection safepoints (docs/qmes.md §3.1): the operator
+       ; is already rooted in the just-pushed frame, so all live SCMs are
+       ; reachable from the root set here.
        (begin (push-cc! (cell-car r1) r1 r0 cell-vm-eval-check-func)
               (gc-check)                         ; eval-apply.c:764
               (st-eval))))))
@@ -3017,6 +3079,14 @@
 (define (st-eval-set-x)
   (set! r1 (set-x (cell-car (cell-cdr r2)) r1 0))
   (st-vm-return))
+; eval_check_func / eval2 (C 766-771).  Deliberate C quirk: the operator
+; value just computed into r1 is DISCARDED — evlis runs on the operands, and
+; eval2 rebuilds the application from the operator POSITION (r2->car),
+; leaving st-apply's fallthrough to evaluate a compound operator a second
+; time.  The first evaluation is the "check": operator errors surface before
+; the operands run.  (For the common cases the position already holds the
+; answer: a TBINDING head was resolved in place by st-eval-pair.)  Keep
+; verbatim — the fixpoint gate compares against this behavior.
 (define (st-eval-check-func)
   (push-cc! (cell-cdr r2) r2 r0 cell-vm-eval2)
   (st-evlis))
@@ -3028,7 +3098,17 @@
   (st-macro-expand))
 (define (st-eval-macro-expand-expand) (st-vm-return))
 
-; --- eval_define entry + continuation (C 673-761, §3.4) ---
+; --- eval_define entry + continuation (C 673-761) ---
+; Handles (define name e), (define (name . formals) body...), define-macro.
+; Entry: global-p <=> the env head is not the *closure* marker (top level or
+; a primitive-load body).  A global name is pre-bound (lookup-binding with
+; define-p = #t) BEFORE its value is evaluated — this is what lets a global
+; procedure refer to itself; a macro name gets a placeholder table entry the
+; same way.  The procedure form is rewritten to (lambda formals body) and
+; evaluated in p = the current env extended with the (name . formals) list
+; bound TO ITSELF (the C's pairlis (R1->cdr->car, R1->cdr->car, R0),
+; verbatim); for a global/macro define the body's free symbols are
+; expand-variable'd first.
 (define (st-eval-define-entry)
   (let ((global-p (if (= (cell-car (cell-car r0)) cell-closure) 0 1))
         (macro-p (if (= (cell-car r1) cell-symbol-define-macro) 1 0)))
@@ -3058,6 +3138,13 @@
                                      (cell-cdr (cell-cdr r1)))))
               (push-cc! r1 r2 p cell-vm-eval-define)
               (st-eval)))))))
+; Continuation (C 724-761): r1 = the evaluated value, r2 = the original
+; define form.  global-p/macro-p are recomputed from r0/r2 — an inline
+; define during evaluation may have clobbered the entry's view (C comment at
+; 725).  Store: macro -> the macro table; global -> set-x (define-p = 1);
+; local -> splice a fresh (name . value) entry into the lexical env so that
+; BOTH r0's tail and the *closure* head's cdr point at the new cell — every
+; closure sharing this env (via the head) sees the definition.
 (define (st-eval-define)
   (let* ((global-p (if (= (cell-car (cell-car r0)) cell-closure) 0 1))
          (macro-p (if (= (cell-car r2) cell-symbol-define-macro) 1 0))
@@ -3079,6 +3166,16 @@
     (st-vm-return)))
 
 ; --- macro_expand family (C 804-892) ---
+; The expander MUTATES the program in place: each continuation writes the
+; expanded sub-form back into the original cells (set-car!/set-cdr! on r2),
+; so a form is expanded once and stays expanded.  lambda / define / set!
+; expand only their bodies (heads and formals stay); quote stops expansion;
+; a head with a macro table entry is APPLIED (via st-apply) and the result
+; re-expanded to fixpoint; otherwise car and cdr are expanded structurally.
+; The C's psyntax hook (portable-macro-expand / *sc-expander-alist*,
+; C 855-880) is NOT ported: nothing in the shipped module tree ever defines
+; portable-macro-expand, so that branch is dead in the reference boot too
+; (its two symbols are still interned in init-cells, matching init_symbols_).
 (define (st-macro-expand)
   (if (or (not (= (cell-type r1) TPAIR)) (= (cell-car r1) cell-symbol-quote))
       (st-vm-return)
@@ -3110,6 +3207,9 @@
   (set-cdr! (cell-cdr r2) r1)
   (set! r1 r2)
   (st-vm-return))
+; After expanding a define's body, a define-macro form is additionally
+; EVALUATED right here (C 826-831) — macros are installed at expansion time,
+; before the surrounding begin gets to the form.
 (define (st-macro-expand-define)
   (set-cdr! (cell-cdr r2) r1)
   (set! r1 r2)
@@ -3135,7 +3235,14 @@
   (set! r1 r2)
   (st-vm-return))
 
-; --- begin / begin_eval (C 894-920, §5.7) ---
+; --- begin / begin_eval (C 894-920) ---
+; The C is a while loop with an embedded continuation label; per the
+; transliteration rule (docs/qmes.md §2.2) it splits into a loop procedure
+; (begin-loop, running value x as the argument) and a re-entry state
+; (st-begin-eval) that tail-calls back into the loop.  Nested (begin …)
+; heads are spliced flat (append2); the LAST form is evaluated without
+; pushing a frame — Mes's tail-call rule, letting loops run in constant
+; stack.  The gc-check here is the second designated collection safepoint.
 (define (st-begin) (begin-loop cell-unspec))
 (define (st-begin-eval)
   (let ((x r1))
@@ -3154,7 +3261,16 @@
             (begin (set! r1 (cell-car r1)) (st-eval))
             (begin (push-cc! (cell-car r1) r1 r0 cell-vm-begin-eval) (st-eval))))))
 
-; --- begin_expand (C 923-975, §5.8) — the top-level driver ---
+; --- begin_expand (C 923-975) — the top-level driver ---
+; The state qmain, primitive-load, and core:eval start in.  Like begin, but
+; each form is first macro-expanded to fixpoint: st-begin-expand-macro loops
+; back into begin-expand-body for as long as expansion changed the form.
+; Once stable, a (define (f …) …) head is pre-bound in the CURRENT module
+; before expansion of its body — the C's hack (C 950-966) so that a define
+; whose name shadows one from another module binds its self-reference to the
+; local variable, not the imported one.  Then expand-variable rewrites the
+; form's free symbols and the form is evaluated.  Its gc-check is the third
+; designated collection safepoint.
 (define (st-begin-expand) (begin-expand-loop cell-unspec))
 (define (begin-expand-loop x)
   (if (= r1 cell-nil)
@@ -3189,7 +3305,9 @@
     (set! r1 (cell-cdr r2))
     (begin-expand-loop x)))
 
-; --- if (C 977-994, §1.6) ---
+; --- if (C 977-994): eval the test with continuation if_expr, then tail-eval
+; the consequent / alternate, or return cell-unspec when a one-armed if
+; fails.  Only cell-f is false — everything else takes the consequent.
 (define (st-vm-if)
   (push-cc! (cell-car r1) r1 r0 cell-vm-if-expr)
   (st-eval))
@@ -3204,7 +3322,7 @@
       (else (begin (set! r1 cell-unspec) (st-vm-return))))))
 
 ; ===========================================================================
-; main / boot (mes.c:211-243, §6.3)
+; main / boot (mes.c:211-243; the startup contract is docs/qmes.md §7)
 ; ===========================================================================
 ; env-num (gc.c:67-87 atoi-style): parse a leading unsigned decimal, with an
 ; optional `eN` exponent (MES_ARENA=20e6); missing/blank -> dflt.
@@ -3238,7 +3356,7 @@
   ; env-driven arena/stack/byte-pool, allocated below the host-heap
   ; floor.  The cell arena carries JAM-CELLS of slack above ARENA-CELLS for the
   ; copy-up news space (gc.c:89); the byte pool is doubled for two-space
-  ; compaction (§2.3).  GC-SAFETY / JAM-CELLS track gc.c:74,78.
+  ; compaction (docs/qmes.md §3.3).  GC-SAFETY / JAM-CELLS track gc.c:74,78.
   (set! ARENA-CELLS (env-num "MES_ARENA" 1000000))
   (set! STACK-SIZE (env-num "MES_STACK" 100000))
   (set! JAM-CELLS (env-num "MES_JAM" (quotient ARENA-CELLS 10)))
@@ -3260,7 +3378,7 @@
   (set! byte-free 0)
   (set! BYTE-POOL-HI (- BYTE-POOL (quotient BYTE-POOL 8)))
   (init-cells)
-  (set! g-symbol-max cell-free)                  ; freeze the fixed region (§2.1)
+  (set! g-symbol-max cell-free)        ; freeze the fixed region (docs/qmes.md §3)
   (set! g-ports cell-nil)
   ; open_boot BEFORE mes_environment so g-datadir feeds %datadir (mes.c order).
   (let ((fd (open-boot)))
@@ -3278,7 +3396,7 @@
   (set! sym-table cell-nil)
   (set! env-alist cell-nil)
   (set! stkp STACK-SIZE)
-  (set! r3 (make-char 0))
+  (set! r3 (make-char 0))                       ; mes_g_stack (mes.c:35-44)
   (let ((program (read-all-forms)))
     (set! r0 cell-nil)
     (set! r0 (acons cell-symbol-program program r0))
