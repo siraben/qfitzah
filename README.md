@@ -226,14 +226,11 @@ rewriter without touching it:
   precedence grammar over a token stream, feeding the stack compiler; shows that
   languages built on the seed need not be S-expression languages.
 - [self-hosting-compiler.qf1](examples/self-hosting-compiler.qf1) — a compile-and-run
-  pipeline: compiles a small Lisp-like AST to stack bytecode, then runs it in a
+  pipeline: compiles a small AST to stack bytecode, then runs it in a
   VM written in Qfitzah.
-- [lisp.qf1](examples/lisp.qf1) (and the smaller [lisp-reverse.qf1](examples/lisp-reverse.qf1))
-  — a small Lisp evaluator with lexical closures, first-class and variadic
-  functions, environments, and list primitives.
 - [tour.qf1](examples/tour.qf1) — a short guided tour of the language.
 
-Run any of them through the seed, e.g. `bootstrap/seed/qfitzah < examples/lisp.qf1`.
+Run any of them through the seed, e.g. `bootstrap/seed/qfitzah < examples/tour.qf1`.
 
 ## Tests
 

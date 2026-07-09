@@ -94,8 +94,6 @@ run_case "byte-flatten"
 run_case "byte-output"
 run_case "arithmetic-compiler"
 run_case "meta2-arithmetic"
-run_case "lisp-reverse"
-run_case "full-lisp"
 run_case "self-hosting-compiler"
 
 run_rule_directive() {
