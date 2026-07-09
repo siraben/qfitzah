@@ -1,3 +1,10 @@
+        ## qfitzah.s is the trusted ~1.7 KiB seed of this repository's
+        ## bootstrap ladder.  The qfitzah term-rewriting language and this
+        ## hand-written i386 interpreter are the work of Kragen Javier Sitaker;
+        ## the ladder built on top of it (see README.md and ARCHITECTURE.md)
+        ## keeps the seed frozen and hand-auditable.  The original design
+        ## commentary follows, in the author's own voice.
+        ##
         ## Qfitzah, a leap or shortening: from a kilobyte
         ## or two of i386 machine code to a
         ## higher-order programming language with pattern matching,
@@ -7,12 +14,19 @@
         ## To build:
         ## $ gcc -Wl,-z,noseparate-code -static -m32 -nostdlib qfitzah.s -o qfitzah.bloated
         ## $ objcopy -S -R .note.gnu.build-id qfitzah.bloated qfitzah
+        ## (In this tree the canonical, reproducible build is
+        ## `make seed-from-source` — as --32, ld -m elf_i386 -static, then
+        ## objcopy stripping both .note.gnu.build-id and .note.gnu.property;
+        ## `make verify-seed` checks it byte-for-byte against the committed
+        ## bootstrap/seed/qfitzah.)
 
         ## This version does *not* use bytecode.  But it should
         ## be a good estimate for how much
         ## code is needed for a Qfitzah (with some primitive operations
         ## such as addition).  358 instructions, 731 bytes of code, 40
         ## bytes of data, 1184 bytes of executable.
+        ## (The seed in this tree, extended with head-atom rule indexing and
+        ## normal-form memoization for linear-time assembly, is 1680 bytes.)
 
         ## (Brian Raiter’s sstrip utility reduced the 1056-byte
         ## version of the executable to 828 bytes, a 228-byte
