@@ -159,6 +159,7 @@ compile_one() {
 # sweep HOST OUTDIR JOBS — compile all 10 units under HOST into OUTDIR (per-unit
 # logs), moving each canonical .s into OUTDIR.  Mirrors mescc-fixpoint.sh.
 sweep() {
+    local host outdir jobs outdir_abs pids u cout out log _fail p
     host=$1; outdir=$2; jobs=${3-8}
     ensure_env
     mkdir -p "$outdir" "$repo/$canon_rel"
