@@ -13,12 +13,15 @@ Stage 3  sc1.scm        Scheme-subset compiler, written in the scheme0 subset
 Stage 4  rsc.scm        R5RS-subset-to-asm compiler, written in the sc1 subset
 ```
 
-Every artifact is produced by running the stage below it — the seed assembles
-the assembler's output, the assembler builds the interpreter, the interpreter
-runs the compiler, the compiler compiles the next compiler. Host tools
-(`python3`) only generate *source* (rule tables, fixtures); they never emit
-object bytes. Two stages close the loop by rebuilding their own source to a
-byte-identical fixpoint.
+GNU binutils builds the seed. Above that boundary, the seed interprets qfasm
+rules to assemble the interpreter and every compiled program; the interpreter
+runs sc1, and native sc1 builds rsc. These are shared dependencies, not a chain
+where each stage depends only on the immediately preceding executable.
+Python generators historically compute checked-in assembler rules, interpreter
+and runtime assembly, and test fixtures. They are not invoked by the build/tests,
+but generating text does not exempt them from source provenance. Self-host
+fixpoints establish reproducibility within this pipeline, not correctness.
+See [PHILOSOPHY-AUDIT.md](PHILOSOPHY-AUDIT.md) for the full audit and policy.
 
 ## Stage 0: Seed (`qfitzah.s`)
 
