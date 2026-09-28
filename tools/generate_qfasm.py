@@ -6,9 +6,8 @@ lists, (N d0 d1 d2 d3 d4 d5 d6 d7) for d0 + 16*d1 + ... + 16^7*d7, with
 uppercase hex digit atoms. All arithmetic is add/negate over generated
 single-nybble fact tables, so there are no finite range tables: label
 arithmetic, rel8/rel32 offsets, and ELF header fields work for programs of
-any size. Byte atoms (what the seed's (Bytes ...) output path consumes) are
-produced by the generated (HB hi lo) table because the seed cannot synthesize
-new atoms at runtime.
+any size within resource limits. Computed bytes use the seed's (Hex hi lo)
+output representation; no byte-atom synthesis table is needed.
 
 Programs are data:
 
@@ -60,10 +59,8 @@ section("Nybble complement: (ND d) -> 15 - d.")
 for d in range(16):
     rule(f"(ND {HEX[d]})", HEX[15 - d])
 
-section("Nybble pair to byte atom: (HB hi lo) -> byte.")
-for hi in range(16):
-    for lo in range(16):
-        rule(f"(HB {HEX[hi]} {HEX[lo]})", f"{HEX[hi]}{HEX[lo]}")
+section("Computed byte output: no atom synthesis or 256-entry table.")
+rule("(HB hi lo)", "(Hex hi lo)")
 
 section("ModRM mod=11 (register-register): (RM11 reg rm) -> byte.")
 for r in REGS:

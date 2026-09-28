@@ -809,27 +809,92 @@ proc emit_bytes                 # Emit a list of hex atoms or nested (Bytes ...)
         jmp emit_bytes
 1:      ret
 
-proc emit_byte                  # Emit the byte named by an atom like B8 or 0A.
-        push %esi
-        and $~3, %eax
-        mov (%eax), %esi
-        lodsb
+proc emit_byte                  # XX atom or (Hex high-digit low-digit).
+        jpair %al, emit_hex
+        call byte_atom
+        cmpl $2, 4(%eax)
+        jne byte_error
+        mov (%eax), %edx
+        mov (%edx), %al
         call nybble
         shl $4, %al
         mov %al, %bl
-        lodsb
+        mov 1(%edx), %al
         call nybble
         or %bl, %al
         stosb
-        pop %esi
         ret
 
-proc nybble                     # Convert ASCII hex digit in %al to a nybble.
-        sub $'0, %al
-        cmp $9, %al
+proc emit_hex
+        push %eax
+        car %eax
+        call byte_atom
+        cmpl $3, 4(%eax)
+        jne byte_error
+        mov (%eax), %eax
+        cmpw $0x6548, (%eax)    # "He"
+        jne byte_error
+        cmpb $'x, 2(%eax)
+        jne byte_error
+        pop %eax
+        cdr %eax
+        jnpair %al, byte_error
+        push %eax
+        car %eax
+        call hex_digit
+        shl $4, %al
+        pop %ecx
+        push %eax
+        cdr %ecx
+        jnpair %cl, byte_error
+        cmpl $1, 4(%ecx)        # exactly two digit arguments
+        jne byte_error
+        car %ecx, %eax
+        call hex_digit
+        pop %ebx
+        or %bl, %al
+        stosb
+        ret
+
+proc hex_digit
+        call byte_atom
+        cmpl $1, 4(%eax)
+        jne byte_error
+        mov (%eax), %eax
+        mov (%eax), %al
+        jmp nybble
+
+proc byte_atom                  # Require a non-nil atom before dereferencing.
+        jpair %al, byte_error
+        cmp $1, %eax
+        je byte_error
+        and $~3, %eax
+        ret
+
+proc nybble                     # Strict uppercase ASCII hex, never junk bytes.
+        cmp $'0, %al
+        jb byte_error
+        cmp $'9, %al
         jbe 1f
+        cmp $'A, %al
+        jb byte_error
+        cmp $'F, %al
+        ja byte_error
         sub $7, %al
-1:      ret
+1:      sub $'0, %al
+        ret
+
+        ## The current logical record has not been flushed, so invalid
+        ## or unresolved byte expressions cannot produce a partial ELF.
+        ## Previous successful records, if any, cannot be retracted.
+proc byte_error
+        sys3 $__NR_write, $2, $byte_error_message, $byte_error_length
+        sys1 $__NR_exit, $1
+        .pushsection .rodata
+byte_error_message:
+        .ascii "qfitzah: invalid byte output\n"
+        .equ byte_error_length, . - byte_error_message
+        .popsection
 
         ## Our grammar looks something like:
         ## prog ::= _ (factor (_ "\n" | _ factor _"\n"))*
