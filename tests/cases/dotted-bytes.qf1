@@ -1,0 +1,2 @@
+(Emit . bs) (Bytes . bs)
+(Emit 00 (Hex 4 1) (Bytes FF))

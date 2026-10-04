@@ -90,6 +90,8 @@ fi
 run_case "unmatched-template-variable"
 run_case "empty-list-pattern"
 run_case "reader-ergonomics"
+run_case "dotted-lists"
+run_case "dotted-bytes"
 run_case "byte-flatten"
 run_case "byte-output"
 run_case "arithmetic-compiler"

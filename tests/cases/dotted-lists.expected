@@ -1,0 +1,13 @@
+A
+(B . C)
+(A . B)
+(A B C)
+Yes
+No
+(A B C)
+(A)
+(Names A.B ... .Name)
+(A B . C)
+(A B C)
+()
+(A . B)
