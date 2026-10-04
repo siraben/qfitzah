@@ -25,16 +25,17 @@ run_case() {
   output=$(mktemp)
   timeout 5s "$qfitzah" < "$input" > "$output"
 
-  if [[ -f "$expected" ]]; then
-    while IFS= read -r snippet; do
-      [[ -z "$snippet" ]] && continue
-      if ! grep -aFq "$snippet" "$output"; then
-        printf 'FAIL %s: expected to find %q in output:\n' "$name" "$snippet" >&2
-        cat "$output" >&2
-        rm -f "$output"
-        exit 1
-      fi
-    done < "$expected"
+  if [[ -f "$expected" && ! -f "$hex" ]]; then
+    if ! diff -u "$expected" "$output" >&2; then
+      printf 'FAIL %s: output differs\n' "$name" >&2
+      rm -f "$output"
+      exit 1
+    fi
+  fi
+  if [[ ! -f "$expected" && ! -f "$hex" ]]; then
+    printf 'FAIL %s: no exact output oracle\n' "$name" >&2
+    rm -f "$output"
+    exit 1
   fi
 
   if [[ -f "$unexpected" ]]; then
@@ -64,12 +65,13 @@ run_case() {
 }
 
 run_case "basic-rewrite"
+run_case "rule-priority"
 run_case "multi-line-pipe"
 run_case "multiline-forms"
 multiline_eof_output=$(mktemp)
 printf '%s' "$(cat "$case_dir/multiline-eof.qf1")" \
   | timeout 5s "$qfitzah" > "$multiline_eof_output"
-if ! grep -aFq "$(cat "$case_dir/multiline-eof.expected")" "$multiline_eof_output"; then
+if ! diff -u "$case_dir/multiline-eof.expected" "$multiline_eof_output"; then
   printf 'FAIL multiline-eof: expected final logical record at EOF:\n' >&2
   cat "$multiline_eof_output" >&2
   rm -f "$multiline_eof_output"
@@ -80,16 +82,11 @@ printf 'ok - multiline-eof\n'
 run_case "repeated-atom-variable"
 run_case "repeated-list-variable"
 
-structural_output=$(timeout 5s "$qfitzah" < "$case_dir/repeated-list-variable.qf1")
-
-if [[ $(grep -Fc "(Yes)" <<<"$structural_output") -ne 1 ]]; then
-  printf 'FAIL repeated-list-variable: expected exactly one success:\n%s\n' "$structural_output" >&2
-  exit 1
-fi
-
 run_case "unmatched-template-variable"
 run_case "empty-list-pattern"
 run_case "reader-ergonomics"
+run_case "dotted-lists"
+run_case "dotted-bytes"
 run_case "byte-flatten"
 run_case "byte-output"
 run_case "arithmetic-compiler"
@@ -98,32 +95,11 @@ run_case "lisp-reverse"
 run_case "full-lisp"
 run_case "self-hosting-compiler"
 
-run_rule_directive() {
-  local output
-  local snippet
-
-  output=$(mktemp)
-  timeout 5s "$qfitzah" < "$case_dir/rule-directive.qf1" > "$output"
-
-  while IFS= read -r snippet; do
-    [[ -z "$snippet" ]] && continue
-    if ! grep -aFq "$snippet" "$output"; then
-      printf 'FAIL rule-directive: expected to find %q in output:\n' "$snippet" >&2
-      cat "$output" >&2
-      rm -f "$output"
-      exit 1
-    fi
-  done < "$case_dir/rule-directive.expected"
-
-  rm -f "$output"
-  printf 'ok - rule-directive\n'
-}
-
-run_rule_directive
+run_case "rule-directive"
 
 ## Stage 1: the general assembler. Each case assembles under the seed with
 ## bootstrap/qfasm.qf1, byte-compares the produced ELF against the expected
-## hex from the independent Python model (tools/generate_qfasm_tests.py),
+## hex from tools/generate_qfasm_tests.py at commit 3777b7d,
 ## then runs the binary and checks its exit status.
 
 qfasm=$repo_root/bootstrap/qfasm.qf1
@@ -177,13 +153,19 @@ run_qfasm_arith() {
 run_qfasm_arith
 run_qfasm_case "qfasm-exit42"
 run_qfasm_case "qfasm-big"
+bash "$repo_root/tests/boundaries.sh" "$qfitzah"
+bash "$repo_root/tests/source-macros.sh" "$qfitzah"
+bash "$repo_root/tests/instruction-encodings.sh" "$qfitzah"
+bash "$repo_root/tests/assembler-layout.sh" "$qfitzah"
 
 ## Stage 2: the scheme0 interpreter. Assemble it under the seed, then run
 ## the Scheme corpus and require exact output.
 
 scheme0_dir=$(mktemp -d)
+trap 'rm -rf "$scheme0_dir"' EXIT
 scheme0_elf=$scheme0_dir/scheme0.elf
-cat "$repo_root/bootstrap/qfasm.qf1" "$repo_root/bootstrap/scheme0.qfasm" \
+runtime_support=$repo_root/bootstrap/runtime-support.qf1
+cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$repo_root/bootstrap/scheme0.qfasm" \
   | timeout 120s "$qfitzah" > "$scheme0_elf"
 chmod +x "$scheme0_elf"
 
@@ -237,6 +219,7 @@ run_sc1_reader
 sc1_reader="$repo_root/bootstrap/sc1-reader.scm"
 sc1_scm="$repo_root/bootstrap/sc1.scm"
 sc1_runtime="$repo_root/bootstrap/sc1-runtime.qf1"
+SC1_ELF=""
 
 run_sc1_case() {
   local name=$1
@@ -244,9 +227,13 @@ run_sc1_case() {
   qfasm=$scheme0_dir/$name.qfasm
   elf=$scheme0_dir/$name.elf
   actual=$scheme0_dir/$name.out
-  cat "$sc1_reader" "$sc1_scm" "$case_dir/$name.scm" \
-    | timeout 120s "$scheme0_elf" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$qfasm" \
+  if [[ -n "$SC1_ELF" ]]; then
+    timeout 120s "$SC1_ELF" < "$case_dir/$name.scm" > "$qfasm"
+  else
+    cat "$sc1_reader" "$sc1_scm" "$case_dir/$name.scm" \
+      | timeout 120s "$scheme0_elf" > "$qfasm"
+  fi
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$qfasm" \
     | timeout 300s "$qfitzah" > "$elf"
   chmod +x "$elf"
   set +e
@@ -268,18 +255,18 @@ run_sc1_case() {
 run_sc1_case "sc1-corpus"
 run_sc1_case "sc1-tail"
 
-## The Stage 3 milestone: self-compilation to a byte-identical fixpoint.
+## Stage 3: compare self-compiled assembly and ELF files.
 ## scheme0 interprets sc1 compiling sc1's own source (reader+compiler) to
 ## sc1.qfasm; the seed assembles that to the native sc1.elf; sc1.elf then
 ## compiles the same source and must produce byte-identical output.
 run_sc1_fixpoint() {
-  local q1 q2 elf
+  local q1 q2 elf elf2
   q1=$scheme0_dir/sc1.qfasm
   q2=$scheme0_dir/sc1b.qfasm
   elf=$scheme0_dir/sc1.elf
   cat "$sc1_reader" "$sc1_scm" "$sc1_reader" "$sc1_scm" \
     | timeout 300s "$scheme0_elf" > "$q1"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$q1" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$q1" \
     | timeout 900s "$qfitzah" > "$elf"
   chmod +x "$elf"
   cat "$sc1_reader" "$sc1_scm" | timeout 120s "$elf" > "$q2"
@@ -287,17 +274,26 @@ run_sc1_fixpoint() {
     printf 'FAIL sc1-fixpoint: sc1.elf output not byte-identical to sc1.qfasm\n' >&2
     exit 1
   fi
-  printf 'ok - sc1-fixpoint (self-compile byte-identical)\n'
+  elf2=$scheme0_dir/sc1b.elf
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$q2" \
+    | timeout 900s "$qfitzah" > "$elf2"
+  cmp "$elf" "$elf2"
+  chmod +x "$elf2"
+  SC1_ELF=$elf2
+  printf 'ok - sc1-fixpoint (assembly text AND executable byte-identical)\n'
 }
 
 run_sc1_fixpoint
+printf 'checking sc1 corpus through the rebuilt native compiler\n'
+run_sc1_case "sc1-corpus"
+run_sc1_case "sc1-tail"
 
 ## Stage 4: the rsc R5RS-subset compiler. rsc.scm is written in the sc1 subset,
 ## so sc1.elf (built above, reused here) compiles it to rscA.elf. rsc then
 ## self-hosts: rscA compiles rsc.scm -> rscB.qfasm, rscB compiles rsc.scm ->
 ## rscC.qfasm, and rscB must equal rscC byte-for-byte. Finally an R5RS corpus
-## (macros, quasiquote, vectors, apply, library) is compiled by rscA, assembled,
-## run, and diffed.
+## (macros, quasiquote, vectors, apply, library) is compiled by rscA and rscC,
+## assembled, run, and diffed. Both text and ELF fixpoints are checked.
 rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
@@ -305,13 +301,13 @@ RSC_ELF=""
 RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply"
 
 run_rsc_fixpoint() {
-  local sc1elf rscAqf rscBqf rscBelf rscCqf
-  sc1elf=$scheme0_dir/sc1.elf            # built by run_sc1_fixpoint, reused
+  local sc1elf rscAqf rscBqf rscBelf rscCqf rscCelf
+  sc1elf=$SC1_ELF                      # rebuilt by run_sc1_fixpoint
   # sc1.elf compiles rsc.scm -> rscA.elf.
   rscAqf=$scheme0_dir/rscA.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$sc1elf" > "$rscAqf"
   RSC_ELF=$scheme0_dir/rscA.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscAqf" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscAqf" \
     | timeout 900s "$qfitzah" > "$RSC_ELF"
   chmod +x "$RSC_ELF"
   # Fixpoint: rscA -> rscB.qfasm, rscB -> rscC.qfasm, require rscB == rscC.
@@ -319,7 +315,7 @@ run_rsc_fixpoint() {
   rscBelf=$scheme0_dir/rscB.elf
   rscCqf=$scheme0_dir/rscC.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$RSC_ELF" > "$rscBqf"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscBqf" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscBqf" \
     | timeout 900s "$qfitzah" > "$rscBelf"
   chmod +x "$rscBelf"
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$rscBelf" > "$rscCqf"
@@ -327,7 +323,12 @@ run_rsc_fixpoint() {
     printf 'FAIL rsc-fixpoint: rscB.qfasm not byte-identical to rscC.qfasm\n' >&2
     exit 1
   fi
-  printf 'ok - rsc-fixpoint (self-compile byte-identical)\n'
+  rscCelf=$scheme0_dir/rscC.elf
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscCqf" \
+    | timeout 900s "$qfitzah" > "$rscCelf"
+  cmp "$rscBelf" "$rscCelf"
+  chmod +x "$rscCelf"
+  printf 'ok - rsc-fixpoint (assembly text AND executable byte-identical)\n'
 }
 
 run_rsc_case() {
@@ -337,7 +338,7 @@ run_rsc_case() {
   elf=$scheme0_dir/$name.elf
   actual=$scheme0_dir/$name.out
   cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$qfasm" \
     | timeout 300s "$qfitzah" > "$elf"
   chmod +x "$elf"
   set +e
@@ -357,8 +358,14 @@ run_rsc_case() {
 }
 
 run_rsc_fixpoint
-for rsc_case in $RSC_CASES; do
-  run_rsc_case "$rsc_case"
+# A is sc1-built; C is self-built and byte-identical to B. Exercise both
+# compiler lineages on features not used by the compiler's own source.
+for rsc_generation in rscA rscC; do
+  RSC_ELF=$scheme0_dir/$rsc_generation.elf
+  printf 'checking R5RS-subset corpus through %s\n' "$rsc_generation"
+  for rsc_case in $RSC_CASES; do
+    run_rsc_case "$rsc_case"
+  done
 done
 
 rm -rf "$scheme0_dir"

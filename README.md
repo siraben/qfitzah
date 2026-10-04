@@ -2,12 +2,12 @@
 
 Qfitzah is a tiny i386 Linux term-rewriting language interpreter implemented in
 GNU assembly. It reads a small S-expression-like language from standard input,
-stores rewrite rules, and evaluates later expressions by applying the newest
-matching rule first.
+stores rewrite rules, and evaluates later expressions by applying matching
+rules. Head-indexed rules take priority over generic rules; within each group,
+the newest matching rule wins.
 
-The implementation is intentionally compact: it uses a static 32-bit Linux
-binary with direct `int $0x80` syscalls, pointer tagging for pairs, constants,
-and variables, a bump allocator, and an intern table for atom names.
+The interpreter uses direct `int $0x80` syscalls, pointer-tagged values,
+a bump allocator, and an intern table for atom names.
 
 ## Build
 
@@ -32,15 +32,11 @@ nix run
 The flake builds `qfitzah.s` with GNU `as`, links a static i386 executable with
 `ld`, and strips nonessential metadata with `objcopy`.
 
-The current build is a 32-bit static Linux executable under 2 KiB. It keeps
-the runtime small by using direct syscalls, a bump allocator, pointer tagging,
-and ordered tree rewrite rules instead of a larger parser or object system.
+The executable is 2,148 bytes (~2.1 KiB).
 
 ## The compiler stack
 
-On top of the seed, this repository builds a self-hosting Scheme compiler as a
-ladder of small language processors, each written in the language of the one
-below it:
+The bootstrap builds a Scheme interpreter and two self-compiling compilers:
 
 ```text
 Stage 0  qfitzah.s      seed: pattern-matching term rewriter
@@ -50,11 +46,9 @@ Stage 3  sc1.scm        Scheme-subset compiler written in the scheme0 subset
 Stage 4  rsc.scm        R5RS-subset-to-asm compiler that recompiles itself
 ```
 
-Each stage stays minimal but correct, and every artifact is produced by running
-the stage below it — never a host toolchain. Stages 3 and 4 close the loop by
-rebuilding their own source to a byte-identical fixpoint. See
-[ARCHITECTURE.md](ARCHITECTURE.md) for the full design; the sections below tour
-the language and each rung.
+GNU binutils builds the seed. Qfitzah expands the source macros and assembles
+each later stage. See [ARCHITECTURE.md](ARCHITECTURE.md) for the implementation
+and known limitations.
 
 ## Language
 
@@ -104,8 +98,31 @@ the explicit rule directive:
 This directive lets the pattern and replacement each span several lines, which
 a bare two-form rule cannot.
 
-Rules are tried from newest to oldest. Lowercase names and names beginning with
-`_` are pattern variables. Constants are atoms beginning with characters from
+Dotted tails expose the underlying pairs, including list-tail patterns:
+
+```text
+(Head (x . xs)) x
+(Tail (x . xs)) xs
+(Prepend x xs) (x . xs)
+(Tail (A B . C))
+(B . C)
+(Prepend A (B C))
+(A B C)
+```
+
+A standalone `.` is reserved for a list tail; `A.B`, `.Name`, and `...` remain
+atoms. `(A . (B C))` and `(A B C)` are the same value, not different evaluation
+forms. To compute a tail, pass the computation as an ordinary argument, then
+splice its result with `(x . xs)`. Improper lists print with a dot, so reading
+and printing preserve their structure.
+
+Malformed dotted tails, incomplete records, extra record/directive arguments,
+input NUL bytes, and improper byte streams exit with status 1 and a stderr
+diagnostic. Comments work inside multiline forms and between records.
+
+Rules are tried newest-first within the head-atom bucket, then newest-first
+within the generic bucket. Thus a newer generic rule does not override an older
+head-specific rule. Lowercase names and names beginning with `_` are pattern variables. Constants are atoms beginning with characters from
 `!` through `'` or `*` through `^`, which includes digits, uppercase letters,
 and punctuation such as `#`, `$`, `%`, `+`, `-`, and `=`.
 
@@ -155,15 +172,25 @@ The example emits this i386 Linux machine-code fragment:
 b8 01 00 00 00 bb 2a 00 00 00 cd 80
 ```
 
+Byte output also accepts `(Hex high low)` inside `(Bytes ...)`, including nested
+byte streams. Each digit is an uppercase hex atom and may be computed by rules:
+
+```text
+(ByteFromDigits hi lo) (Bytes (Hex hi lo))
+(ByteFromDigits 2 A)
+```
+
+This emits `2a`. Invalid or unresolved byte terms exit with status 1 and a
+stderr diagnostic before flushing the record. Discard stdout on failure;
+earlier records may already have been written.
+
 ## Bootstrap Architecture
 
 ### Stage 0: the seed
 
-[qfitzah.s](qfitzah.s) is the trusted root: a ~1.7 KiB static i386 ELF
-implementing the rewrite language. Matching supports repeated-variable
-structural equality; substitution preserves unmatched template variables.
-Three scaling properties matter for the stages above it, all invisible to the
-language semantics:
+[qfitzah.s](qfitzah.s) implements the rewrite language. Matching checks
+structural equality for repeated variables; substitution leaves unmatched
+template variables unchanged. Evaluation uses three optimizations:
 
 - `evlis` reuses a pair when neither field changed after evaluation, so
   re-walking already-normal data allocates nothing.
@@ -175,21 +202,23 @@ language semantics:
 - Normal forms are memoized by pair identity. Pairs are immutable and never
   freed, so `ev(t)` is a pure function of the pointer `t` and the current rule
   set; a direct-mapped cache (invalidated by a generation counter when a rule
-  is added) normalizes each subterm once. This keeps the assembler linear:
-  threading a large instruction chain or symbol table through the rewrite
-  passes would otherwise re-normalize those shared subterms once per step.
+  is added) avoids repeated normalization on cache hits. This mitigates repeated
+  traversal of shared instruction chains and symbol tables. Cache collisions
+  cause recomputation.
 
 ### Stage 1: the general assembler
 
-[bootstrap/qfasm.qf1](bootstrap/qfasm.qf1) is a Qfitzah-hosted symbolic i386
-assembler, generated by [tools/generate_qfasm.py](tools/generate_qfasm.py)
-from one instruction spec so sizes and emissions cannot disagree. Numbers are
-little-endian nybble lists `(N d0 ... d7)`; add/negate/subtract are built
-from generated single-nybble fact tables, and byte atoms come from a
-generated `(HB hi lo)` table because the seed cannot synthesize atoms at
-runtime. There are no finite range tables: label arithmetic, rel8/rel32
-branches, and ELF header fields work at any program size, and rel8 operands
-are range-checked.
+[bootstrap/qfasm.qf1](bootstrap/qfasm.qf1) is a symbolic i386 assembler.
+Each `Describe` rule specifies encoding fields: `B` is one byte, `W` a four-byte
+word and `R` a checked relative byte. The layout and emission passes share
+prepared descriptors containing the fields and their total width.
+
+Numbers are little-endian nybble lists `(N d0 ... d7)`. An eight-case bit full
+adder implements nybble addition; bit packing computes ModRM/opcode fields from
+eight register declarations. Zero-add identities avoid expanding unused high
+digits. `(HB hi lo)` produces `(Hex hi lo)`. Address arithmetic is 32-bit;
+buffers, heap and stack have fixed limits. rel8 operands and single-byte field
+widths are checked, and unresolved assembly is rejected by the seed.
 
 Programs are data:
 
@@ -208,91 +237,93 @@ chmod +x exit42 && ./exit42; echo $?   # 42
 ```
 
 Label names may be arbitrary terms, e.g. `(Local Reader 1)`, since the symbol
-table compares keys structurally; that gives scoped labels for free. An
-optional third `Program` field appends zero-initialized memory to the single
-RWE load segment for runtime heaps.
+table compares keys structurally. The form `(Program entry bss code)` adds
+`bss` bytes of zero-initialized memory to the single RWE load segment.
 
 ### Stages 2-4
 
-Stage 2 (`bootstrap/scheme0.qfasm`, a minimal Scheme interpreter written in
-qfasm macro assembly and generated by
-[tools/build_scheme0.py](tools/build_scheme0.py)) is assembled by Stage 1 into
-a native ELF.
+Stage 2 (`bootstrap/scheme0.qfasm`) is a Scheme interpreter written in flat
+assembly. [bootstrap/runtime-support.qf1](bootstrap/runtime-support.qf1)
+expands primitive declarations, name bytes and instruction blocks. See
+[ARCHITECTURE.md](ARCHITECTURE.md#shared-assembly-macros-bootstrapruntime-supportqf1)
+for the macro syntax.
 
 Stage 3 is `bootstrap/sc1.scm`, a Scheme-to-qfasm compiler written strictly in
 the scheme0 subset, so it runs interpreted under scheme0 and compiles itself.
 Its reader is `bootstrap/sc1-reader.scm`; its fixed assembly runtime (heap,
 `cons`, object allocation, buffered IO, the printer, symbol interning, and
-every primitive as a global closure) is `bootstrap/sc1-runtime.qf1`, generated
-by [tools/generate_sc1_runtime.py](tools/generate_sc1_runtime.py) and expanded
-by the seed via `(RuntimeCode ...)`/`(RuntimeData ...)` macros. sc1 compiles
+every primitive as a global closure) is `bootstrap/sc1-runtime.qf1`,
+expanded with `runtime-support.qf1` via
+`(RuntimeCode ...)`/`(RuntimeData ...)` macros. sc1 compiles
 closures to subtype-2 objects with a `(code . env)` payload, keeps the
-environment as a heap frame-chain in EBP, and emits proper tail calls (tail
-applications JMP, non-tail CALL) so tail recursion runs in constant stack.
+environment as a heap frame-chain in EBP, and emits JMP for direct tail
+applications and CALL for non-tail applications. Tail position through `and`/`or`
+is lost; see `tests/probe-semantics.sh`.
 
 ```sh
 # compile, assemble, and run a Scheme program
 cat bootstrap/sc1-reader.scm bootstrap/sc1.scm prog.scm | ./scheme0.elf > prog.qfasm
-cat bootstrap/qfasm.qf1 bootstrap/sc1-runtime.qf1 prog.qfasm | result/bin/qfitzah > prog.elf
+cat bootstrap/qfasm.qf1 bootstrap/runtime-support.qf1 bootstrap/sc1-runtime.qf1 prog.qfasm | result/bin/qfitzah > prog.elf
 chmod +x prog.elf && ./prog.elf
 ```
 
-The Stage 3 milestone is self-compilation to a byte-identical fixpoint: the
-native `sc1.elf` recompiles its own source (`sc1-reader.scm` + `sc1.scm`) to
-output identical to the interpreted compile. This is checked by the
-`sc1-fixpoint` test.
+The native `sc1.elf` recompiles its source (`sc1-reader.scm` + `sc1.scm`) to
+assembly text identical to the interpreted compile. `sc1-fixpoint` also assembles
+that text and compares the complete ELFs, then the rebuilt compiler compiles and
+runs the corpus and tail-call test.
 
 Stage 4 is `bootstrap/rsc.scm`, an R5RS-subset compiler written strictly in the
 sc1 subset, so sc1 compiles it and it self-hosts to a byte-identical fixpoint.
 It is sc1's codegen plus a macro-expansion pass in front and a wider runtime
-(`bootstrap/rsc-runtime.qf1`, generated by
-[tools/generate_rsc_runtime.py](tools/generate_rsc_runtime.py)). It shares
-sc1's reader (extended with backtick/comma quasiquote sugar). What it adds over
+(`bootstrap/rsc-runtime.qf1`, using `runtime-support.qf1`). It shares sc1's
+reader, with backtick/comma quasiquote syntax. What it adds over
 sc1:
 
-- Hygienic `syntax-rules` macros (`define-syntax`/`let-syntax`/`letrec-syntax`
+- Gensym-based `syntax-rules` macros (`define-syntax`/`let-syntax`/`letrec-syntax`
   with literals, ellipsis `...`, and nested patterns). Every form is expanded
   to the sc1 core before codegen. Template identifiers that are not pattern
   variables, literals, or known names (keywords/primitives/globals/macros) are
-  gensym-renamed per expansion, so a macro's introduced temporaries cannot
-  capture a caller's local bindings.
-- `quasiquote`/`unquote`/`unquote-splicing`, nested with correct depth.
+  gensym-renamed per expansion. This prevents some temporary capture but does
+  not implement full lexical hygiene; definition-site free identifiers and
+  binding-sensitive literal matching remain limitations.
+- `quasiquote`/`unquote`/`unquote-splicing` (nested splicing still needs correction).
 - Derived special forms: `let*`, `letrec`/`letrec*`, named `let`, `cond` with
   `=>`, `when`, `unless`, `case`, `do`.
-- Vectors (a new object subtype): `make-vector`, `vector`, `vector-ref`,
+- Vectors: `make-vector`, `vector`, `vector-ref`,
   `vector-set!`, `vector-length`, `vector?`, `vector->list`, `list->vector`,
   `vector-fill!`, printed as `#(...)`.
 - `apply` with varargs, tail-proper (tail `apply` runs in constant stack).
-- A standard-library prelude (`bootstrap/rsc-prelude.scm`) prepended to every
-  compiled program: `equal?`, the `assoc`/`member` family, list ops (`append`
+- A standard-library prelude (`bootstrap/rsc-prelude.scm`) that the caller
+  prepends when needed: `equal?`, the `assoc`/`member` family, list ops (`append`
   `reverse` `length` `list-ref` `list-tail` `map` `for-each`), integer helpers
   (`abs` `modulo` `min` `max` `gcd` `even?`/`odd?`/`zero?` ... `number->string`),
   the char predicate/compare/case library, and the string library (`string`
   `substring` `string-append` `string=?` `string<?` `string->list`
   `make-string`/`string-set!` `string-copy`).
 
-rsc.scm itself uses none of these surface features (it is plain sc1-subset
-source), so its self-host fixpoint only re-exercises sc1's proven codegen; the
-new features are covered by a separate corpus. Out of scope (documented in
-[ARCHITECTURE.md](ARCHITECTURE.md)): bignums/numeric tower beyond 30-bit exact
-integers, floats/rationals, full `call/cc`/`dynamic-wind`, first-class `eval`,
+rsc.scm is written in the sc1 subset. Its self-compilation tests the inherited
+code generator; a separate corpus tests the added features. Unsupported features
+include bignums, floats, rationals, `call/cc`, `dynamic-wind`, first-class `eval`,
 `delay`/`force`, and `#(...)` vector read syntax (vectors are built by the
 constructors above).
 
 ```sh
 # compile, assemble, and run an R5RS program with rsc
-cat bootstrap/sc1-reader.scm bootstrap/rsc.scm | ./sc1.elf > /dev/null   # rsc built by sc1
+cat bootstrap/sc1-reader.scm bootstrap/rsc.scm | ./sc1.elf > rsc.qfasm
+cat bootstrap/qfasm.qf1 bootstrap/runtime-support.qf1 bootstrap/rsc-runtime.qf1 rsc.qfasm | result/bin/qfitzah > rsc.elf
+chmod +x rsc.elf
 cat bootstrap/rsc-prelude.scm prog.scm | ./rsc.elf > prog.qfasm
-cat bootstrap/qfasm.qf1 bootstrap/rsc-runtime.qf1 prog.qfasm | result/bin/qfitzah > prog.elf
+cat bootstrap/qfasm.qf1 bootstrap/runtime-support.qf1 bootstrap/rsc-runtime.qf1 prog.qfasm | result/bin/qfitzah > prog.elf
 chmod +x prog.elf && ./prog.elf
 ```
 
-The Stage 4 milestone is the self-host fixpoint: sc1 compiles `rsc.scm` to
-`rscA.elf`; `rscA` compiles `rsc.scm` to `rscB`; `rscB` compiles `rsc.scm` to
-`rscC`; `rscB` and `rscC` are byte-identical. This is checked by the
-`rsc-fixpoint` test, alongside an R5RS corpus (macros, quasiquote, derived
-forms, the library, vectors, apply) compiled by rsc, assembled, run, and
-diffed.
+sc1 compiles `rsc.scm` to `rscA.elf`; `rscA` compiles `rsc.scm` to `rscB`;
+`rscB` compiles `rsc.scm` to
+`rscC`; the B/C assembly texts and complete assembled ELFs must be byte-identical.
+This is checked by `rsc-fixpoint`. The R5RS-subset corpus (macros, quasiquote,
+derived forms, library, vectors, apply) is compiled through both sc1-built A and
+self-built C, assembled, executed, and diffed. The standard-library prelude is
+supplied by the caller, as shown above, not automatically loaded by the compiler.
 
 ## Tests
 
@@ -300,32 +331,25 @@ diffed.
 nix flake check
 ```
 
-The test suite covers basic rewriting, fast multi-line piped input, final
-multi-line records at EOF, the multi-line rule directive, repeated pattern
-variables, structural equality for repeated list-valued variables, unmatched
-template variables, reader ergonomics, empty-list matching, nested byte-stream
-flattening, the example compilers, and the Stage 1 assembler: random 32-bit
-arithmetic and two whole programs (including an 8 KiB, 2868-instruction one)
-checked byte-for-byte against an independent Python model, then executed. Test
-programs live in `tests/cases/`, with expected snippets in matching `.expected`
-files and forbidden snippets in optional `.unexpected` files; assembler fixtures
-are regenerated by
-[tools/generate_qfasm_tests.py](tools/generate_qfasm_tests.py).
+The suite tests rewriting, reader syntax, byte output, assembler encodings and
+layout, source macros, the Scheme corpora and compiler fixpoints. It compares
+complete ELF files and runs programs compiled by the rebuilt compilers. Nix
+checks receive only the seed and bootstrap, example and test sources.
 
-The suite also assembles and runs Stage 2 (the scheme0 interpreter over a
-Scheme corpus and the sc1 reader) and Stage 3: it compiles `sc1-corpus.scm`
-(arithmetic/recursion, higher-order `map`, closures via `set!`, quoted data
-with `string->symbol`, strings/chars, predicates) and `sc1-tail.scm` (a
-million-iteration tail loop) with interpreted sc1, then checks the
-self-compilation fixpoint — the native `sc1.elf` recompiling sc1's own source
-byte-for-byte.
+Test programs live in `tests/cases/`. `.expected` files contain exact transcripts;
+`.hex` files contain expected bytes. The arithmetic and ELF fixtures were
+generated by `3777b7d:tools/generate_qfasm_tests.py`. The large ELF fixture's
+randomized body is byte-compared but jumped over during execution.
 
-Stage 4 adds the `rsc-fixpoint` test (sc1 builds `rsc.elf`; rsc recompiles its
-own source to a byte-identical fixpoint) and an R5RS corpus — `rsc-macros`
-(hygiene, ellipsis, recursion, `let-syntax`), `rsc-derived` (`let*`/`letrec`/
-named `let`/`when`/`unless`/`case`/`do`/`cond =>` and quasiquote), `rsc-library`
-(the standard-library prelude), `rsc-vectors`, and `rsc-apply` — each compiled
-by rsc, assembled, run, and diffed.
+- `tests/boundaries.sh`: all byte values, nybble sums and supported register
+  encodings; malformed source and assembly.
+- `tests/instruction-encodings.sh`: bytes and widths for every descriptor.
+- `tests/assembler-layout.sh`: alignment, ELF fields and branch boundaries.
+- `tests/source-macros.sh`: blocks, nested splices and declaration expansion.
+
+`bash tests/probe-semantics.sh result/bin/qfitzah` runs separate tests for known
+Scheme bugs and exits nonzero on failures. See
+[known bugs](ARCHITECTURE.md#limits-and-known-bugs) for details.
 
 You can also run it against a built binary:
 

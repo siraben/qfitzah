@@ -1,0 +1,104 @@
+# Hand-reviewed i386 encodings. Target resolves to 08048058; next PC is 0.
+# instruction|expected bytes. One row for every Describe rule, including runtime extensions.
+(Nop)|90
+(Ret)|c3
+(Lodsb)|ac
+(Stosb)|aa
+(Stosl)|ab
+(Movsb)|a4
+(Cld)|fc
+(Cdq)|99
+(Pushf)|9c
+(Popf)|9d
+(RepMovsb)|f3 a4
+(RepeCmpsb)|f3 a6
+(Int 80)|cd 80
+(TestALI8 7F)|a8 7f
+(CmpALI8 7F)|3c 7f
+(IncR ECX)|41
+(DecR EBX)|4b
+(PushR EBP)|55
+(PopR ESI)|5e
+(XchgEaxR EDI)|97
+(MovRR EAX EBX)|89 d8
+(AddRR EAX EBX)|01 d8
+(SubRR EAX EBX)|29 d8
+(CmpRR EAX EBX)|39 d8
+(TestRR EAX EBX)|85 d8
+(XorRR EAX EBX)|31 d8
+(OrRR EAX EBX)|09 d8
+(AndRR EAX EBX)|21 d8
+(XchgRR EAX EBX)|87 d8
+(AddI8 EBX 7F)|83 c3 7f
+(OrI8 EBX 7F)|83 cb 7f
+(AdcI8 EBX 7F)|83 d3 7f
+(SbbI8 EBX 7F)|83 db 7f
+(AndI8 EBX 7F)|83 e3 7f
+(SubI8 EBX 7F)|83 eb 7f
+(XorI8 EBX 7F)|83 f3 7f
+(CmpI8 EBX 7F)|83 fb 7f
+(ShlI8 ECX 04)|c1 e1 04
+(ShrI8 ECX 04)|c1 e9 04
+(SarI8 ECX 04)|c1 f9 04
+(NotR EBX)|f7 d3
+(NegR EBX)|f7 db
+(MulR EBX)|f7 e3
+(DivR EBX)|f7 f3
+(IDivR EBX)|f7 fb
+(TestRI8 EDX 7F)|f6 c2 7f
+(IMulRR EAX EBX)|0f af c3
+(CallR EDX)|ff d2
+(JmpR EDX)|ff e2
+(PushI32 (X8 1 2 3 4 5 6 7 8))|68 78 56 34 12
+(PushI8 80)|6a 80
+(AddI32 EBX (X8 1 2 3 4 5 6 7 8))|81 c3 78 56 34 12
+(AndI32 EBX (X8 1 2 3 4 5 6 7 8))|81 e3 78 56 34 12
+(SubI32 EBX (X8 1 2 3 4 5 6 7 8))|81 eb 78 56 34 12
+(CmpI32 EBX (X8 1 2 3 4 5 6 7 8))|81 fb 78 56 34 12
+(MovRI ECX (X8 1 2 3 4 5 6 7 8))|b9 78 56 34 12
+(MovRILabel ECX Target)|b9 58 80 04 08
+(MovRIConst ECX Target)|b9 59 80 04 08
+(MovRM EAX EBX)|8b 03
+(MovMR EBX EAX)|89 03
+(MovRMD EAX EBX 04)|8b 43 04
+(MovMDR EBX 04 EAX)|89 43 04
+(MovzxRMb EAX EBX)|0f b6 03
+(MovzxRMDb EAX EBX 04)|0f b6 43 04
+(MovbMR EBX EAX)|88 03
+(LeaRMD EAX EBX 04)|8d 43 04
+(MovRMemL EDX Target)|8b 15 58 80 04 08
+(MovMemLR Target ECX)|89 0d 58 80 04 08
+(CmpEaxI32 (X8 1 2 3 4 5 6 7 8))|3d 78 56 34 12
+(CmpEaxLabel Target)|3d 58 80 04 08
+(Db AB)|ab
+(Dd (X8 1 2 3 4 5 6 7 8))|78 56 34 12
+(DLabel Target)|58 80 04 08
+(DConst Target)|59 80 04 08
+(DNil)|01 00 00 00
+(JmpS Target)|eb 00
+(Jz Target)|74 00
+(Jnz Target)|75 00
+(Jb Target)|72 00
+(Jae Target)|73 00
+(Jbe Target)|76 00
+(Ja Target)|77 00
+(Js Target)|78 00
+(Jns Target)|79 00
+(Jl Target)|7c 00
+(Jge Target)|7d 00
+(Jle Target)|7e 00
+(Jg Target)|7f 00
+(Jmp32 Target)|e9 00 00 00 00
+(Call Target)|e8 00 00 00 00
+(Jz32 Target)|0f 84 00 00 00 00
+(Jnz32 Target)|0f 85 00 00 00 00
+(Jb32 Target)|0f 82 00 00 00 00
+(Jae32 Target)|0f 83 00 00 00 00
+(Jbe32 Target)|0f 86 00 00 00 00
+(Ja32 Target)|0f 87 00 00 00 00
+(Jl32 Target)|0f 8c 00 00 00 00
+(Jge32 Target)|0f 8d 00 00 00 00
+(Jle32 Target)|0f 8e 00 00 00 00
+(Jg32 Target)|0f 8f 00 00 00 00
+(DObj Target)|5a 80 04 08
+(MovRIObj ECX Target)|b9 5a 80 04 08

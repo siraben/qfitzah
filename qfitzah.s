@@ -685,6 +685,8 @@ read_more:
         jz eof
         mov inptr-globals(%ebp), %esi
         mov (%esi), %al
+        test %al, %al
+        jz parse_error          # input NUL must not hide a record suffix
         lea 1(%esi), %esi
         mov %esi, inptr-globals(%ebp)
         cmpl $0, in_comment-globals(%ebp)
@@ -704,6 +706,7 @@ read_more:
 1:      cmp $'), %al
         jne 2f
         decl paren_depth-globals(%ebp)
+        js parse_error          # unmatched closing parenthesis
         jmp read_more
 2:      cmp $'\n, %al
         jne read_more
@@ -720,7 +723,7 @@ eof:    mov inptr-globals(%ebp), %esi
         cmp lineptr-globals(%ebp), %esi
         je quit
         cmpl $0, paren_depth-globals(%ebp)
-        jne quit
+        jne parse_error         # reject incomplete input
         movb $0, (%esi)         # final logical record terminator
         mov lineptr-globals(%ebp), %esi
         do handle_line
@@ -737,7 +740,7 @@ proc print
         stosb
         pop %eax
         ## loop over list items:
-2:      jnpair %al, 3f          # XXX handle improper lists?
+2:      jnpair %al, 3f
 6:      push %eax
         car %eax
         do print
@@ -749,7 +752,18 @@ proc print
         stosb
         pop %eax
         jmp 6b                  # XXX too many jumps?
-3:      mov $'), %al
+3:      cmp $1, %eax           # non-nil tail: print its dotted representation
+        je 7f
+        push %eax
+        mov $32, %al
+        stosb
+        mov $'., %al
+        stosb
+        mov $32, %al
+        stosb
+        pop %eax
+        do print
+7:      mov $'), %al
         stosb
         ret
 1:      and $~3, %eax        # convert var/constant → base/len pointer
@@ -807,33 +821,102 @@ proc emit_bytes                 # Emit a list of hex atoms or nested (Bytes ...)
         pop %eax
         cdr %eax
         jmp emit_bytes
-1:      ret
+1:      cmp $1, %eax           # byte streams must be proper lists
+        jne byte_error
+        ret
 
-proc emit_byte                  # Emit the byte named by an atom like B8 or 0A.
-        push %esi
-        and $~3, %eax
-        mov (%eax), %esi
-        lodsb
+proc emit_byte                  # XX atom or (Hex high-digit low-digit).
+        jpair %al, emit_hex
+        call byte_atom
+        cmpl $2, 4(%eax)
+        jne byte_error
+        mov (%eax), %edx
+        mov (%edx), %al
         call nybble
         shl $4, %al
         mov %al, %bl
-        lodsb
+        mov 1(%edx), %al
         call nybble
         or %bl, %al
         stosb
-        pop %esi
         ret
 
-proc nybble                     # Convert ASCII hex digit in %al to a nybble.
-        sub $'0, %al
-        cmp $9, %al
+proc emit_hex
+        push %eax
+        car %eax
+        call byte_atom
+        cmpl $3, 4(%eax)
+        jne byte_error
+        mov (%eax), %eax
+        cmpw $0x6548, (%eax)    # "He"
+        jne byte_error
+        cmpb $'x, 2(%eax)
+        jne byte_error
+        pop %eax
+        cdr %eax
+        jnpair %al, byte_error
+        push %eax
+        car %eax
+        call hex_digit
+        shl $4, %al
+        pop %ecx
+        push %eax
+        cdr %ecx
+        jnpair %cl, byte_error
+        cmpl $1, 4(%ecx)        # exactly two digit arguments
+        jne byte_error
+        car %ecx, %eax
+        call hex_digit
+        pop %ebx
+        or %bl, %al
+        stosb
+        ret
+
+proc hex_digit
+        call byte_atom
+        cmpl $1, 4(%eax)
+        jne byte_error
+        mov (%eax), %eax
+        mov (%eax), %al
+        jmp nybble
+
+proc byte_atom                  # Require a non-nil atom before dereferencing.
+        jpair %al, byte_error
+        cmp $1, %eax
+        je byte_error
+        and $~3, %eax
+        ret
+
+proc nybble                     # Strict uppercase ASCII hex, never junk bytes.
+        cmp $'0, %al
+        jb byte_error
+        cmp $'9, %al
         jbe 1f
+        cmp $'A, %al
+        jb byte_error
+        cmp $'F, %al
+        ja byte_error
         sub $7, %al
-1:      ret
+1:      sub $'0, %al
+        ret
+
+        ## The current logical record has not been flushed, so invalid
+        ## or unresolved byte expressions cannot produce a partial ELF.
+        ## Previous successful records, if any, cannot be retracted.
+proc byte_error
+        sys3 $__NR_write, $2, $byte_error_message, $byte_error_length
+        sys1 $__NR_exit, $1
+        .pushsection .rodata
+byte_error_message:
+        .ascii "qfitzah: invalid byte output\n"
+        .equ byte_error_length, . - byte_error_message
+        .popsection
 
         ## Our grammar looks something like:
         ## prog ::= _ (factor (_ "\n" | _ factor _"\n"))*
-        ## factor ::= constant | var | "(" (_ atom)* _ ")"
+        ## factor ::= constant | var | "(" _ (factor _)* ["." _ factor _] ")"
+        ## A dotted tail requires at least one preceding factor. A lone dot
+        ## is reserved; dots inside atom names (A.B, ..., .Name) are unchanged.
         ## _ ::= (" " | "\t" | "\r" | ";" [^\n]* "\n")*
         ## constant ::= [!-'*-^][!-~]*
         ## var ::= [_a-~][!-~]*
@@ -853,10 +936,13 @@ proc nybble                     # Convert ASCII hex digit in %al to a nybble.
         ## into NUL-terminated input string.
 proc handle_line
         cld        # XXX not really necessary since DF is always clear
-        do read_factor
-        jz 1f                   # if blank line, ignore
-        ret
-1:      push %eax
+        do skip_whitespace
+        cmpb $0, (%esi)
+        jne 1f
+        ret                     # blank/comment-only record
+1:      do read_factor
+        jnz parse_error
+        push %eax
         do skip_whitespace
         lodsb    # lodsb;dec: 2 bytes, cmp $0, %al: 2; cmp $':, (%esi): 3
         dec %esi # so this approach saves bytes only because of second cmp
@@ -885,7 +971,11 @@ proc handle_line
 1:      do read_factor # read replacement template for rule being defined
         pop %ecx                # pop pattern
         jnz parse_error
-        ## XXX ignoring the possibility of more than two things on the line
+        push %eax
+        do skip_whitespace
+        cmpb $0, (%esi)
+        jne parse_error         # reject a third form instead of discarding it
+        pop %eax
         xchg %ecx, %eax
         do cons
         jmp add_rule
@@ -905,13 +995,15 @@ proc try_rule_directive          # Add (Rule pattern template); ZF says success.
         jne 1f
         pop %eax
         cdr %eax
-        jnpair %al, 2f
+        jnpair %al, parse_error
         push %eax
         car %eax
         xchg %eax, %edx          # pattern
         pop %eax
         cdr %eax
-        jnpair %al, 2f
+        jnpair %al, parse_error
+        cmpl $1, 4(%eax)        # exactly two arguments, in a proper list
+        jne parse_error
         car %eax                 # template
         xchg %eax, %ecx
         xchg %eax, %edx
@@ -948,14 +1040,37 @@ proc add_rule
         ret
 
 proc parse_error
-        mov $'!, %al
-        stosb
-        mov $'\n, %al
-        stosb
+        sys3 $__NR_write, $2, $parse_error_message, $parse_error_length
+        sys1 $__NR_exit, $1
+        .pushsection .rodata
+parse_error_message:
+        .ascii "qfitzah: invalid input\n"
+        .equ parse_error_length, . - parse_error_message
+        .popsection
+
+        ## ZF set iff the next token is a standalone dot. Only read_term's
+        ## cdr path may consume it. Preserve %esi and the other argument regs.
+proc is_dot
+        cmpb $'., (%esi)
+        jne 2f
+        mov 1(%esi), %al
+        cmp $32, %al
+        jbe 1f
+        cmp $'(, %al
+        je 1f
+        cmp $'), %al
+        je 1f
+        cmp $';, %al
+        je 1f
+        or $1, %al
+2:      ret
+1:      xor %eax, %eax
         ret
 
 proc read_factor
         do skip_whitespace
+        call is_dot
+        je parse_error
         lodsb
         dec %esi                # peeking
         cmp $'(, %al            # Is there a nested list?
@@ -1011,24 +1126,39 @@ proc skip_whitespace
         je 2f
         cmp $'\n, %al
         jne 1b
+        jmp skip_whitespace     # continue past comments inside multiline forms
 2:
         dec %esi
         ret
 
-        ## Always succeeds (possibly returning nil), doesn’t set ZF.
+        ## Read a list spine, leaving its closing parenthesis for read_factor.
+        ## A dot after a car reads exactly one tail datum instead of another
+        ## list cell. The matcher/substituter already work on arbitrary pairs.
 proc read_term
-        do read_factor
-        jnz 1f                  # if it failed, skip ahead
-        push %eax               # save returned term
-        do read_term            # recursive call for tail of term
-        push %eax
         do skip_whitespace
-        pop %ecx
+        cmpb $'), (%esi)
+        je 1f
+        do read_factor
+        jnz parse_error
+        push %eax               # car
+        do skip_whitespace
+        call is_dot
+        je 2f
+        do read_term            # ordinary list cdr
+3:      mov %eax, %ecx
         pop %eax
-        do cons                 # XXX tail call
+        jmp cons
+1:      setnil %eax
         ret
-1:      setnil %eax             # return nil if no factor found
-        ret
+2:      inc %esi                # consume the dot
+        do read_factor
+        jnz parse_error
+        push %eax               # cdr must be followed by the closing paren
+        do skip_whitespace
+        cmpb $'), (%esi)
+        jne parse_error
+        pop %eax
+        jmp 3b
 
         ## Always succeeds, sets ZF to indicate success.
 proc read_constant

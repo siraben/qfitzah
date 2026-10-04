@@ -1,0 +1,26 @@
+; Dotted pairs, list tails and substitution.
+(Head (x . xs)) x
+(Tail (x . xs)) xs
+(Prepend x xs) (x . xs)
+(Equal x y) No
+(Equal x x) Yes
+(Head (A . B))
+(Tail (A B . C))
+(Prepend A B)
+(Prepend A (B C))
+(Equal (A B . C) (A . (B . C)))
+(Equal (A . B) (A . C))
+(A . (B . (C . ())))
+(A . ())
+(Names A.B ... .Name)
+; Inline comments may appear anywhere whitespace can, including after a dot.
+(A
+ ; skip this comment and resume the list
+ B . ; and resume the tail
+ C)
+(Rule
+  (Rest . args)
+  args)
+(Rest A B C)
+(Rest)
+(Rest A . B)
