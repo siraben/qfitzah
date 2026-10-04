@@ -1,0 +1,9 @@
+; Head buckets have priority even over newer generic rules.
+(Specific Mark) IndexedOld
+(head Mark) GenericOld
+(head Mark) GenericNew
+(Specific Mark)
+(Other Mark)
+; Within a head bucket, the latest matching rule wins.
+(Specific Mark) IndexedNew
+(Specific Mark)

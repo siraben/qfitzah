@@ -18,16 +18,18 @@
             pname = "qfitzah";
             version = "0-unstable";
 
-            src = ./.;
+            # Build Stage 0 from its assembly source.
+            src = ./qfitzah.s;
 
             nativeBuildInputs = [ pkgs.binutils ];
 
+            dontUnpack = true;
             dontConfigure = true;
 
             buildPhase = ''
               runHook preBuild
 
-              as --32 qfitzah.s -o qfitzah.o
+              as --32 "$src" -o qfitzah.o
               ld -m elf_i386 -static -z noseparate-code -o qfitzah.bloated qfitzah.o
               objcopy -S -R .note.gnu.build-id -R .note.gnu.property qfitzah.bloated qfitzah
 
@@ -70,7 +72,12 @@
         in
         {
           default = pkgs.runCommand "qfitzah-tests" { } ''
-            ${pkgs.bash}/bin/bash ${./.}/tests/run.sh ${self.packages.${system}.default}/bin/qfitzah
+            # Run checks with the seed and source files.
+            mkdir source
+            cp -R ${./bootstrap} source/bootstrap
+            cp -R ${./examples} source/examples
+            cp -R ${./tests} source/tests
+            ${pkgs.bash}/bin/bash source/tests/run.sh ${self.packages.${system}.default}/bin/qfitzah
             touch "$out"
           '';
         }

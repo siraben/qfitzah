@@ -1,6 +1,7 @@
 A
 (Cons A (Cons B Nil))
-B Nil
+A
+(Cons B Nil)
 Then
 Good
 Same
@@ -8,6 +9,7 @@ Different
 IdentityWorks
 Captured
 Inner
+Captured
 First
 (Cons Left (Cons Right Nil))
 (Cons A (Cons B (Cons C Nil)))
