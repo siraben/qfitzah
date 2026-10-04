@@ -125,10 +125,11 @@ run_rule_directive
 
 ## Stage 1: the general assembler. Each case assembles under the seed with
 ## bootstrap/qfasm.qf1, byte-compares the produced ELF against the expected
-## hex from the independent Python model (tools/generate_qfasm_tests.py),
+## hex from tools/generate_qfasm_tests.py at commit 3777b7d,
 ## then runs the binary and checks its exit status.
 
 qfasm=$repo_root/bootstrap/qfasm.qf1
+runtime_support=$repo_root/bootstrap/runtime-support.qf1
 
 run_qfasm_case() {
   local name=$1
@@ -185,7 +186,7 @@ run_qfasm_case "qfasm-big"
 
 scheme0_dir=$(mktemp -d)
 scheme0_elf=$scheme0_dir/scheme0.elf
-cat "$repo_root/bootstrap/qfasm.qf1" "$repo_root/bootstrap/scheme0.qfasm" \
+cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$repo_root/bootstrap/scheme0.qfasm" \
   | timeout 120s "$qfitzah" > "$scheme0_elf"
 chmod +x "$scheme0_elf"
 
@@ -248,7 +249,7 @@ run_sc1_case() {
   actual=$scheme0_dir/$name.out
   cat "$sc1_reader" "$sc1_scm" "$case_dir/$name.scm" \
     | timeout 120s "$scheme0_elf" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$qfasm" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$qfasm" \
     | timeout 300s "$qfitzah" > "$elf"
   chmod +x "$elf"
   set +e
@@ -281,7 +282,7 @@ run_sc1_fixpoint() {
   elf=$scheme0_dir/sc1.elf
   cat "$sc1_reader" "$sc1_scm" "$sc1_reader" "$sc1_scm" \
     | timeout 300s "$scheme0_elf" > "$q1"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$sc1_runtime" "$q1" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$q1" \
     | timeout 900s "$qfitzah" > "$elf"
   chmod +x "$elf"
   cat "$sc1_reader" "$sc1_scm" | timeout 120s "$elf" > "$q2"
@@ -313,7 +314,7 @@ run_rsc_fixpoint() {
   rscAqf=$scheme0_dir/rscA.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$sc1elf" > "$rscAqf"
   RSC_ELF=$scheme0_dir/rscA.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscAqf" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscAqf" \
     | timeout 900s "$qfitzah" > "$RSC_ELF"
   chmod +x "$RSC_ELF"
   # Fixpoint: rscA -> rscB.qfasm, rscB -> rscC.qfasm, require rscB == rscC.
@@ -321,7 +322,7 @@ run_rsc_fixpoint() {
   rscBelf=$scheme0_dir/rscB.elf
   rscCqf=$scheme0_dir/rscC.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$RSC_ELF" > "$rscBqf"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$rscBqf" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscBqf" \
     | timeout 900s "$qfitzah" > "$rscBelf"
   chmod +x "$rscBelf"
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$rscBelf" > "$rscCqf"
@@ -339,7 +340,7 @@ run_rsc_case() {
   elf=$scheme0_dir/$name.elf
   actual=$scheme0_dir/$name.out
   cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$rsc_runtime" "$qfasm" \
+  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$qfasm" \
     | timeout 300s "$qfitzah" > "$elf"
   chmod +x "$elf"
   set +e
