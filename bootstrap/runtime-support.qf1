@@ -127,9 +127,6 @@
    (Prim %gc-largest-free-units PrGcLargestFreeUnits (% G C - L A R G E S T - F R E E - U N I T S))
    (Prim make-symbol PrMakeSym (M A K E - S Y M B O L))
    (Prim %identity-hash PrIdentityHash (% I D E N T I T Y - H A S H))
-   (Prim %env-find PrEnvFind (% E N V - F I N D))
-   (Prim %assq PrAssocQ (% A S S Q))
-   (Prim %memq PrMemberQ (% M E M Q))
    (Prim %file-open PrFileOpen (% F I L E - O P E N))
    (Prim %file-close PrFileClose (% F I L E - C L O S E))
    (Prim %file-read PrFileRead (% F I L E - R E A D))
@@ -150,15 +147,12 @@
 (Rule (PrimitiveAction Compiled name code chars)
   (Splice ((MovRILabel EAX code) (MovRI ECX (SchemeNil)) (Call Cons)
            (OrI8 EAX 02) (MovRI ECX (Small 1)) (Call Cons)
-           (OrI8 EAX 02) (MovMemLR (GV name) EAX)
-           (MovMemLR (GP name) EAX))))
+           (OrI8 EAX 02) (MovMemLR (GV name) EAX))))
 ; scheme0 instead interns the spelling and installs a subtype-3 primitive.
 (Rule (PrimitiveAction Interpreted name code chars)
   (Splice ((MovRILabel EAX (PN name)) (MovRI ECX (ListLength chars))
            (Call Intern) (MovRILabel ECX code) (Call DefPrim))))
-; GP is immutable after startup and remains a GC root alongside the mutable GV.
-(Rule (PrimitiveAction Globals name code chars)
-  (Splice ((Label (GV name)) (Dd (Small 0)) (Label (GP name)) (Dd (Small 0)))))
+(PrimitiveAction Globals name code chars) (Splice ((Label (GV name)) (Dd (Small 0))))
 (PrimitiveAction Names name code chars) (Splice ((Label (PN name)) (Splice (AsciiData chars))))
 
 ; Special forms: one declaration drives startup, dispatch, cells and spellings.

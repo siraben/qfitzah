@@ -63,41 +63,47 @@ bootstrap, not something this PR claims to have achieved.
 
 The stage0 M2libc pin is used throughout; neither of the target's alternative
 M2libc revisions is silently substituted. `sources.tsv` records commits and
-trees. Exports verify both and disable Git replacement objects. They do not
-copy mutable worktrees. Local patches apply to fresh exports or private source
+trees. Exports verify both in a private bare object view. This excludes mutable
+worktrees, replacement refs, repository configuration and `info/attributes`;
+otherwise archive attributes could change exported content without changing a
+pin. Local patches apply to fresh exports or private source
 copies; the original checkouts remain unchanged.
 
-## Repairs and validation
+## Simplicity and performance
 
-The README documents VM buffer safety, exact patch-context repairs, relative
-include/source paths, the native numeric converter and strict linker-error
-handling. The heap-based `alloca` is excluded from the final native runtime;
-TinyCC's assembly allocator is built instead. Duplicate-symbol diagnostics are
-not ignored or downgraded. The regression requires nonzero status and no output.
+The initial full-run profile spent about 83% of its time in Blynn/HCC and only
+6% in the Scheme/tool entry. Simplification therefore targets local complexity
+rather than adding more specialization to the small entry stage.
 
-The corrected component build passed ABI, integer/floating arithmetic, decimal
-conversion, variable-length arrays, allocation, file I/O, repeated code output,
-syntax rejection, linker rejection and native compiler/library fixpoints.
-ELF inspection found an amd64 executable without `PT_INTERP`: no host dynamic
-loader/libc is needed. Runtime archive timestamps are zero. A relocated copy
-also passed the full C/numeric/diagnostic suite using only its own headers and
-runtime; the compiler contains no `/tmp/qfitzah`, `/home/siraben` or `/nix/store/`
-prefix. This is a limited
-bootstrap libc, not a complete ISO/POSIX implementation; see README limitations.
+| Decision | Reason |
+|---|---|
+| One Scheme calling convention; `let` lowers to lambda | Removes guarded register calls, duplicate primitive cells and special frame generation while preserving semantics |
+| List/association searches in Scheme | Removes native traversal and specialized environment lookup; equality variants share readable traversal |
+| One read-only recipe snapshot and assembly driver | Components cannot silently use divergent private recipes or runtime module lists |
+| Keep the collecting runtime and segregated arenas | Bounds memory failure and prevents large-buffer fragmentation; correctness, not speculative tuning |
+| Keep pinned upstream VM/compiler speed patches and fixed heap limits | These affect the dominant stages; no new adaptive or machine-specific tuning is introduced |
+| Keep both source-entry lineages and compiler/runtime fixpoints | Cheap independent checks are worth more than saving a few seconds |
 
-The completed HCC-to-TinyCC component execution trace contained source-built
-HCC/M1/hex2/TinyCC and ordinary shell/file utilities, not a host compiler.
-The complete fresh run passed in 24m11.371s. Its execution trace and independent
-cross-directory output comparison were inspected and passed; see
-[ACCEPTANCE.md](ACCEPTANCE.md). Relative entries were matched to the stage0
-scripts' source-directory scopes, TinyCC's artifact-directory scope and the
-native finalizer's source-directory scope. The optional post-build
-`audit-build.py` checks timings, phase completion, seed/recipe/artifact hashes,
-ELF/runtime metadata, independent outputs and executable-path categories. It
-requires Python only for observation, not compilation. It reports relative
-execution paths separately: their working directories must also be reviewed
-against the stage0, TinyCC and native-finalizer scripts, not assumed from a
-basename match.
+The simplified entry benchmark passed in 86.627s versus roughly 82s of entry
+phases in the prior traced full run; these are indicative, not controlled
+microbenchmarks. Only a fresh complete build under **1,800 seconds** meets the
+acceptance criterion. See [ACCEPTANCE.md](ACCEPTANCE.md) for measured results.
+
+## Validation and observer limits
+
+The README explains the source repairs and runtime limitations. The acceptance
+report records ABI/numeric/error tests, relocation, fixpoints and independent
+output equality. This audit is not a proof of all upstream compiler semantics
+or full libc conformance.
+
+The optional `audit-build.py` checks timings, phase completion, manifests,
+static ELF/archive metadata, actual compiler/runtime fixpoints and independent
+outputs. Python is an observation tool, never a compiler input. Absolute build
+executables are explicitly allowlisted; being inside the build is insufficient.
+Host tools are trusted by basename. Relative executions require review against
+the recipes' working-directory changes. This is not a security sandbox.
+Checks remain active under Python optimization, with negative tests in
+`tests/blynn-audit.py`.
 
 ## Licenses
 

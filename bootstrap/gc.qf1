@@ -342,6 +342,15 @@
    (Jnz (GcForget Next))
    (Ret)
 
+   ; Nonmoving identity hash, also used to probe atomic payloads in GC tests.
+   ; Stable while reachable; collisions are permitted and hashes are not roots.
+   (PrimitiveEntry PrIdentityHash)
+   (MovRM EAX EAX)
+   (ShrI8 EAX 04)
+   (ShlI8 EAX 02)
+   (OrI8 EAX 01)
+   (Ret)
+
    (PrimitiveEntry PrGc)
    (Call Collect)
    (MovRI EAX (SchemeUnspecified))

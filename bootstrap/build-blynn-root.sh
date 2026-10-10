@@ -10,10 +10,9 @@ cache=$(realpath "$3")
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 mkdir -- "$4"
 out=$(realpath "$4")
-mkdir "$out/recipe" "$out/bin" "$out/generated" "$out/share" "$out/tmp"
-cp -RL "$root/bootstrap" "$root/tests" "$out/recipe/"
-b=$out/recipe/bootstrap
-t=$out/recipe/tests
+mkdir "$out/bin" "$out/generated" "$out/share" "$out/tmp"
+b=$root/bootstrap
+t=$root/tests
 sha256sum -c "$tools/tools.sha256"
 bash "$b/blynn/export-source.sh" "$cache" blynn-bootstrap "$out/target"
 bash "$b/blynn/export-source.sh" "$cache" oriansj-blynn-compiler "$out/source"

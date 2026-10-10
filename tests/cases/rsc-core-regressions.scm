@@ -34,7 +34,7 @@
 (define (tail-or n) (or (= n 0) (tail-and (- n 1))))
 (write (tail-or 100000)) (newline)
 (write (list (and) (or) (and 1 2) (or #f 3))) (newline)
-; Direct let frames preserve initializer scope, mutable captures, and restores.
+; Let preserves initializer scope, mutable captures, and outer bindings.
 (define outside 99)
 (write (let ((outside 1) (copy outside)) (+ outside copy))) (newline)
 (define shared-let
@@ -47,7 +47,7 @@
 (write (let ((value 42))
          (define (local n) (if (= n 0) value (local (- n 1))))
          (local 100000))) (newline)
-; Fast primitive entry must use the captured operator, not reload its binding.
+; Calls must use the captured operator, not reload its binding after operands.
 (define original-car car)
 (define captured-car
   (car (begin (set! car (lambda (ignored) 99)) (cons 42 '()))))

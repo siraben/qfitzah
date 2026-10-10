@@ -10,15 +10,14 @@ cache=$(realpath "$2")
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 mkdir -- "$3"
 out=$(realpath "$3")
-mkdir "$out/recipe" "$out/bin"
-cp -RL "$root/bootstrap" "$root/tests" "$out/recipe/"
-b=$out/recipe/bootstrap
-t=$out/recipe/tests
+mkdir "$out/bin"
+b=$root/bootstrap
+t=$root/tests
 cp "$seed" "$out/qfitzah"
 chmod +x "$out/qfitzah"
 seed=$out/qfitzah
 sha256sum "$seed" > "$out/seed.sha256"
-bash "$t/bootstrap-artifacts.sh" "$seed" "$out/stages" "$out/recipe"
+bash "$t/bootstrap-artifacts.sh" "$seed" "$out/stages" "$root"
 bash "$b/build-hex0.sh" "$seed" "$out/stages/rscB.elf" "$out/hex0"
 bash "$t/hex0.sh" "$out/hex0/hex0"
 bash "$b/blynn/export-stage0.sh" "$cache" "$out/stage0"
