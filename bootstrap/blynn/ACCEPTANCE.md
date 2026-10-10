@@ -65,7 +65,10 @@ SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
 - **Regressions and source provenance:** immutable full qfitzah checks passed
   in 7m57.434s, including both bridge lineages. Separate source-boundary tests
   passed directly and under Nix, checking dirty worktrees, replacement objects,
-  incorrect pins, output protection and object-only fetching.
+  incorrect pins, output protection and object-only fetching. After source-tree
+  cleanup, immutable `nix flake check` passed again in 2m01s. Native finalization
+  also passed its compiler/runtime fixpoints and C/numeric/diagnostic tests;
+  all seven shipped compiler/runtime files matched the accepted build exactly.
 - **Source integrity:** patches apply only to private exports; original
   checkouts are unchanged.
   Licenses and runtime limitations are documented in README/DEPENDENCIES.
