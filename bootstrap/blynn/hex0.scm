@@ -1,6 +1,25 @@
 ; Assemble annotated hexadecimal source, using only the source-built runtime.
 ; This is a strict subset of hex0: hex digits, ASCII whitespace, #/; comments.
 ; Validate the entire input before opening output. No executable seed is read.
+;
+; FROM THE SCHEME BRANCH TO THE C-TOOLCHAIN BRANCH
+; ----------------------------------------------
+; rsc compiles this Scheme program to qfasm; qfitzah assembles that into an
+; executable. The executable reads handwritten stage0 .hex0 SOURCE and writes
+; the represented bytes. It does not copy an imported hex0 or kaem executable.
+; Those newly assembled programs then build the larger stage0/M2 toolchain.
+; Unlike qfasm, hex0 does not encode instructions or resolve symbolic labels:
+; its source already specifies each byte as two hexadecimal digits.
+;
+; Read hex0-read as a two-state machine: high=#f means no pending digit;
+; otherwise high holds the first half-byte, including zero (which is true in
+; Scheme). Whitespace and comments leave that state unchanged. Thus "4 1"
+; denotes byte 65, while an unmatched final "4" is an error, not padding.
+;
+; We accumulate reversed bytes and validate EOF before opening the destination.
+; That costs memory proportional to this small source, but an invalid input
+; cannot truncate an existing output file. The tests in tests/hex0.sh exercise
+; that contract as well as every byte value, not just a self-reproducing image.
 (define (hex0-digit c)
   (let ((n (char->integer c)))
     (cond ((and (>= n 48) (<= n 57)) (- n 48))

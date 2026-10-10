@@ -3,6 +3,22 @@
 ; cond, let, and, or, begin, quote, set!, and the scheme0 primitives), which
 ; is also the subset sc1 compiles, so this file serves both the interpreted
 ; and the self-compiled compiler.
+;
+; ONE INPUT STREAM, TWO READERS
+; -----------------------------
+; scheme0's assembly reader initially reads these definitions as code. When
+; sc1's final (main) starts, rd below takes over and reads the remaining bytes
+; as compiler INPUT, not expressions to evaluate. Both readers ultimately use
+; the same run-time read-char / peek-char cursor, so buffered lookahead is not
+; lost at the handoff. This is why the bootstrap can concatenate the compiler
+; and another copy of its source into a single stdin stream.
+;
+; This reader constructs ordinary Scheme data, not a separate syntax-object
+; type. Parentheses produce pairs, tokens produce numbers or interned symbols,
+; and quote abbreviations become lists. Interpretation and code generation
+; later decide what a list means. Read rd first, then follow its cases into
+; the list, string and token readers. These helpers avoid newer library forms
+; so the reader itself remains expressible in the language being bootstrapped.
 
 (define (list . xs) xs)
 

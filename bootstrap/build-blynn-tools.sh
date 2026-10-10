@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # qfitzah -> Scheme stages -> annotated-source hex0 -> stage0/M2, amd64 Linux.
 # Host shell/file utilities orchestrate only; no imported seed is executed.
+#
+# This is the C-toolchain branch of the bridge. bootstrap-artifacts.sh gets us
+# from the rewrite engine to native Scheme; build-hex0.sh compiles a Scheme
+# program that reads annotated hexadecimal source. That program assembles the
+# handwritten AMD64 entry tools. Their own recipes then construct the larger
+# M2 compiler/assembler toolchain that will compile Blynn's C virtual machine.
+# In parallel, build-singularity.sh uses the same Scheme compiler to construct
+# the program image that will run INSIDE that virtual machine.
 set -euo pipefail
 if (( $# != 3 )); then
   echo "usage: $0 SEED PINNED_SOURCE_CACHE NEW_DIRECTORY" >&2; exit 2
@@ -38,6 +46,8 @@ chmod 700 "$work/AMD64/artifact/hex0"
     BINDIR=../AMD64/bin BUILDDIR=../AMD64/artifact TMPDIR=../AMD64/artifact \
     OPERATING_SYSTEM=Linux \
     ./AMD64/bin/kaem --verbose --strict --file AMD64/mescc-tools-full-kaem.kaem
+  # These answer hashes are post-build checks, never executable inputs. A
+  # matching hash checks regeneration without importing the corresponding tool.
   for tool in M2-Mesoplanet M2-Planet blood-elf M1 hex2 kaem; do
     grep -F "  AMD64/bin/$tool" amd64.answers | grep -E "/$tool$" > "$out/tool.answer"
     sha256sum -c "$out/tool.answer"

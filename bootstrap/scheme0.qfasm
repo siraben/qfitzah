@@ -4,6 +4,39 @@
 ; Cons preserves ECX/EDX; ReadCh/PeekCh/Emit preserve EBX/ECX/EDX.
 ; Interpreted closures hold (params . (body . env)); primitives use subtype 3.
 ; See ARCHITECTURE.md for the runtime layout.
+;
+; THE FIRST SCHEME IS INTERPRETED, NOT COMPILED
+; -------------------------------------------
+; Nothing here requires an existing Scheme. This is handwritten i386 assembly
+; in qfasm notation; qfitzah expands its macros and emits scheme0.elf. The
+; resulting program reads Scheme expressions and evaluates them at run time.
+; It only needs the subset used to implement sc1-reader.scm and sc1.scm.
+;
+; A useful reading route is Start -> MainLoop -> ReadExpr -> Eval -> Apply.
+; ReadExpr constructs Scheme values. Eval distinguishes a literal, a variable
+; lookup and a form. Ordinary calls evaluate the operator and operands; Apply
+; either enters a primitive or interprets a closure's body in its environment.
+; Print and the primitive bodies supply the observable I/O along that route.
+;
+; The bootstrap handoff is subtle: stdin contains the reader/compiler source
+; followed by the source to compile. MainLoop evaluates the first definitions.
+; Their final (main) calls the Scheme-written reader, which consumes the rest
+; of the SAME input stream as data and writes qfasm. When that data is another
+; copy of sc1, an interpreted compiler has just compiled itself. See
+; tests/bootstrap-artifacts.sh for the exact concatenation; no host Scheme
+; participates in either reading or evaluation.
+;
+; Representation key for the masks below (all words are 32 bits):
+;   low bits 00: pair address; 01: signed fixnum, encoded as (n << 2) | 1;
+;            10: object address + 2; 11: immediate such as #f or the empty list.
+; Pairs have car at +0 and cdr at +4. Object payloads carry a further subtype:
+; symbol=0, string=1, closure=2, primitive=3. Thus 0x03 (empty list) and 0x23 (#f)
+; are different immediate values; a Scheme conditional rejects only #f.
+; Labels like (EV 1) are structured assembler names, not machine addresses.
+;
+; This early interpreter uses separate fixed bump-allocation arenas. It does
+; not have the collector provided to later rsc programs by gc.qf1. Keeping
+; those stages distinct avoids needing to bootstrap the richer runtime first.
 (Rule (Scheme0Code)
   (Block (
     ; Round CodeEnd to an 8-byte boundary, then partition the BSS arena:
@@ -23,6 +56,8 @@
     (MovMemLR GTokBuf EAX)
     (ForSpecials Init (SpecialForms))
     (ForPrimitives Interpreted (CorePrimitives))
+    ; Definitions return the unspecified value (0x43), so loading the compiler
+    ; does not pollute its generated assembly with interpreter result output.
     (Label MainLoop)
     (Call ReadExpr)
     (CmpEaxI32 (X8 0 0 0 0 0 0 3 3))
@@ -83,6 +118,8 @@
     (MovRI EAX (Small 1))
     (MovRI EBX (Small 1))
     (Int 80)
+    ; Cons: EAX=car, ECX=cdr -> EAX=pair address. Eight-byte cells keep the
+    ; tag bits free; saving EDX is part of the ABI used throughout this file.
     (Label Cons)
     (PushR EDX)
     (MovRMemL EDX GCellFree)
@@ -117,6 +154,11 @@
     (Call Cons)
     (OrI8 EAX 02)
     (Ret)
+    ; Both the assembly reader and Scheme's read-char use this cursor. GPeek
+    ; owns at most one lookahead byte, while GInPtr/GInEnd delimit the buffered
+    ; input. Sharing all three is what makes the compiler handoff lossless,
+    ; even if one syscall already fetched bytes belonging to the next stage.
+    ; Here -1 means raw EOF; ReadExpr converts it to Scheme's EOF value (33).
     (Label ReadCh)
     (MovRMemL EAX GPeek)
     (CmpEaxI32 (X8 F F F F F F F F))
@@ -189,6 +231,9 @@
     (MovMemLR GPeek EAX)
     (Label (SW 4))
     (Ret)
+    ; Reading is separate from evaluation: a pair is initially just syntax
+    ; data, and quote constructs (quote datum). Token/string scanning lives
+    ; below; Intern makes equal symbol spellings share one object identity.
     (Label ReadExpr)
     (Call SkipWS)
     (Call ReadCh)
@@ -464,6 +509,11 @@
     (Label (IN 3))
     (MovRMD EDX EDX 04)
     (JmpS (IN 1))
+    ; Eval: EAX=expression, ECX=environment -> EAX=value. The environment is
+    ; a list of (symbol . value) bindings, not the frame layout of native sc1.
+    ; Non-symbol atoms evaluate to themselves. Symbols need LookupPair; pairs
+    ; need special-form dispatch or ordinary application. Save a value on the
+    ; machine stack whenever a recursive Eval may overwrite its register.
     (Label Eval)
     (Label EvalTop)
     (MovRR EBX EAX)
@@ -504,6 +554,9 @@
     (PopR EAX)
     (Jmp32 Apply)
     ; Lexical lookup falls back to the current globals for top-level recursion.
+    ; A function's name may have been installed after its closure was created.
+    ; Returning the binding PAIR, rather than its value, also lets set! update
+    ; the same cell that future lookups will see. EBX permits one fallback only.
     (Label LookupPair)
     (XorRR EBX EBX)
     (Label (LK 1))
@@ -533,6 +586,9 @@
     (MovRI EAX (Small 1))
     (MovRI EBX (Small 1))
     (Int 80)
+    ; Evaluate the head before recursing into the tail, then cons the saved
+    ; result onto that tail. This preserves left-to-right effects and argument
+    ; order. The operator was already evaluated and saved by Eval above.
     (Label EvList)
     (TestRI8 EAX 03)
     (Jz (EL 1))
@@ -643,6 +699,9 @@
     (Label EvBegin)
     (MovRMD EAX EAX 04)
     (Jmp32 SeqTail)
+    ; A sequence evaluates every non-final expression for its effects. Its
+    ; final expression replaces the current evaluation via JMP EvalTop, not
+    ; CALL Eval. The same pattern in if/and/or preserves interpreted tail calls.
     (Label SeqTail)
     (TestRI8 EAX 03)
     (Jz (SQ 1))
@@ -781,6 +840,11 @@
     (Label (OR 3))
     (MovRM EAX EBX)
     (Jmp32 EvalTop)
+    ; Apply: EAX=callable, EDX=evaluated argument list. A primitive stores an
+    ; aligned entry address tagged with subtype 3; pass its arguments in EAX
+    ; and jump to it. An interpreted closure instead stores params/body/env:
+    ; extend that captured environment with argument bindings and enter SeqTail.
+    ; Do not substitute the caller's environment: that would be dynamic scope.
     (Label Apply)
     (MovRR EBX EAX)
     (AndI8 EBX 03)
@@ -1222,6 +1286,9 @@
     (MovRI EAX (Small 1))
     (XorRR EBX EBX)
     (Int 80)
+    ; Printing dispatches on the same tags as Eval, but never evaluates pairs
+    ; or looks up symbols. PrintPair follows the cdr spine iteratively and
+    ; prints dotted tails explicitly; PrintNum first removes the fixnum tag.
     (Label Print)
     (MovRR ECX EAX)
     (AndI8 ECX 03)
@@ -1386,4 +1453,7 @@
     (Label CodeEnd)
   ) End))
 
+; Only this final form requests output. Scheme0Code above is a source macro;
+; assembling it includes the runtime and globals, plus 256 MiB of zero-filled
+; BSS in the ELF memory-size field, not 256 MiB of bytes in the executable.
 (Assemble (Program Start (X8 1 0 0 0 0 0 0 0) (Scheme0Code)))

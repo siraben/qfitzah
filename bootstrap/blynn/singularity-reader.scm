@@ -1,5 +1,26 @@
 ; Reader for the pinned singularity language: lowercase names, application,
 ; multi-argument lambdas/definitions, parentheses, @primitive, #byte, --comments.
+;
+; THE SECOND BRANCH: SOURCE FOR BLYNN'S STARTING COMPILER
+; ----------------------------------------------------
+; This is a reader for the small untyped language of upstream singularity,
+; not a general Haskell parser. rsc compiles these Scheme routines along with
+; singularity-compile.scm and singularity-main.scm into the starting source
+; compiler. The input to that executable is upstream's textual singularity;
+; the result replaces the bundled compiled combinator image.
+;
+; Tokens are (kind . value) pairs; sg-token is the single lookahead token.
+; sg-expect consumes it and advances, so parser routines leave the first
+; unconsumed token for their caller. A definition ends with a semicolon.
+; Parsing returns an ordered list of (name . expression) definitions.
+;
+; Expressions have just four vector shapes, shared with the next file:
+;   #(var name)       a name, either bound by a lambda or referring to a global
+;   #(raw bytes)      literal VM encoding, not a variable to look up
+;   #(app left right) function application
+;   #(lam name body)  one binder (several parameters become nested lambdas)
+; For example, "ident x = x;" becomes (ident . #(lam x #(var x))).
+; Keeping the tree this small makes the later bracket abstraction explicit.
 (define sg-port #f)
 (define sg-line 1)
 (define sg-token #f)
@@ -21,6 +42,10 @@
     (if (sg-letter? (peek-char sg-port))
         (loop (cons (sg-read-char) chars))
         (cons 'name (string->symbol (list->string (reverse chars)))))))
+; Source @I denotes the raw primitive I; its @ is a source escape and is not
+; emitted. Source #X denotes a character byte and keeps the # in its encoding.
+; Do not confuse source @ escapes with the emitter's @<index> global references.
+; These are intentional VM escapes, not validation of arbitrary opcode bytes.
 (define (sg-prefixed prefix)
   (let ((c (sg-read-char)))
     (if (eof-object? c) (sg-error "missing primitive/character byte") #f)
@@ -66,6 +91,9 @@
          (sg-advance)
          (let ((expr (sg-expression))) (sg-expect 'right) expr))
         (else (sg-error "expected expression"))))
+; Application folds to the left: f x y means (f x) y. A lambda's body is
+; itself an expression, so its scope extends through that following expression
+; until a delimiter. Parentheses recursively delimit a smaller expression.
 (define (sg-expression)
   (let loop ((expr (sg-atom)))
     (if (memq (car sg-token) '(name raw lambda left))
@@ -76,6 +104,9 @@
     (let ((expr (sg-expression)))
       (sg-expect 'semi)
       (cons name (sg-lambdas params expr)))))
+; Preserve definition order: the VM will build its global table in that order.
+; Reject duplicate names here; whether a remaining name is bound or refers to
+; an earlier global is checked only after lambdas have been eliminated.
 (define (sg-program)
   (sg-advance)
   (let loop ((defs '()))

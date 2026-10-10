@@ -1,25 +1,41 @@
-; sc1: a Scheme-to-qfasm compiler written strictly in the scheme0 subset, so
-; it runs interpreted under scheme0 AND compiles itself to a native ELF.
+; rsc: a richer Scheme-to-qfasm compiler, itself written in the sc1 subset.
 ;
-; Prepend bootstrap/sc1-reader.scm (the reader) before this file. The last
-; top-level form, (main), reads the remaining stdin as the program to compile
-; and emits a complete qfasm program on stdout:
+; ADD A LANGUAGE WITHOUT ASSUMING IT ALREADY EXISTS
+; ------------------------------------------------
+; sc1 compiles this source to rscA; A compiles the same source to B, and the
+; regression tests also build C to check B/C agreement. The IMPLEMENTATION
+; stays in the older language even though the INPUT language gains macros,
+; derived forms and the richer rsc runtime. Self-compilation alone therefore
+; does not test the new language features: the separate feature corpus does.
 ;
-;   (Assemble (Program Start (X8 ...) <instruction chain> ))
+; Prepend sc1-reader.scm when compiling this file. To compile an application,
+; feed its Scheme source to the resulting rsc executable; add rsc-prelude.scm
+; and the required library sources before the application when it uses them.
+; Output is qfasm, not a runnable ELF and not evaluated Scheme:
+;   (Assemble (Program Start (GcMemoryBytes) <instruction chain>))
+;   bash bootstrap/assemble.sh SEED rsc out.qfasm > out.elf
+; assemble.sh supplies runtime-support, gc, io, control and rsc-runtime code.
 ;
-; whose fixed runtime is supplied by bootstrap/sc1-runtime.qf1 via the
-; (RuntimeCode ...) / (RuntimeData ...) macros. Assemble the emitted text with:
-;   cat qfasm.qf1 sc1-runtime.qf1 out.qfasm | qfitzah > out.elf
+; Read main -> compile-top -> expand for the front end, then compile-expr /
+; compile-tail -> compile-app / emit-proc for native code generation. The
+; output helpers and deferred worklists follow sc1.scm's design. Important
+; differences are full-width literal emission, lexical internal definitions,
+; tail-position short-circuits and the collecting runtime; this is not merely
+; sc1 with a macro reader bolted on.
 ;
-; Compilation model (see sc1-runtime.qf1 for the value representation):
-;   * EBP holds the current environment: a heap list of frames, each frame a
-;     list of the argument values bound in one lambda scope. Variables compile
-;     to lexical (depth,index) walks; free variables are global static cells.
-;   * A callable is an object (subtype 2) whose payload pair is (code . env).
-;     Apply builds the argument list in EDX, extracts code (ESI) and captured
-;     env (EDI), and CALLs (non-tail) or JMPs (tail) the code. Tail calls do
-;     not grow the machine stack, so tail recursion runs in constant space.
-;   * Primitives are ordinary global closures built by the runtime's InitPrims.
+; Keep compile-time NAMES separate from run-time VALUES. ctenv is a list of
+; name frames; EBP points to the corresponding value frames. Lexical references
+; become (depth,index) walks; other references use writable global cells.
+; A compiled closure contains a (code . captured-env) payload. All calls use
+; one convention: EAX carries the argument list, EDI the captured environment,
+; and ESI the entry address. EDX is scratch while constructing that list.
+; Non-tail calls save the caller's EBP; tail jumps reuse its return address.
+; Primitives are ordinary global callable objects, not compiler-only aliases.
+;
+; The two applications built by this compiler that reach Blynn are hex0.scm
+; (the source-only entry into stage0) and singularity-{reader,compile,main}.scm
+; (the source-only entry into Blynn's combinator compiler). Neither needs an
+; installed host Scheme or a precompiled Blynn image.
 
 ; ---------------------------------------------------------------------------
 ; Small list helpers not provided by the reader.
@@ -106,6 +122,11 @@
 
 ; ---------------------------------------------------------------------------
 ; Compile-time state.
+; As in sc1, emit the main instruction stream immediately and defer procedure
+; bodies and literals under symbolic labels. Draining a body may discover more
+; bodies/data. Deterministic label numbering and worklist order let independent
+; compiler generations produce exactly comparable assembly, not just programs
+; that happen to print the same answers.
 ; ---------------------------------------------------------------------------
 (define counter 0)
 (define (fresh) (set! counter (+ counter 1)) counter)
@@ -157,6 +178,7 @@
 
 ; ---------------------------------------------------------------------------
 ; Quoted data -> static values. A token is (kind . info):
+;   fixnum  info = untagged Scheme integer, encoded later by emit-fixnum
 ;   imm     info = 32-bit tagged word    pairlbl info = (Lit n) label number
 ;   objlbl  info = (Lit n) label number (symbol/string object pointer)
 ; ---------------------------------------------------------------------------
@@ -418,6 +440,11 @@
 
 ; Every call follows the same path: capture the operator first, evaluate
 ; operands left-to-right, then invoke it with a fresh argument list.
+; For (f (begin (set! f g) x)), the call must still use the original f. The
+; saved operator and intermediate values stay on the machine stack while
+; later operands may allocate; gc.qf1 scans that stack for reachable objects.
+; Pop values in reverse evaluation order and cons them to recover source order.
+; No temporary argument slots remain when we perform the final CALL or JMP.
 (define (compile-app expr ctenv tail?)
   (compile-expr (car expr) ctenv)
   (ins "(PushR EAX)")
@@ -455,6 +482,10 @@
 ; ---------------------------------------------------------------------------
 ; Internal definitions are lexical, mutually recursive bindings, not writes
 ; to global cells. Splice body-level begins before collecting definitions.
+; Lower them through letrec: allocate every binding slot first, then assign
+; the initializers. A closure can thus capture the frame containing its own
+; name or a later sibling's name. Compiling these as top-level define would
+; silently make unrelated invocations share globals instead of lexical cells.
 (define (splice-body body)
   (cond ((null? body) '())
         ((and (pair? (car body)) (eq? (caar body) 'begin))
@@ -545,21 +576,22 @@
         (emit-globals (cdr lst)))))
 
 ; ===========================================================================
-; Macro expander (Stage 4). rsc adds a full macro-expansion pass in front of
-; sc1's codegen: every top-level form is expanded to the sc1 core language
-; (quote if lambda define set! begin let cond and or + application) before it
-; is compiled. rsc.scm itself uses NONE of the surface features it adds, so on
-; rsc's own source expand is a structural identity -- the self-host fixpoint
-; therefore only exercises sc1's proven codegen. The new surface features are
-; exercised by a separate corpus of programs.
+; Macro expander (Stage 4): surface syntax -> the small code-generator core
+; (quote if lambda define set! begin let cond and or + application).
+; Read sr-match, then sr-inst, then expand to follow a user macro. A successful
+; match records syntax data, not its run-time value. Instantiation substitutes
+; that data into a template; expand revisits the result because a macro may
+; produce another macro invocation. Quoted data must never enter this process.
 ;
-; syntax-rules hygiene approach: when a rule's template is instantiated, every
-; template identifier that is (a) not a pattern variable, (b) not a literal,
-; and (c) not a "known" name -- a special-form keyword, a primitive, an
-; already-defined global, or a macro keyword -- is consistently renamed to a
-; fresh symbol for that one expansion. This renames macro-introduced
-; temporaries (fixing the classic (or a b) capture case) while letting template
-; references to cons/if/let/user-globals resolve to their intended bindings.
+; The renaming policy is deliberately visible, not a claim of full R5RS
+; hygiene. sr-inst substitutes pattern bindings, preserves names recognized
+; by known-id?, and consistently renames remaining identifiers per expansion.
+; known-id? consults keywords, primitives, previously defined globals and
+; macro names; it is not a lexical syntax-object environment. The literals
+; list controls matching in sr-match. Read those predicates when assessing
+; capture behavior rather than inferring general hygiene from the name
+; syntax-rules. The macro corpus, not the compiler self-fixpoint, tests this
+; additional machinery.
 ; ---------------------------------------------------------------------------
 ; The ellipsis symbol. Written via string->symbol rather than a bare literal
 ; because scheme0's bootstrap reader (used only to interpret rsc under
@@ -598,6 +630,11 @@
       (if (assq id macro-env) #t #f)))
 
 ; --- syntax-rules matcher. A binding node is (leaf . datum) | (ell . nodes) --
+; Matching without variables succeeds with (), so failure needs a distinct
+; sentinel ('no). Repetition adds a level of nodes rather than flattening:
+; matching (x ...) against (a b) binds x to (ell (leaf . a) (leaf . b)).
+; Instantiation can then select one repetition at a time; nested repetitions
+; retain their structure. '_' is a wildcard only when absent from literals.
 (define (pattern-var? x lits)
   (and (symbol? x) (not (eq? x '_)) (not (eq? x ell-sym)) (not (memq x lits))))
 
@@ -631,6 +668,10 @@
 (define (drop l k) (if (= k 0) l (drop (cdr l) (- k 1))))
 (define (nth l i) (if (= i 0) (car l) (nth (cdr l) (- i 1))))
 
+; Reserve the minimum suffix length and match the remaining prefix against
+; the repeated subpattern. This is a specific split, not a general backtracking
+; search over every partition. transpose-binds turns per-element environments
+; into per-variable repetition nodes for the template instantiator.
 (define (sr-match-ellipsis subpat tailpat inp lits)
   (let ((tlen (pat-min-len tailpat)) (ilen (length inp)))
     (if (< ilen tlen)
@@ -736,6 +777,10 @@
                      (sr-inst tmpl m lits)))))))
 
 ; --- quasiquote -> core (list/cons/append/quote) -----------------------------
+; Only unquotes at depth 1 become live expressions. Crossing another quasiquote
+; increments depth; crossing a deeper unquote decrements it but preserves that
+; syntax as data. Splicing differs from ordinary unquote by appending a list,
+; rather than putting one value into a cons cell.
 (define (qq x depth)
   (cond ((not (pair? x)) (list 'quote x))
         ((eq? (car x) 'unquote)
@@ -887,7 +932,10 @@
 ; ---------------------------------------------------------------------------
 ; Top-level driver: expand each form to core, note its globals, then compile.
 ; A top-level (begin ...) splices; an empty (begin) (from define-syntax) emits
-; nothing.
+; nothing. Macro definitions affect subsequent expansion, not target runtime
+; initialization. Global-name bookkeeping also feeds the renaming policy.
+; The generated program exits before deferred procedure/data blocks, so those
+; blocks are reachable only through the labels emitted at their use sites.
 ; ---------------------------------------------------------------------------
 (define (note-globals e)
   (cond ((not (pair? e)) #f)

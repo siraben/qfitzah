@@ -1,6 +1,30 @@
 ; qfasm: i386 assembler in Qfitzah.
 ; All arithmetic, register encoding and instruction expansion run in Qfitzah.
 ; Values are little-endian nybbles (N d0 ... d7); O/I are binary zero/one.
+;
+; THE FIRST BRIDGE: rewriting terms into an executable
+; --------------------------------------------------
+; The seed does not know x86 instructions, Scheme, or integer addition. This
+; file teaches it assembly using ordinary pattern/replacement pairs. Thus the
+; assembler is source interpreted by qfitzah, not another executable seed.
+; Uppercase constructors describe data; lowercase pattern names bind terms.
+; Repeating a pattern name requires structural equality. Later matching rules
+; take precedence within a dispatch group: keep special cases after fallbacks.
+;
+; Read this file from its last rule upward for the overall algorithm:
+;   Assemble -> Prepare -> LayoutPass -> ElfHeader + EmitCode -> Bytes
+; Then return here for the arithmetic and instruction encodings those passes
+; need. A program is an Ins chain ending in End, not a list of source strings.
+; For example, (MovRI EAX (Small 1)) becomes the five bytes B8 01 00 00 00.
+; The seed's Bytes/Hex output boundary writes those bytes, rather than printing
+; an S-expression. An unresolved instruction is an error there, not omitted.
+;
+; Why represent integers as terms? An atom such as 123 can name a label, but
+; is not a built-in arithmetic value. Eight hexadecimal digits give us explicit
+; 32-bit modular arithmetic with no host calculator. X8 accepts conventional
+; high-digit-first notation; N reverses it so addition starts at the low digit.
+; After this assembler, read scheme0.qfasm: it is a handwritten interpreter
+; expressed in precisely the instruction language defined below.
 
 ; The hexadecimal alphabet, in least-significant-bit-first order.
 (Digit 0) (Bits O O O O)
@@ -148,6 +172,10 @@
 (PadOut (N 7 0 0 0 0 0 0 0)) (Bytes 00 00 00 00 00 00 00)
 
 ; Symbol table: keys are arbitrary terms, matched structurally.
+; Bind is a persistent linked table, so labels such as (Proc 12) need no
+; string mangling. The repeated name in the second rule is the equality test;
+; putting the catch-all rule last would instead skip every binding. There is
+; deliberately no missing-name result: a missing label must remain unresolved.
 (Lookup name (Bind other pc rest)) (Lookup name rest)
 (Lookup name (Bind name pc rest)) pc
 
@@ -279,6 +307,12 @@
 (Size (Label name)) (Small 0)
 
 ; Prepare descriptors once and share them between layout and emission.
+; A forward branch cannot know its displacement yet, but its field widths are
+; already known. Packed keeps those widths and symbolic operands together.
+; Layout counts code-relative bytes and records labels without producing code.
+; EmitCode traverses the same prepared chain with the completed symbol table.
+; There is no branch relaxation: choose rel8 or rel32 explicitly, then check
+; that the chosen displacement fits. This keeps the two passes in agreement.
 (Prepare End) End
 (Prepare (Ins instruction rest)) (Ins (Seal (Describe instruction)) (Prepare rest))
 (Prepare (Ins (Label name) rest)) (Ins (Label name) (Prepare rest))
@@ -291,6 +325,9 @@
 (LayoutPass (Ins (Align8) rest) pc sym) (LayoutPass rest (Add32 pc (Pad8 pc)) sym)
 
 ; Relative operands use the end of the instruction.
+; For a five-byte Call starting at offset p, next is p+5 and the displacement
+; is target-(p+5), not target-p. Absolute addresses additionally need VBase;
+; relative ones do not, because the shared load address cancels out.
 (Resolve (Lit value) next sym) value
 (Resolve (Abs label) next sym) (VAddr (Lookup label sym))
 (Resolve (Tagged label tag) next sym) (Add32 (VAddr (Lookup label sym)) tag)
@@ -311,6 +348,12 @@
 (EmitPad pad rest pc sym) (Bytes (PadOut pad) (EmitCode rest (Add32 pc pad) sym))
 
 ; i386 ELF header: one RWE load segment, optional BSS.
+; This is format metadata, not an imported program. The 52-byte ELF header
+; and 32-byte program header are followed by four padding bytes, so code starts
+; at file offset 0x58 and virtual address 0x08048058 (VBase). One segment maps
+; the header and code together. Its memory size exceeds its file size by bss;
+; Linux supplies those extra zeroed bytes without storing them in the file.
+; No section table, dynamic loader, or external linker is needed for this ELF.
 (ElfHeader entryoff codesize bss) (Bytes 7F 45 4C 46 01 01 01 00 00 00 00 00 00 00 00 00 02 00 03 00 01 00 00 00 (LEB (VAddr entryoff)) 34 00 00 00 00 00 00 00 00 00 00 00 34 00 20 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 80 04 08 00 80 04 08 (LEB (FileSz codesize)) (LEB (Add32 (FileSz codesize) bss)) 07 00 00 00 00 10 00 00 00 00 00 00)
 
 ; Keep unresolved assembly under Bytes so the seed rejects it.
