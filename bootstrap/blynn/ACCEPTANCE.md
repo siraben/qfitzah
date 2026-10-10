@@ -1,36 +1,43 @@
 # Fresh Blynn/TCC bootstrap acceptance
 
-Verified on 2026-10-10 against `siraben/blynn-bootstrap` commit
+Verified on 2026-10-10 on SSH host `compute`, using qfitzah commit
+`26e2a2c35f4db3e427599e344688e44b1c755d45` and `siraben/blynn-bootstrap` commit
 `db5fe7b533f67da246164d0e9017346fea821631`.
 
 ## Result and measurement conditions
 
-**Fresh complete build, audit and independent comparisons: 13m28.310s wall.**
-The recipe's `/proc/uptime` measurement was **808.03 seconds**, below the
+**Fresh complete build, audit and independent comparisons: 19m18.234s wall.**
+The recipe's `/proc/uptime` measurement was **1,157.82 seconds**, below the
 **1,800-second limit**. Every compiler stage, native runtime rebuild and in-recipe
 test ran fresh. This was not checkpoint recovery or a cached Nix build.
 
-Machine: AMD Ryzen 9 5950X, 125 GiB RAM, amd64 Linux with i386 execution support.
-The output and private temporary files used executable **tmpfs (`/dev/shm`)**.
-Pinned source Git objects were already available; no generated compiler artifact
-was reused. Execution tracing used `strace --seccomp-bpf -f` to observe only
-`execve`/`execveat` without trapping every byte-oriented read/write.
+Machine: **8 AMD EPYC-Milan vCPUs (KVM), 30 GiB RAM**, amd64 Linux with i386
+execution support. Output and private temporary files used ordinary **ext4 on
+`/dev/sda1`**, under the user's home directory. No tmpfs or RAM disk was used for
+build/scratch files; ordinary OS filesystem caching was not disabled.
+
+Pinned source Git objects were preloaded. No generated compiler artifact was
+reused as a build input. Independent reference hashes and non-executable runtime
+files were supplied solely for post-build comparison. Execution tracing used
+`strace --seccomp-bpf -f` to observe `execve`/`execveat` without trapping every
+byte-oriented read/write. Build, audit and comparison exit statuses were all 0.
 
 | Recipe phase | Seconds |
 |---|---:|
-| Verify pinned source objects | 0.06 |
-| qfitzah/Scheme → hex0 → stage0/M2, including bridge tests | 25.38 |
-| Both singularity compiler lineages and unit tests | 5.50 |
-| Source-entry root Blynn ladder and VM tests | 300.27 |
-| Current Blynn and HCC | 373.18 |
-| HCC → TCC, native runtime/compiler rebuilds and tests | 103.42 |
+| Verify pinned source objects | 0.13 |
+| qfitzah/Scheme → hex0 → stage0/M2, including bridge tests | 49.21 |
+| Both singularity compiler lineages and unit tests | 11.37 |
+| Source-entry root Blynn ladder and VM tests | 418.65 |
+| Current Blynn and HCC | 529.18 |
+| HCC → TCC, native runtime/compiler rebuilds and tests | 148.87 |
 
-Small orchestration/hash overhead accounts for the remainder. Storage and
-observation conditions matter: a controlled compilation took 0.184s on tmpfs,
-0.202s with filtered tracing, but exceeded 30s on the then-stalled disk-backed
-filesystem. Earlier misconfigured/stalled attempts were rejected, not counted
-as acceptance. Do not attribute the entire improvement over the earlier
-24-minute run to compiler simplification or promise this timing on every host.
+Small orchestration/hash overhead accounts for the remainder. The earlier local
+Ryzen 9 5950X/tmpfs run passed in 13m28.310s, but the disk-backed `compute` result
+above is the primary timing. Different hardware/storage prevents attributing the
+wall-time difference to compiler changes. This is not a timing guarantee for
+every host. The remote supervision wrapper encountered a zsh compatibility error;
+the original build continued uninterrupted and its own completion/timing files
+were collected through an independent watcher.
 
 Final compiler: **TinyCC 0.9.28-unstable-2025-12-03**, static ELF64 amd64.
 SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
@@ -67,7 +74,8 @@ SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
   the previous independent build. Final TCC and all six shipped runtime files
   also match. Archive timestamps are zero; build prefixes are absent. The
   byte-identical final toolchain had also passed relocation tests.
-- **Regression coverage:** the final immutable source suite passed in 1m20s.
+- **Regression coverage:** separately, the same compiler/test sources passed the
+  full local regression suite in 1m20s.
   Source-boundary tests include mutable configuration/attribute injection.
   Seven observer test groups pass normally and under Python optimization,
   covering ELF linkage, manifest/fixpoint corruption, completion flags, time
@@ -85,20 +93,24 @@ correctly rounded floating converter. Source notices and licenses are retained.
 
 ## Evidence and reproduction
 
-Local evidence (not compiler inputs):
+Evidence (not compiler inputs):
 
-- Workspace: `/dev/shm/qfitzah-simplified-final.n9858e`
-- Preserved workspace: `/tmp/qfitzah-simplified-final.n9858e.tar` and `.tar.sha256`
+- Remote workspace: `compute:/home/siraben/qfitzah-disk-timing.3FVaIk`
 - Frozen source: `source/`; fresh output: `build/`
-- `run.sh`, `outer-seconds`, `execve.log`, `result.json`
-- In `build/`: `timing.json`, `phases.tsv`, `audit.json`, `recipe.sha256`,
-  `toolchain.sha256`, `independent-compilers.txt`, `tcc/final/fixpoints.sha256`
-- Independent reference: `/tmp/qfitzah-blynn-e2e`
-- Full run log: `/tmp/pi-better-background-tasks/tasks/bg_8g9v_mv2w7urj_188/output.log`
+- `host.txt`, `source-commit`, `run.sh`, `started-utc`, `outer-seconds`,
+  `execve.log`, `result.json`, `verification.json`, `audit.json`,
+  `independent-compilers.txt`, `reference-programs.sha256`
+- In `build/`: `timing.json`, `phases.tsv`, `recipe.sha256`, `toolchain.sha256`,
+  `recipe-verified.log`, `tcc/final/fixpoints.sha256`
+- Remote full run log: `/tmp/pi-bg-bg_8g9v_mv2xbidy_191.log`
+- Local evidence copy: `/tmp/qfitzah-compute-evidence.BZAfka` and `.sha256` manifest
+- Independent reference origin: `/tmp/qfitzah-blynn-e2e` on the local host
+- Earlier local workspace archive: `/tmp/qfitzah-simplified-final.n9858e.tar`
 
 ```sh
 bash bootstrap/blynn/fetch.sh /tmp/blynn-sources
-workspace=$(mktemp -d /dev/shm/qfitzah-build.XXXXXX)
+workspace=$(mktemp -d "$HOME/qfitzah-build.XXXXXX")
+findmnt -T "$workspace" # Check that this is ordinary disk-backed storage.
 strace --seccomp-bpf -f -s 4096 -e trace=execve,execveat -o "$workspace/execve.log" \
   bash bootstrap/build-blynn.sh result/bin/qfitzah /tmp/blynn-sources "$workspace/build"
 "$workspace/build/tcc/final/bin/tcc" -B "$workspace/build/tcc/final/lib" \

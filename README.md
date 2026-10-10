@@ -13,9 +13,10 @@ a small nonmoving collector, and an intern table for atom names.
 
 Development now targets [blynn-bootstrap](https://github.com/siraben/blynn-bootstrap)
 and its Blynn/HCC → TinyCC path, rooted in qfitzah rather than additional binary
-seeds. A fresh complete build passed in **13m28s on RAM-backed scratch**, including
-compiler/runtime self-rebuilds, execution tests, auditing and independent
-byte-for-byte reproduction. The acceptance limit is 30 minutes.
+seeds. A fresh complete build passed in **19m18s on disk-backed ext4** on an
+8-vCPU AMD EPYC-Milan host, including compiler/runtime self-rebuilds, execution
+tests, auditing and independent byte-for-byte reproduction. The acceptance
+limit is 30 minutes.
 See [the acceptance report](bootstrap/blynn/ACCEPTANCE.md),
 [build instructions and limitations](bootstrap/blynn/README.md), and
 [the dependency audit](bootstrap/blynn/DEPENDENCIES.md).
