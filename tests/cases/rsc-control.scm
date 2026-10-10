@@ -1,0 +1,70 @@
+; Nonlocal escape and multiple values.
+(write (+ 10 (call/cc (lambda (escape) (+ 100 (escape 5)))))) (newline)
+(write (call-with-values (lambda () (values 1 2 3)) +)) (newline)
+(write (call-with-values (lambda () (values)) list)) (newline)
+(write (call-with-values (lambda () (call/cc (lambda (k) (k 4 5)))) list)) (newline)
+; Multi-shot: the pending + operand and its operator live in the snapshot.
+(define resume #f)
+(define phase 0)
+(define result (+ 100 (call/cc (lambda (k) (set! resume k) 1))))
+(write result) (newline)
+(if (< phase 2)
+    (begin (set! phase (+ phase 1)) (gc) (resume (+ phase 1))) #f)
+(set! resume #f)
+
+(define trace '())
+(define (record x) (set! trace (cons x trace)))
+(define reenter #f)
+(define visits 0)
+(dynamic-wind
+  (lambda () (record 'enter))
+  (lambda ()
+    (call/cc (lambda (k) (set! reenter k)))
+    (record 'body))
+  (lambda () (record 'leave)))
+(if (= visits 0) (begin (set! visits 1) (gc) (reenter #t)) #f)
+(write (reverse trace)) (newline)
+(set! reenter #f)
+(set! trace '())
+(call/cc
+  (lambda (out)
+    (dynamic-wind
+      (lambda () (record 'outer-enter))
+      (lambda ()
+        (dynamic-wind (lambda () (record 'inner-enter))
+                      (lambda () (out 'escaped))
+                      (lambda () (record 'inner-leave))))
+      (lambda () (record 'outer-leave)))))
+(write (reverse trace)) (newline)
+
+(write (catch 'test (lambda () (throw 'test 7 8)) (lambda (key . args) args))) (newline)
+(write (catch 'outer
+         (lambda () (catch 'inner (lambda () (throw 'inner))
+                           (lambda args (throw 'outer 42))))
+         (lambda (key value) value))) (newline)
+(define f (make-fluid 'outside))
+(set! trace '())
+(write (catch 'fluid
+         (lambda ()
+           (with-fluids ((f 'inside))
+             (with-throw-handler 'fluid
+               (lambda () (throw 'fluid))
+               (lambda args (record (fluid-ref f))))))
+         (lambda args (fluid-ref f)))) (newline)
+(write (reverse trace)) (newline)
+(write (fluid-ref f)) (newline)
+; Duplicated fluid bindings restore in reverse order.
+(write (with-fluids ((f 1) (f 2)) (fluid-ref f))) (newline)
+(write (fluid-ref f)) (newline)
+; Unreachable cyclic continuations do not prevent further small-heap work.
+(define (churn n)
+  (if (= n 0) #t
+      (begin (call/cc (lambda (k) (vector k (make-string 1024))))
+             (churn (- n 1)))))
+(churn 200)
+(gc)
+(write (> (gc-count) 5)) (newline)
+(write (map (lambda (thunk) (catch 'misc-error thunk (lambda args 'caught)))
+            (list (lambda () (memq 'x '(a . b)))
+                  (lambda () (assq 'x '(a)))
+                  (lambda () (assq 'x '((a . 1) . b)))))) (newline)

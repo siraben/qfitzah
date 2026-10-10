@@ -1,0 +1,27 @@
+--- a/vm.c
++++ b/vm.c
+@@ -207,10 +207,12 @@
+ 	int i = 0;
+ 	while(EOF != c)
+ 	{
++		require(i + 1 < BUFMAX, "error: input buffer overflow\n");
+ 		buf[i] = c;
+ 		i = i + 1;
+ 		c = fgetc(fp);
+ 	}
++	buf[i] = 0;
+ 
+ 	fclose(fp);
+ }
+@@ -730,10 +732,10 @@
+ {
+ 	mem = malloc(TOP * sizeof(unsigned));
+ 	altmem = malloc(TOP * sizeof(unsigned));
+-	buf_end = buf + BUFMAX;
+ 	spTop = mem + ((TOP - 1 ) * CELL_SIZE);
+ 	tab = calloc(TABMAX, sizeof(unsigned));
+ 	buf = calloc(BUFMAX, sizeof(char));
++	buf_end = buf + BUFMAX;
+ 	destination_file = stdout;
+ 	input_file = stdin;
+ 	foreign_version = 1;

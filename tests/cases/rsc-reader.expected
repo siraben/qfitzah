@@ -1,0 +1,36 @@
+(1 2 -3 255 63 5 42 256)
+18446744073709551616
+#(a (b . c) "line\nquote\"slash\\" #t #f)
+(alpha beta . gamma)
+(quote quoted)
+(quasiquote (+ (unquote x) (unquote-splicing xs)))
+(syntax syntax-datum)
+(quasisyntax (x (unsyntax y) (unsyntax-splicing z)))
+#\space
+#\newline
+#\tab
+#\return
+#\A
+#\)
+#\(
+"a\x0;b\r\t"
+|a b|
+|a\|b|
+|.|
+#:key
+(... + - .identifier)
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+rejected
+#t
+hello

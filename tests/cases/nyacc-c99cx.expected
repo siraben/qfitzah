@@ -1,0 +1,3 @@
+(add (p-expr (fixed "1")) (mul (p-expr (fixed "2")) (p-expr (fixed "3"))))
+(cond-expr (p-expr (ident "a")) (p-expr (fixed "4")) (p-expr (fixed "5")))
+(array-ref (p-expr (fixed "2")) (p-expr (ident "items")))

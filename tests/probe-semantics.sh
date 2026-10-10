@@ -15,7 +15,8 @@ b=$root/bootstrap
 
 assemble() {
   local runtime=$1 source=$2 elf=$3
-  cat "$b/qfasm.qf1" "$b/runtime-support.qf1" "$runtime" "$source" | timeout 900s "$qfitzah" > "$elf"
+  cat "$b/qfasm.qf1" "$b/runtime-support.qf1" "$b/gc.qf1" "$b/io.qf1" \
+      "$b/control.qf1" "$b/lookup.qf1" "$runtime" "$source" | timeout 900s "$qfitzah" > "$elf"
   chmod +x "$elf"
 }
 cat "$b/qfasm.qf1" "$b/runtime-support.qf1" "$b/scheme0.qfasm" | timeout 120s "$qfitzah" > "$tmp/scheme0"

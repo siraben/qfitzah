@@ -26,7 +26,7 @@ End
 ((Db 63) (Db 6F) (Db 6E) (Db 73))
 (N D 0 0 0 0 0 0 0)
 (N 9 2 0 0 0 0 0 0)
-(N 4 3 0 0 0 0 0 0)
+(N 7 4 0 0 0 0 0 0)
 OUT
 diff -u "$tmp/expected" "$tmp/actual"
 

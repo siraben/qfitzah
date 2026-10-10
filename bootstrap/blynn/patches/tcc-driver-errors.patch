@@ -1,0 +1,14 @@
+--- a/tcc.c
++++ b/tcc.c
+@@ -385,6 +385,11 @@
+     } while (++n < s->nb_files
+             && 0 == ret
+             && (s->output_type != TCC_OUTPUT_OBJ || s->option_r));
++
++    /* Object loading can diagnose a duplicate but return zero. Do not let
++       tcc_output_file reset those errors and publish a successful output. */
++    if (s->nb_errors)
++        ret = 1;
+ 
+     if (s->do_bench)
+         end_time = getclock_ms();

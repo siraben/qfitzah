@@ -1,0 +1,57 @@
+; Multi-shot continuations for the native rsc calling convention.
+; Snapshot payload: target ESP, byte count, EBP, reserved, native stack words.
+; The snapshot is ordinary GC-managed storage. Conservative scanning traces
+; every Scheme value/raw pointer held by the suspended native frames.
+(Rule (ControlCode)
+  ((PrimitiveEntry PrCallCC)
+   (MovRM EAX EAX)              ; receiver procedure
+   (PushR EAX)
+   (MovRR ESI ESP)
+   (AddI8 ESI 04)               ; stack at call/cc entry, including return PC
+   (MovRMemL ECX GStackTop)
+   (SubRR ECX ESI)
+   (AddI8 ECX 10)
+   (Call AllocBytes)
+   (SubI8 ECX 10)
+   (MovMR EDI ESI)
+   (MovMDR EDI 04 ECX)
+   (MovMDR EDI 08 EBP)
+   (PushR EDI)
+   (AddI8 EDI 10)
+   (RepMovsb)
+   (PopR ECX)                   ; closure environment = snapshot payload
+   (MovRILabel EAX InvokeContinuation)
+   (Call Cons)
+   (OrI8 EAX 02)
+   (MovRI ECX (Small 1))
+   (Call Cons)
+   (OrI8 EAX 02)
+   (MovRI ECX (SchemeNil))
+   (Call Cons)                  ; receiver argument list = (continuation)
+   (PopR ESI)
+   (SubI8 ESI 02)
+   (MovRM ESI ESI)
+   (AndI8 ESI F8)
+   (MovRMD EDI ESI 04)
+   (MovRM ESI ESI)
+   (JmpR ESI)
+
+   ; No allocation or stack access after restoring the snapshot begins:
+   ; its destination may overwrite the currently executing native frames.
+   (Label InvokeContinuation)
+   (CmpI8 EAX 03)
+   (Jz32 ErrApply)
+   (MovRMD ECX EAX 04)
+   (CmpI8 ECX 03)
+   (Jnz32 ErrApply)
+   (MovRM EDX EAX)
+   (MovRM EBX EDI)
+   (MovRMD ECX EDI 04)
+   (MovRMD EBP EDI 08)
+   (MovRR ESI EDI)
+   (AddI8 ESI 10)
+   (MovRR EDI EBX)
+   (RepMovsb)
+   (MovRR ESP EBX)
+   (MovRR EAX EDX)
+   (Ret)))

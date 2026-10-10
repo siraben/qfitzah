@@ -1,0 +1,10 @@
+--- a/module/nyacc/lang/c99/cpp.scm
++++ b/module/nyacc/lang/c99/cpp.scm
+@@ -37,6 +37,6 @@
+   #:use-module ((nyacc lang util) #:select (report-error)))
+ (cond-expand
+-  (guile-2
++  ((or mes guile-2)
+    (use-modules (rnrs arithmetic bitwise))
+    (use-modules (system base pmatch)))
+   (else

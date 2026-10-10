@@ -1,0 +1,16 @@
+; Load before mescc.scm to inspect global data sizes without dumping info/ASTs.
+(use-modules (mescc compile))
+(let* ((module (resolve-module '(mescc compile)))
+       (original (module-ref module 'global->info))
+       (size-of (module-ref module '->size)))
+  (module-define! module 'global->info
+    (lambda (storage type name ast init info)
+      (display "global ") (write name) (display " bytes=")
+      (write (size-of type info)) (display " retained-units=")
+      (write (%gc-live-units)) (display " largest-free-units=")
+      (write (%gc-largest-free-units)) (newline)
+      (let ((result (original storage type name ast init info)))
+        (display "global done ") (write name) (newline)
+        (if (equal? name (getenv "QFITZAH_STOP_AFTER_GLOBAL"))
+            (begin (display "diagnostic stop after selected global\n") (exit 0)) #f)
+        result))))

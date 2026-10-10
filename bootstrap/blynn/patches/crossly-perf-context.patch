@@ -1,0 +1,17 @@
+--- a/inn/Unify1.hs
++++ b/inn/Unify1.hs
+@@ -7,10 +7,12 @@
+ 
+ apply sub t = case t of
+   TC v -> t
+-  TV v -> maybe t id $ mlookup v sub
++  TV v -> case mlookup v sub of
++    Nothing -> t
++    Just u -> apply sub u
+   TAp a b -> TAp (apply sub a) (apply sub b)
+ 
+-(@@) s1 s2 = foldr (\(k, v) m -> insert k v m) (apply s1 <$> s2) $ toAscList s1
++(@@) s1 s2 = foldr (\(k, v) m -> insert k v m) s2 $ toAscList s1
+ 
+ occurs s t = case t of
+   TC v -> False

@@ -1,0 +1,9 @@
+("alpha" "two words")
+"environment value"
+#f
+binary roundtrip ok
+"(\"a\\\"b\\\\c\" #\\newline #t)"
+current-port restored
+-536870912
+-20000000
+file syscall checks ok

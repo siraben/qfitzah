@@ -1,0 +1,11 @@
+--- a/scripts/prepare-mes-libc.sh
++++ b/scripts/prepare-mes-libc.sh
+@@ -61,7 +61,7 @@
+   . ./build-aux/configure-lib.sh
+   for rel in $libc_gnu_SOURCES; do
+     case $rel in
+-      lib/mes/abtod.c | lib/stdlib/strtod.c | lib/stdlib/strtof.c | lib/stdlib/strtold.c | lib/stub/ldexp.c)
++      lib/mes/abtod.c | lib/stdlib/strtod.c | lib/stdlib/strtof.c | lib/stdlib/strtold.c | lib/stub/ldexp.c | lib/stdlib/alloca.c)
+         continue
+         ;;
+     esac

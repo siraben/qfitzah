@@ -7,6 +7,10 @@
 
 ; DObj/MovRIObj descriptors (address + 2) live in runtime-support.qf1.
 
+; sc1-generated programs may also be linked with rsc-runtime to bootstrap rsc.
+; Select BSS at assembly time, not via a hard-coded compiler literal.
+(RuntimeMemoryBytes) (X8 1 0 0 0 0 0 0 0)
+
 (Rule (RuntimeCode rest)
   (Block (
     ; Bump arenas after CodeEnd: 192 MiB cells, 32 MiB bytes, 16 MiB input.

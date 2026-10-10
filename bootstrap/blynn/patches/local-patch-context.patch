@@ -1,0 +1,14 @@
+--- a/patches/upstreams/blynn-compiler-local.patch
++++ b/patches/upstreams/blynn-compiler-local.patch
+@@ -1451,3 +1451,5 @@
+-@@ -558,2 +912,13 @@ leb128Shows n
++@@ -557,6 +911,17 @@ leb128Shows n
++   | otherwise, (q, r) <- divMod n w128 = shows (w128 + r) . (',':) . leb128Shows q
+    where w128 = wordFromInt 128
++ 
+ +leb128Bytes n
+@@ -1464,2 +1466,4 @@
+  topoModules tab seed = reverse <$> go [] [] (keys tab) where
++   go todo done = \case
++     [] -> Right done
+ @@ -616,12 +981,13 @@ compile topSize libc opts s = do

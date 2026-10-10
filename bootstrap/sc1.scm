@@ -514,7 +514,7 @@
   (if (= n 0) #f (begin (o-str ")") (emit-n-parens (- n 1)))))
 
 (define (main)
-  (o-str "(Assemble (Program Start (X8 1 0 0 0 0 0 0 0) ")
+  (o-str "(Assemble (Program Start (RuntimeMemoryBytes) ")
   (ins "(Label Start)")
   (ins "(Call HeapInit)")
   (ins "(Call InitPrims)")

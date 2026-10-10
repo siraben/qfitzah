@@ -1,0 +1,7 @@
+# Minimal handwritten instruction definitions used by the offline smoke test.
+DEFINE call32 e8
+DEFINE mov____%eax,%ebx 89c3
+DEFINE mov____$i32,%eax b8
+DEFINE int____$0x80 cd80
+DEFINE hlt f4
+DEFINE ret c3

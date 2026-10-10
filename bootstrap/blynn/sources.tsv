@@ -1,0 +1,13 @@
+# name	git-url	commit	tree
+blynn-bootstrap	https://github.com/siraben/blynn-bootstrap.git	db5fe7b533f67da246164d0e9017346fea821631	15d007fba713b01577d4db7bd899f93691a97500
+stage0-posix	https://github.com/oriansj/stage0-posix.git	45d90f5955b6907dc6cdea9ebafce558359edcd3	8f04291c361e9a7b83cf8b402e6abb619fcc77cb
+stage0-posix/AMD64	https://github.com/oriansj/stage0-posix-amd64.git	82efa0d6be1c9bb993a7a62af1cccd8d2cda91f6	12728adedaee69cdd7839b151e7e900cdbbf451a
+stage0-posix/M2-Mesoplanet	https://github.com/oriansj/M2-Mesoplanet.git	4b011a85da73a7c97212468d41f17e806ba99547	faa26ed4f3770845ead50a1263bdfb856c54eaa4
+stage0-posix/M2-Planet	https://github.com/oriansj/M2-Planet.git	bd2fe4b0659fd0ad3f476a5ad0ef801bd134665d	dc54d18b7ce07231cad2e3d205c186584f8cb95b
+stage0-posix/M2libc	https://github.com/oriansj/M2libc.git	68a23cfd05d5a355ba7a30c770d684cbe86fcc4e	5433cb7dec67c82b50bd174b41488f6917e91549
+stage0-posix/bootstrap-seeds	https://github.com/oriansj/bootstrap-seeds.git	cedec6b8066d1db229b6c77d42d120a23c6980ed	7f86f673c9894d731bdf4cc9885ffe2f4a3a93ed
+stage0-posix/mescc-tools	https://github.com/oriansj/mescc-tools.git	5adfbf3364261a77109878a56b100aeeb6ef9ac4	2182871aaa3ccc22296c169a3ffc2425993409e2
+oriansj-blynn-compiler	https://github.com/OriansJ/blynn-compiler.git	9e46a8da1df90032f1d270a49a6ef5d0cc909658	d88f3e9f551c9f3906179b88d7e57830da42d6a0
+blynn-compiler	https://github.com/blynn/compiler.git	a1f1c47c9bb3ff6a45a0735ced84984396560535	7c1fca86cb52e1e4d4eaf3cf2680f6d983faf651
+gnu-mes	https://gitlab.com/janneke/mes.git	c331d801da386ba752f3fe92d0538102a90e988d	656fe9c4b829a177e9a84f6deaab7673e563d7ad
+tinycc	https://github.com/TinyCC/tinycc.git	cb41cbfe717e4c00d7bb70035cda5ee5f0ff9341	6a3d0a09ed3c8a85741cae2537f0c17d2430a152
