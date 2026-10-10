@@ -7,7 +7,18 @@ rules. Head-indexed rules take priority over generic rules; within each group,
 the newest matching rule wins.
 
 The interpreter uses direct `int $0x80` syscalls, pointer-tagged values,
-a bump allocator, and an intern table for atom names.
+a small nonmoving collector, and an intern table for atom names.
+
+## Active bootstrap target
+
+Development now targets [blynn-bootstrap](https://github.com/siraben/blynn-bootstrap)
+and its Blynn/HCC → TinyCC path, rooted in qfitzah rather than additional binary
+seeds. A fresh complete build passed in **13m28s on RAM-backed scratch**, including
+compiler/runtime self-rebuilds, execution tests, auditing and independent
+byte-for-byte reproduction. The acceptance limit is 30 minutes.
+See [the acceptance report](bootstrap/blynn/ACCEPTANCE.md),
+[build instructions and limitations](bootstrap/blynn/README.md), and
+[the dependency audit](bootstrap/blynn/DEPENDENCIES.md).
 
 ## Build
 
@@ -32,7 +43,7 @@ nix run
 The flake builds `qfitzah.s` with GNU `as`, links a static i386 executable with
 `ld`, and strips nonessential metadata with `objcopy`.
 
-The executable is 2,148 bytes (~2.1 KiB).
+The executable is 2,544 bytes (~2.5 KiB), including the collector.
 
 ## The compiler stack
 
@@ -199,10 +210,10 @@ template variables unchanged. Evaluation uses three optimizations:
   candidates. Rules whose pattern head is not a constant atom live on a
   generic list consulted after the bucket, and therefore rank below all
   head-indexed rules.
-- Normal forms are memoized by pair identity. Pairs are immutable and never
-  freed, so `ev(t)` is a pure function of the pointer `t` and the current rule
-  set; a direct-mapped cache (invalidated by a generation counter when a rule
-  is added) avoids repeated normalization on cache hits. This mitigates repeated
+- Normal forms are memoized by pair identity. Live pairs are immutable, so
+  `ev(t)` depends only on `t` and the current rule set. A direct-mapped weak
+  cache (invalidated when a rule is added or garbage is collected) avoids
+  repeated normalization on cache hits. This mitigates repeated
   traversal of shared instruction chains and symbol tables. Cache collisions
   cause recomputation.
 
@@ -275,7 +286,7 @@ runs the corpus and tail-call test.
 Stage 4 is `bootstrap/rsc.scm`, an R5RS-subset compiler written strictly in the
 sc1 subset, so sc1 compiles it and it self-hosts to a byte-identical fixpoint.
 It is sc1's codegen plus a macro-expansion pass in front and a wider runtime
-(`bootstrap/rsc-runtime.qf1`, using `runtime-support.qf1`). It shares sc1's
+(`bootstrap/rsc-runtime.qf1`, using `runtime-support.qf1` and `gc.qf1`). It shares sc1's
 reader, with backtick/comma quasiquote syntax. What it adds over
 sc1:
 
@@ -292,7 +303,11 @@ sc1:
 - Vectors: `make-vector`, `vector`, `vector-ref`,
   `vector-set!`, `vector-length`, `vector?`, `vector->list`, `list->vector`,
   `vector-fill!`, printed as `#(...)`.
-- `apply` with varargs, tail-proper (tail `apply` runs in constant stack).
+- `apply` with varargs, tail-proper and without mutating caller argument lists.
+- Lexical internal definitions, full-range fixnum literals, and tail `and`/`or`.
+- Nonmoving conservative GC for cells and string/vector storage; bounded
+  allocation failure and explicit `gc`/`gc-count` testing primitives. See
+  [the collector invariants](ARCHITECTURE.md#rsc-memory-management-bootstrapgcqf1).
 - A standard-library prelude (`bootstrap/rsc-prelude.scm`) that the caller
   prepends when needed: `equal?`, the `assoc`/`member` family, list ops (`append`
   `reverse` `length` `list-ref` `list-tail` `map` `for-each`), integer helpers
@@ -302,18 +317,18 @@ sc1:
   `make-string`/`string-set!` `string-copy`).
 
 rsc.scm is written in the sc1 subset. Its self-compilation tests the inherited
-code generator; a separate corpus tests the added features. Unsupported features
-include bignums, floats, rationals, `call/cc`, `dynamic-wind`, first-class `eval`,
-`delay`/`force`, and `#(...)` vector read syntax (vectors are built by the
-constructors above).
+code generator; a separate corpus tests the added features. The core compiler still lacks floats, rationals, first-class `eval`,
+`delay`/`force`, and `#(...)` source vector syntax. The separately compiled
+runtime libraries add exact integers, port-aware reading, and dynamic control
+without expanding the sc1 bootstrap subset; see below.
 
 ```sh
 # compile, assemble, and run an R5RS program with rsc
 cat bootstrap/sc1-reader.scm bootstrap/rsc.scm | ./sc1.elf > rsc.qfasm
-cat bootstrap/qfasm.qf1 bootstrap/runtime-support.qf1 bootstrap/rsc-runtime.qf1 rsc.qfasm | result/bin/qfitzah > rsc.elf
+bash bootstrap/assemble.sh result/bin/qfitzah rsc rsc.qfasm > rsc.elf
 chmod +x rsc.elf
 cat bootstrap/rsc-prelude.scm prog.scm | ./rsc.elf > prog.qfasm
-cat bootstrap/qfasm.qf1 bootstrap/runtime-support.qf1 bootstrap/rsc-runtime.qf1 prog.qfasm | result/bin/qfitzah > prog.elf
+bash bootstrap/assemble.sh result/bin/qfitzah rsc prog.qfasm > prog.elf
 chmod +x prog.elf && ./prog.elf
 ```
 
@@ -324,6 +339,22 @@ This is checked by `rsc-fixpoint`. The R5RS-subset corpus (macros, quasiquote,
 derived forms, library, vectors, apply) is compiled through both sc1-built A and
 self-built C, assembled, executed, and diffed. The standard-library prelude is
 supplied by the caller, as shown above, not automatically loaded by the compiler.
+
+### Source-built runtime libraries
+
+Additional Scheme libraries, compiled by rsc in this order:
+
+1. `rsc-prelude.scm`: base list/string/integer helpers.
+2. `rsc-control.scm`: multi-shot `call/cc`, `dynamic-wind`, multiple values,
+   exceptions and fluid bindings, over the native stack-snapshot primitive.
+3. `rsc-ports.scm`: buffered input, checked file operations, string ports,
+   current ports and escaped printing.
+4. `rsc-integers.scm`: arbitrary-size exact integers and bit operations.
+5. `rsc-reader.scm`: port-aware data reader, vectors, keywords, radix numbers,
+   nested comments and escapes. This does not change the core compiler reader.
+
+`bootstrap/assemble.sh` supplies the required assembly modules in order.
+These libraries are source, not precompiled host dependencies.
 
 ## Tests
 

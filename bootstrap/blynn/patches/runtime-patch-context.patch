@@ -1,0 +1,23 @@
+--- a/patches/upstreams/blynn-compiler-rts2-vm-speed.patch
++++ b/patches/upstreams/blynn-compiler-rts2-vm-speed.patch
+@@ -1,8 +1,7 @@
+ diff --git a/inn/RTS2.hs b/inn/RTS2.hs
+ --- a/inn/RTS2.hs
+ +++ b/inn/RTS2.hs
+-@@ -49,11 +49,11 @@ void *malloc(unsigned long);
+- enum { FORWARD = 127, REDUCING = 126 };
++@@ -50,10 +50,10 @@ void *malloc(unsigned long);
+  static u *mem, *altmem, *sp, *spTop, hp;
+  static inline u isAddr(u n) { return n>=128; }
+  static u evac(u n) {
+--- a/patches/upstreams/blynn-compiler-rts-precisely-speed.patch
++++ b/patches/upstreams/blynn-compiler-rts-precisely-speed.patch
+@@ -72,7 +72,7 @@
+        RTS_NOTE_STACK;
+        return usage + hp + 8 >= TOP;
+ @@ -415,7 +443,7 @@
+- static inline u ite(int cond) { if(cond) return _K; return _KI; }
++ static inline u ite(int cond) { if (cond) return _K; return _KI; }
+  static inline int ashr(int x, int y) { if (x < 0) return ~(~x >> y); return x >> y; }
+  static inline u tagcheck(u x) {
+ -  if (isAddr(x)) {

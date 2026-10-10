@@ -17,6 +17,14 @@
 (display (let ((tmp 10) (u 20)) (swap! tmp u) (list tmp u)))
 (newline)
 
+; An explicitly listed underscore is literal, not the default wildcard.
+(define-syntax underscore-literal
+  (syntax-rules (_)
+    ((_ _) 17)
+    ((_ value) value)))
+(display "underscore: ")
+(display (list (underscore-literal _) (underscore-literal 42))) (newline)
+
 ; 2. my-or / my-and -- ellipsis + recursion + hygiene of the introduced t.
 (define-syntax my-or
   (syntax-rules ()

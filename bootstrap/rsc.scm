@@ -56,6 +56,18 @@
   (o-str "(X8 ")
   (emit-nibs-be (reverse (nib8 w)))
   (o-str ")"))
+; Shift the untagged nybbles, never the 30-bit Scheme integer itself.
+; Computing (+ (* n 4) 1) in the host Scheme loses the high two bits.
+(define (tag-fixnum-nibs digits carry)
+  (if (null? digits)
+      '()
+      (let ((v (+ (* (car digits) 4) carry)))
+        (cons (remainder v 16)
+              (tag-fixnum-nibs (cdr digits) (quotient v 16))))))
+(define (emit-fixnum n)
+  (o-str "(X8 ")
+  (emit-nibs-be (reverse (tag-fixnum-nibs (nib8 n) 1)))
+  (o-str ")"))
 (define (emit-nibs-be lst)
   (if (null? lst)
       #f
@@ -111,7 +123,10 @@
     integer->char string-length string-ref string->symbol symbol->string
     list->string make-string string-set! apply
     make-vector vector vector-ref vector-set! vector-length vector?
-    vector->list list->vector error exit))
+    vector->list list->vector gc gc-count %gc-live-units %gc-largest-free-units
+    make-symbol %identity-hash
+    %file-open %file-close %file-read %file-write %file-seek %eof-object
+    command-line getenv call/cc call-with-current-continuation error exit))
 (define (is-prim? name) (if (memq name prim-names) #t #f))
 
 (define (register-global name)
@@ -146,7 +161,7 @@
 ;   objlbl  info = (Lit n) label number (symbol/string object pointer)
 ; ---------------------------------------------------------------------------
 (define (quote-datum d)
-  (cond ((number? d) (cons 'imm (+ (* d 4) 1)))
+  (cond ((number? d) (cons 'fixnum d))
         ((boolean? d) (cons 'imm (if d 19 35)))
         ((char? d) (cons 'imm (+ (* (char->integer d) 256) 83)))
         ((null? d) (cons 'imm 3))
@@ -174,7 +189,9 @@
 
 (define (emit-load tok)
   (let ((k (car tok)) (info (cdr tok)))
-    (cond ((eq? k 'imm)
+    (cond ((eq? k 'fixnum)
+           (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-fixnum info) (o-str ")"))))
+          ((eq? k 'imm)
            (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-x8 info) (o-str ")"))))
           ((eq? k 'pairlbl)
            (ins-dyn (lambda () (o-str "(MovRILabel EAX (Lit ") (o-num info) (o-str "))"))))
@@ -183,7 +200,8 @@
 
 (define (emit-field tok)
   (let ((k (car tok)) (info (cdr tok)))
-    (cond ((eq? k 'imm) (o-str "(Dd ") (emit-x8 info) (o-str ")"))
+    (cond ((eq? k 'fixnum) (o-str "(Dd ") (emit-fixnum info) (o-str ")"))
+          ((eq? k 'imm) (o-str "(Dd ") (emit-x8 info) (o-str ")"))
           ((eq? k 'pairlbl) (o-str "(DLabel (Lit ") (o-num info) (o-str "))"))
           (else (o-str "(DObj (Lit ") (o-num info) (o-str "))")))))
 
@@ -234,7 +252,9 @@
       (let ((cl (car clauses)))
         (if (eq? (car cl) 'else)
             (cons 'begin (cdr cl))
-            (list 'if (car cl) (cons 'begin (cdr cl)) (cond->if (cdr clauses)))))))
+            (if (null? (cdr cl))
+                (list 'or (car cl) (cond->if (cdr clauses)))
+                (list 'if (car cl) (cons 'begin (cdr cl)) (cond->if (cdr clauses))))))))
 
 ; ---------------------------------------------------------------------------
 ; Parameter lists: names, fixed count, rest presence.
@@ -260,7 +280,7 @@
 ; compile-tail leaves via RET or a tail JMP.
 ; ---------------------------------------------------------------------------
 (define (compile-expr expr ctenv)
-  (cond ((number? expr) (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-x8 (+ (* expr 4) 1)) (o-str ")"))))
+  (cond ((number? expr) (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-fixnum expr) (o-str ")"))))
         ((boolean? expr) (if expr (load-true) (load-false)))
         ((char? expr) (ins-dyn (lambda () (o-str "(MovRI EAX ") (emit-x8 (+ (* (char->integer expr) 256) 83)) (o-str ")"))))
         ((string? expr)
@@ -282,8 +302,8 @@
           ((eq? op 'begin) (compile-begin (cdr expr) ctenv #f))
           ((eq? op 'let) (compile-expr (let->lambda expr) ctenv))
           ((eq? op 'cond) (compile-expr (cond->if (cdr expr)) ctenv))
-          ((eq? op 'and) (compile-and (cdr expr) ctenv))
-          ((eq? op 'or) (compile-or (cdr expr) ctenv))
+          ((eq? op 'and) (compile-short-circuit (cdr expr) ctenv #f #t))
+          ((eq? op 'or) (compile-short-circuit (cdr expr) ctenv #f #f))
           (else (compile-app expr ctenv #f)))))
 
 (define (compile-tail expr ctenv)
@@ -297,8 +317,8 @@
               ((eq? op 'define) (compile-define expr ctenv) (ins "(Ret)"))
               ((eq? op 'set!) (compile-set expr ctenv) (ins "(Ret)"))
               ((eq? op 'lambda) (compile-lambda expr ctenv) (ins "(Ret)"))
-              ((eq? op 'and) (compile-and (cdr expr) ctenv) (ins "(Ret)"))
-              ((eq? op 'or) (compile-or (cdr expr) ctenv) (ins "(Ret)"))
+              ((eq? op 'and) (compile-short-circuit (cdr expr) ctenv #t #t))
+              ((eq? op 'or) (compile-short-circuit (cdr expr) ctenv #t #f))
               (else (compile-app expr ctenv #t))))
       (begin (compile-expr expr ctenv) (ins "(Ret)"))))
 
@@ -336,25 +356,23 @@
          (if tail? (compile-tail (car body) ctenv) (compile-expr (car body) ctenv)))
         (else (compile-expr (car body) ctenv) (compile-begin (cdr body) ctenv tail?))))
 
-(define (compile-and args ctenv)
-  (if (null? args) (load-true) (compile-and-loop args ctenv (fresh))))
-(define (compile-and-loop args ctenv end)
+; Only the final operand inherits tail position. Earlier short-circuits
+; converge on a return in tail context, preserving the operand's value.
+(define (compile-short-circuit args ctenv tail? and?)
+  (if (null? args)
+      (begin (if and? (load-true) (load-false))
+             (if tail? (ins "(Ret)") #f))
+      (let ((end (fresh)))
+        (compile-short-operands args ctenv tail? and? end)
+        (emit-label end)
+        (if tail? (ins "(Ret)") #f))))
+(define (compile-short-operands args ctenv tail? and? end)
   (if (null? (cdr args))
-      (begin (compile-expr (car args) ctenv) (emit-label end))
+      (if tail? (compile-tail (car args) ctenv) (compile-expr (car args) ctenv))
       (begin (compile-expr (car args) ctenv)
              (ins cmp-false)
-             (emit-jz32 end)
-             (compile-and-loop (cdr args) ctenv end))))
-
-(define (compile-or args ctenv)
-  (if (null? args) (load-false) (compile-or-loop args ctenv (fresh))))
-(define (compile-or-loop args ctenv end)
-  (if (null? (cdr args))
-      (begin (compile-expr (car args) ctenv) (emit-label end))
-      (begin (compile-expr (car args) ctenv)
-             (ins cmp-false)
-             (emit-jnz32 end)
-             (compile-or-loop (cdr args) ctenv end))))
+             (if and? (emit-jz32 end) (emit-jnz32 end))
+             (compile-short-operands (cdr args) ctenv tail? and? end))))
 
 (define (compile-set expr ctenv)
   (let ((name (cadr expr)) (val (caddr expr)))
@@ -398,6 +416,8 @@
     (ins "(Call Cons)")
     (ins "(OrI8 EAX 02)")))
 
+; Every call follows the same path: capture the operator first, evaluate
+; operands left-to-right, then invoke it with a fresh argument list.
 (define (compile-app expr ctenv tail?)
   (compile-expr (car expr) ctenv)
   (ins "(PushR EAX)")
@@ -433,10 +453,31 @@
 ; ---------------------------------------------------------------------------
 ; Lambda-body (procedure) emission.
 ; ---------------------------------------------------------------------------
+; Internal definitions are lexical, mutually recursive bindings, not writes
+; to global cells. Splice body-level begins before collecting definitions.
+(define (splice-body body)
+  (cond ((null? body) '())
+        ((and (pair? (car body)) (eq? (caar body) 'begin))
+         (splice-body (append2 (cdr (car body)) (cdr body))))
+        (else (cons (car body) (splice-body (cdr body))))))
+(define (definition-binding form)
+  (if (pair? (cadr form))
+      (list (car (cadr form))
+            (cons 'lambda (cons (cdr (cadr form)) (cddr form))))
+      (list (cadr form) (if (null? (cddr form)) #f (caddr form)))))
+(define (body->core body)
+  (collect-body-definitions (splice-body body) '()))
+(define (collect-body-definitions body bindings)
+  (if (and (pair? body) (pair? (car body)) (eq? (caar body) 'define))
+      (collect-body-definitions (cdr body)
+                                (cons (definition-binding (car body)) bindings))
+      (if (null? bindings)
+          (cons 'begin body)
+          (letrec->core (cons 'letrec (cons (reverse bindings) body))))))
 (define (emit-proc p params body ctenv)
   (ins-dyn (lambda () (o-str "(Label (Proc ") (o-num p) (o-str "))")))
   (emit-prologue params)
-  (compile-tail (cons 'begin body) (cons (param-names params) ctenv)))
+  (compile-tail (body->core body) (cons (param-names params) ctenv)))
 
 (define (bind-newenv)
   (ins "(MovRR ECX EDI)")
@@ -561,7 +602,7 @@
   (and (symbol? x) (not (eq? x '_)) (not (eq? x ell-sym)) (not (memq x lits))))
 
 (define (sr-match pat inp lits)
-  (cond ((eq? pat '_) '())
+  (cond ((and (eq? pat '_) (not (memq pat lits))) '())
         ((symbol? pat)
          (if (memq pat lits)
              (if (eq? inp pat) '() 'no)
@@ -879,7 +920,7 @@
   (if (= n 0) #f (begin (o-str ")") (emit-n-parens (- n 1)))))
 
 (define (main)
-  (o-str "(Assemble (Program Start (X8 1 0 0 0 0 0 0 0) ")
+  (o-str "(Assemble (Program Start (GcMemoryBytes) ")
   (ins "(Label Start)")
   (ins "(Call HeapInit)")
   (ins "(Call InitPrims)")

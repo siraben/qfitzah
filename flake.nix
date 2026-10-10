@@ -29,6 +29,7 @@
             buildPhase = ''
               runHook preBuild
 
+              cp ${./bootstrap/seed-gc.s} seed-gc.s
               as --32 "$src" -o qfitzah.o
               ld -m elf_i386 -static -z noseparate-code -o qfitzah.bloated qfitzah.o
               objcopy -S -R .note.gnu.build-id -R .note.gnu.property qfitzah.bloated qfitzah
@@ -71,6 +72,32 @@
           pkgs = import nixpkgs { inherit system; };
         in
         {
+          seed-memory = pkgs.runCommand "qfitzah-seed-memory-tests"
+            { nativeBuildInputs = [ pkgs.binutils ]; } ''
+            cp ${./qfitzah.s} qfitzah.s
+            cp ${./bootstrap/seed-gc.s} seed-gc.s
+            as --32 --defsym SEED_CELL_BYTES=262144 --defsym SEED_GC_TRACE=1 qfitzah.s -o tiny.o
+            ld -m elf_i386 -static -z noseparate-code tiny.o -o tiny
+            ${pkgs.bash}/bin/bash ${./tests/seed-memory.sh} ./tiny
+            touch "$out"
+          '';
+          blynn-audit = pkgs.runCommand "qfitzah-blynn-audit-tests"
+            { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            mkdir -p source/bootstrap/blynn source/tests
+            cp ${./bootstrap/blynn/audit-build.py} source/bootstrap/blynn/audit-build.py
+            cp ${./tests/blynn-audit.py} source/tests/blynn-audit.py
+            python3 -B source/tests/blynn-audit.py
+            python3 -B -O source/tests/blynn-audit.py
+            touch "$out"
+          '';
+          blynn-sources = pkgs.runCommand "qfitzah-blynn-source-tests"
+            { nativeBuildInputs = [ pkgs.git ]; } ''
+            mkdir -p source/bootstrap source/tests
+            cp -R ${./bootstrap/blynn} source/bootstrap/blynn
+            cp ${./tests/blynn-sources.sh} source/tests/blynn-sources.sh
+            ${pkgs.bash}/bin/bash source/tests/blynn-sources.sh
+            touch "$out"
+          '';
           default = pkgs.runCommand "qfitzah-tests" { } ''
             # Run checks with the seed and source files.
             mkdir source
