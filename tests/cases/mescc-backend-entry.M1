@@ -1,0 +1,7 @@
+# Linux process entry for the IR-level MesCC backend smoke test.
+:_start
+call32 %main
+mov____%eax,%ebx
+mov____$i32,%eax %1
+int____$0x80
+hlt

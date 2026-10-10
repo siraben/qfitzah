@@ -14,7 +14,7 @@ Assembler and runtime sources are edited directly. Source macros run in Qfitzah.
 
 ## Stage 0: Seed (`qfitzah.s`)
 
-The seed is a 2,148-byte static i386 Linux executable. It reads S-expressions,
+The seed is a 2,544-byte static i386 Linux executable. It reads S-expressions,
 interns atoms, stores rewrite rules, matches and substitutes terms, and prints
 normal forms or emits bytes. It supports dotted tails and repeated-variable
 structural equality. Unmatched template variables remain unchanged.
@@ -22,10 +22,21 @@ structural equality. Unmatched template variables remain unchanged.
 Rules with a constant head are indexed by that atom and take priority over
 generic rules. Within either group, the newest matching rule wins.
 
-Pairs are immutable and never freed. `evlis` reuses a pair when neither field
-changes. A direct-mapped cache stores normal forms by pair address; adding a
-rule increments a generation counter to invalidate cached results. Collisions
-cause recomputation.
+Live pairs are immutable. `evlis` reuses a pair when neither field changes.
+A direct-mapped weak cache stores normal forms by pair address; adding a rule
+or collecting garbage increments its generation. Counter wrap clears the cache.
+Collisions and collection cause recomputation, never a change of semantics.
+
+`bootstrap/seed-gc.s` is included by the GNU assembly seed. Its conservative,
+nonmoving fixed-cell collector scans saved registers, the native stack, global
+words and atom-table rule buckets. A byte per cell records allocation/mark
+state; a bounded work queue avoids recursive marking. Dead cells become a free
+list, and live exhaustion exits 1 with a diagnostic. `cons` preserves incoming
+flags as well as its original register ABI (the matcher relies on those flags).
+The default cell arena is 256 MiB, with 32 MiB metadata and 128 MiB work space.
+Input/atom/output buffers remain fixed-size. The Nix `seed-memory` check builds
+an instrumented 256 KiB variant and tests reclamation, rule retention, memo
+invalidation and failure on an entirely live heap.
 
 `Bytes` accepts two-digit hex atoms and `(Hex high low)` terms. The seed
 validates each record before flushing its bytes. Malformed records and byte
@@ -122,9 +133,9 @@ EBP holds the environment frame chain. `Cons` preserves ECX/EDX;
 scheme0 primitive entries are 8-byte-aligned to allow tagged code addresses.
 Compiled closures hold raw code addresses.
 
-The runtimes reserve 256 MiB of BSS. After aligning `CodeEnd` to 8 bytes,
-allocation partitions it into 192 MiB of cells, 32 MiB of bytes, a 16 MiB read
-buffer and token space. `GObList` and scheme0's `GEnv` start as Scheme nil,
+The runtimes reserve 256 MiB of BSS. scheme0/sc1 partition this into 192 MiB
+of cells, 32 MiB of bytes, a 16 MiB read buffer and token space. rsc uses the
+collector described below. `GObList` and scheme0's `GEnv` start as Scheme nil,
 `GPeek` as all ones, and other globals as zero.
 
 ## Stage 3: Compiler (`bootstrap/sc1.scm`)
@@ -154,24 +165,125 @@ compare the B/C assembly text and complete ELFs, and run the feature corpus
 through A and C. rsc itself is written in the sc1 subset, so its self-compilation
 does not exercise the added language features.
 
+### rsc memory management (`bootstrap/gc.qf1`)
+
+`bootstrap/assemble.sh SEED rsc PROGRAM.qfasm` loads `runtime-support.qf1`,
+`gc.qf1`, `io.qf1`, `control.qf1`, `lookup.qf1` and `rsc-runtime.qf1` in order.
+It implements a nonmoving conservative mark/sweep
+collector shared by pair cells, object headers and string/vector buffers.
+
+- An eight-byte block header holds total aligned size and state bits: allocated
+  (1), marked (2), and atomic byte payload (4). All payloads are at least eight
+  bytes and are zeroed on allocation.
+- An owner table maps every eight-byte heap granule to its allocated block.
+  This recognizes tagged, untagged and interior pointers held by assembly
+  helpers. Heap addresses must not be hidden solely in encoded integers.
+- Allocation saves live registers on the native stack. Collection scans the
+  stack up to the initial stack pointer, compiled code/static data/user globals,
+  primitive global cells and `GObList`. Allocator metadata is not a root.
+- Marking uses an explicitly bounded, nonrecursive work queue. Pointer-bearing
+  payloads (pairs, headers, vector buffers, continuation snapshots) are scanned
+  conservatively. String/symbol bytes and NUL-terminated path copies are atomic:
+  raw/interior roots still retain their owner, but their contents are not scanned.
+  This prevents ordinary byte sequences from retaining unrelated heap graphs.
+  Pointer-like integers in traced payloads and stale scratch registers can still
+  retain otherwise unreachable objects; addresses never move.
+- Blocks smaller than 4 KiB (including headers) use a small-object arena;
+  other blocks use a separate large-object arena. Each has its own bump pointer
+  and first-fit free list. Small-object churn cannot fragment buffer space.
+  Sweeping coalesces within each arena and retracts a dead trailing run into
+  unused bump space. Arenas never borrow from one another; either can exhaust
+  despite unused capacity in the other. After one unsuccessful collection/retry,
+  allocation exits 1 with `rsc: out of memory` on stderr.
+- `GcHeapBytes` specifies capacity **per arena**, defaulting to 128 MiB each.
+  The combined 256 MiB object space has a 128 MiB owner map and 64 MiB work
+  queue; input and token buffers are 4 MiB each. Symbolic `GcMemoryBytes` reserves
+  four times `GcHeapBytes` plus 8 MiB/alignment slack in ELF BSS. Supported
+  profiles are powers of two from 64 KiB through 256 MiB per arena. sc1 output
+  uses `RuntimeMemoryBytes`, selected by its assembly runtime: sc1 keeps its
+  fixed reservation, while the first rsc built by sc1 gets `GcMemoryBytes`.
+  The Mes host uses 256 + 256 MiB, preserving the previous 512 MiB total object
+  budget. Bounded host fixtures use 2 MiB per arena. `gc` and `gc-count` expose collection
+  and a collection counter for tests. `%gc-live-units` collects, then counts
+  retained block space in eight-byte units, including headers and padding;
+  it does not allocate and is not a precise measure of semantic liveness.
+  `%gc-largest-free-units` collects and reports the largest contiguous swept
+  block or unused bump tail across both arenas, also in eight-byte units.
+  This diagnoses fragmentation, but does not guarantee space in a particular
+  allocation's size class.
+
+Interned symbols remain rooted by the oblist. The collector does not promise
+weak symbol interning or precise liveness. scheme0 and sc1 retain their bounded
+bump arenas; they only run the smaller, earlier bootstrap stages.
+
+### Compiled execution fast paths
+
+rsc builds `let` lexical frames directly instead of allocating and invoking a
+throwaway closure. Captured mutable cells, outer initializer scope and tail
+position are unchanged. Common fixed-arity primitive calls have guarded
+register-entry paths: the operator is captured before evaluating operands,
+then compared against its original `GP` cell. Rebinding, lexical shadowing and
+other arities retain ordinary dynamic dispatch. Both mutable `GV` and original
+`GP` primitive cells are GC roots; register-entry cons still uses the collector.
+
+### Mes-host libraries
+
+The larger compatibility environment is compiled by rsc, rather than widening
+sc1's language or trusting an external Scheme implementation. Native `%env-find`
+searches the existing host frames without allocating per lexical level.
+`mes-host/analyze.scm` analyzes core code emitted by the unchanged Mes
+syntax-rules compiler into native execution closures with private lexical
+frames. Unsupported code uses the reference evaluator. Expansions themselves
+are not cached: rename/compare callbacks are fresh, and free value references
+still observe current definition-module bindings, including import shadowing. Library order is
+base prelude, control, ports, exact integers, reader.
+
+- `io.qf1` implements Linux/i386 open/close/read/write/seek, argv/environment
+  access and an EOF constructor. Read/write ranges are checked before system
+  calls; negative errno values go to Scheme. The Scheme port layer handles
+  EINTR and short writes, current ports, input buffering and string ports.
+- `lookup.qf1` provides non-allocating identity-based association/member searches
+  for the host's proper environment lists. Public Scheme wrappers reject
+  malformed traversed lists with catchable errors. Its private identity hash is
+  stable only while an object remains reachable under the nonmoving collector;
+  collisions are allowed and hashes are not references or persistent IDs.
+- `control.qf1` captures the native stack in a GC-managed snapshot. A native
+  closure carries its address. Invocation restores stack/EBP and returns the
+  supplied value to the captured call site; no allocation or native stack
+  access is permitted during restoration. Snapshots are reusable, and their
+  payload words are traced by the collector. `rsc-control.scm` adds winding,
+  multiple values, catch/throw, pre-unwind handlers and dynamic fluid bindings.
+- `rsc-integers.scm` retains native fixnums for small values and uses canonical
+  sign/magnitude vectors of base-2^14 limbs for large values. Limb arithmetic
+  cannot overflow a 30-bit fixnum. Division uses unsigned binary long division;
+  bit operations implement infinite two's complement. No host bignum library
+  is involved. This library overrides arithmetic bindings for the Mes host;
+  the earlier compiler still uses native fixnums.
+- `rsc-reader.scm` reads from ports using the exact-integer library. It handles
+  lists/vectors, radix integers, keyword symbols, comments and byte escapes.
+  It is distinct from the minimal `sc1-reader.scm` used to bootstrap rsc.
+
 ## Limits and known bugs
 
-Memory arenas and stacks are finite, with mostly unchecked bounds. Short writes
-and I/O errors are not fully handled. There is no garbage collector.
+Memory arenas and stacks are finite. scheme0/sc1 still have mostly unchecked
+allocation bounds. Short writes and I/O errors are not fully handled.
 
 The Scheme implementations have these known bugs:
 
-- Some in-range fixnum literals are misencoded. Internal definitions affect
-  globals; test-only `cond` clauses lose their value. Comparisons ignore extra
-  operands, and printed strings lack escaping.
+- In sc1, some in-range fixnum literals are misencoded, internal definitions
+  affect globals, and test-only `cond` clauses lose their value. These are
+  repaired in rsc. Comparisons still ignore extra operands in both runtimes,
+  and printed strings lack escaping.
 - Macro renaming does not provide full lexical hygiene. Definition-site
   references, quoted identifiers, literal bindings and string patterns have
   incorrect cases. Nested quasiquote splicing is also incomplete.
-- `apply` can mutate the caller's argument-list cells when binding parameters.
-- Compiled `and`/`or` lose tail position.
+- sc1's compiled `and`/`or` lose tail position (repaired in rsc).
 
-Unsupported features include bignums, floats, rationals, `call/cc`,
-`dynamic-wind`, first-class `eval`, `delay`/`force` and vector read syntax.
+rsc copies `apply`'s final list before using it as mutable parameter bindings.
+
+The core compiler does not parse vector literals or arbitrary-size integer
+literals; those are data-reader/number-library facilities in the Mes host.
+Floats, rationals, first-class `eval` and `delay`/`force` remain unsupported.
 
 ## Tests
 

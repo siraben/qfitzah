@@ -1,0 +1,13 @@
+# Minimal ELF32/i386 executable: one read/write/execute load segment.
+:ELF_base
+7f454c46010101000000000000000000
+@2 @3 %1
+&ELF_text
+%ELF_program_headers>ELF_base
+%0 %0
+@52 @32 @1 @0 @0 @0
+:ELF_program_headers
+%1 %0 &ELF_base &ELF_base
+%ELF_end>ELF_base %ELF_end>ELF_base
+%7 %4096
+:ELF_text

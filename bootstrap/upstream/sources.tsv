@@ -1,0 +1,4 @@
+# name sha256 url
+mes-0.27.1.tar.gz 183a40ea47ea49f8a1e3bd1b9d12e676374d64d63bc79e7bc1ae7d673dfdf25d https://ftp.gnu.org/gnu/mes/mes-0.27.1.tar.gz
+nyacc-1.00.2-lb1.tar.gz 708c943f89c972910e9544ee077771acbd0a2c0fc6d33496fe158264ddb65327 https://github.com/Googulator/nyacc/releases/download/V1.00.2-lb1/nyacc-1.00.2-lb1.tar.gz
+tcc-0.9.26-1147-gee75a10c.tar.gz 6b8cbd0a5fed0636d4f0f763a603247bc1935e206e1cc5bda6a2818bab6e819f https://lilypond.org/janneke/tcc/tcc-0.9.26-1147-gee75a10c.tar.gz

@@ -1,0 +1,5 @@
+(#t #f #f #f)
+(#t "out.s" "inc" "ANSWER=42" ("source.c" "--literal") missing)
+missing-value
+(a #f . #f)
+"ok(1 2)"

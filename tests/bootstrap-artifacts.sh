@@ -14,6 +14,14 @@ sources=("$b/qfasm.qf1")
 if [[ -f "$b/runtime-support.qf1" ]]; then
   sources+=("$b/runtime-support.qf1")
 fi
+if [[ -f "$b/gc.qf1" ]]; then
+  sources+=("$b/gc.qf1")
+fi
+for support in io control lookup; do
+  if [[ -f "$b/$support.qf1" ]]; then
+    sources+=("$b/$support.qf1")
+  fi
+done
 mkdir -- "$2"
 out=$(cd -- "$2" && pwd)
 assemble() {

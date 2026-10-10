@@ -164,7 +164,10 @@ bash "$repo_root/tests/assembler-layout.sh" "$qfitzah"
 scheme0_dir=$(mktemp -d)
 trap 'rm -rf "$scheme0_dir"' EXIT
 scheme0_elf=$scheme0_dir/scheme0.elf
-runtime_support=$repo_root/bootstrap/runtime-support.qf1
+runtime_support=$scheme0_dir/runtime-support.qf1
+cat "$repo_root/bootstrap/runtime-support.qf1" "$repo_root/bootstrap/gc.qf1" \
+    "$repo_root/bootstrap/io.qf1" "$repo_root/bootstrap/control.qf1" \
+    "$repo_root/bootstrap/lookup.qf1" > "$runtime_support"
 cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$repo_root/bootstrap/scheme0.qfasm" \
   | timeout 120s "$qfitzah" > "$scheme0_elf"
 chmod +x "$scheme0_elf"
@@ -298,7 +301,7 @@ rsc_scm="$repo_root/bootstrap/rsc.scm"
 rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
 # R5RS corpus cases.
-RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply"
+RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply rsc-core-regressions"
 
 run_rsc_fixpoint() {
   local sc1elf rscAqf rscBqf rscBelf rscCqf rscCelf
@@ -366,6 +369,16 @@ for rsc_generation in rscA rscC; do
   for rsc_case in $RSC_CASES; do
     run_rsc_case "$rsc_case"
   done
+  bash "$repo_root/tests/runtime-memory.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/runtime-control.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/runtime-ports.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/runtime-integers.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/runtime-reader.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/mes-host.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/mes-host-analyze-core.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/mes-host-large-heap.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/m1-link.sh" "$qfitzah" "$RSC_ELF"
+  bash "$repo_root/tests/blynn-bridge.sh" "$qfitzah" "$RSC_ELF"
 done
 
 rm -rf "$scheme0_dir"

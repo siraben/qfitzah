@@ -1,0 +1,11 @@
+--- a/scripts/tinycc-boot-hcc.sh
++++ b/scripts/tinycc-boot-hcc.sh
+@@ -145,7 +145,7 @@
+ (
+   cd "$artifact_dir"
+   tcc_include_src=$PWD/include
+-  tcc_sysinclude_path=$include_dir
++  tcc_sysinclude_path='{B}/../include'
+ 
+   cat > config.h <<EOF
+ #define BOOTSTRAP 1

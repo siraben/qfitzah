@@ -1,0 +1,22 @@
+# Forward macros, raw strings, every x86 relocation width, and immediates.
+:origin
+FORWARD
+DEFINE FORWARD OP
+DEFINE OP '90'
+!end
+@end
+%end
+$origin
+&origin
+"X\Y"
+'01 02'
+<
+:end
+!origin
+@origin
+%origin
+%end>origin
+!0xff
+@-2
+%0x-1
+%0x100000001

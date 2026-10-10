@@ -150,6 +150,7 @@ globals:
 init
         .globl _start
 _start: mov $globals, %ebp
+        mov %esp, gc_stack_top-globals(%ebp)
 
         ## We can use this mechanism to reduce the byte weight of
         ## calls to frequently called functions.  The i386 lets you
@@ -175,28 +176,48 @@ _start: mov $globals, %ebp
         .endif
         .endm
 
-        ## This interpreter is largely concerned with manipulating
-        ## list structure.  Computers nowadays have large memories, so
-        ## for any program that runs for a short time, perhaps under a
-        ## second, we can get by without a garbage collector.  The
-        ## fundamental procedure for constructing list structure is
-        ## cons, which creates a pair.  It’s wrapped in a macro here
-        ## to facilitate putting it physically after a later procedure
-        ## that falls through into it.
+        ## This interpreter is largely concerned with manipulating lists.
+        ## Large bootstrap assemblies exceed a bump-only arena, so cons
+        ## reuses cells reclaimed by the small collector in seed-gc.s.
+        ## It is wrapped in a macro so evlis can still fall through into it.
+        .ifndef SEED_CELL_BYTES
+        .equiv SEED_CELL_BYTES, 256*1024*1024
+        .endif
         my allocation_pointer, arena
         .macro cons_here
 proc cons
-        ## This is 11 bytes instead of 21 bytes thanks in part to
-        ## replacing two giant 6-byte memory access instructions with
-        ## 3-byte things that index off %ebp.
+        ## Both operands may be live roots; gc_collect saves all registers.
+        ## Keep the original cons ABI, including ECX and the incoming flags.
+        pushfl
         push %edi
+        push %edx
+1:      mov gc_free_head-globals(%ebp), %edi
+        test %edi, %edi
+        jnz 2f
         mov allocation_pointer-globals(%ebp), %edi
-        stosl                   # arg 1, the car, is already in %eax
-        xchg %eax, %ecx         # arg 2, the cdr, is in %ecx
+        cmp $arena_end, %edi
+        jb 3f
+        call gc_collect
+        mov gc_free_head-globals(%ebp), %edi
+        test %edi, %edi
+        jz gc_out_of_memory
+2:      mov (%edi), %edx
+        mov %edx, gc_free_head-globals(%ebp)
+        jmp 4f
+3:      lea 8(%edi), %edx
+        mov %edx, allocation_pointer-globals(%ebp)
+4:      mov %edi, %edx
+        sub $arena, %edx
+        shr $3, %edx
+        movb $1, cell_state(%edx)
+        push %edi
         stosl
-        xchg %edi, allocation_pointer-globals(%ebp)
-        xchg %edi, %eax         # return value (old allocation pointer) in %eax
+        xchg %eax, %ecx
+        stosl
+        pop %eax
+        pop %edx
         pop %edi
+        popfl
         ret
         .endm
 
@@ -252,7 +273,8 @@ proc cons
         ## pointer has its low three bits clear, so (ptr >> 3) is a dense
         ## index into the ev memo cache below.
         .balign 8
-arena:  .fill 1536*1024*1024
+arena:  .fill SEED_CELL_BYTES
+arena_end:
 
         ## The other kinds of elements in our list structure are
         ## constants, such as uppercase symbols and numbers, which are
@@ -496,10 +518,10 @@ proc evlis
         ## (whose entries carry generation 0) never produces a false hit.
         my ev_gen, 1
 
-        ## ev memoizes normal forms by pair identity.  Pairs are
-        ## immutable and never freed, so ev(t) depends only on t and the
-        ## current rule set: once a subterm is normalised its result can
-        ## be reused for every later occurrence of that same pointer.
+        ## ev memoizes normal forms by pair identity.  Pairs are immutable;
+        ## gc_collect invalidates this weak cache before reusing dead cells.
+        ## Between collections, ev(t) depends only on t and the rule set,
+        ## so a normal form can be reused for occurrences of the same pointer.
         ## This is what keeps the assembler's passes linear — threading a
         ## large instruction chain or symbol table through a recursive
         ## rewrite re-visits those shared subterms once per step, which
@@ -656,6 +678,7 @@ input_buffer:
         ## Each entry is 16 bytes: string pointer, length, rule
         ## bucket, and one spare word.
 atoms:  .fill 16*65536
+atoms_end:
         my inptr, input_buffer
         my lineptr, input_buffer
         my paren_depth, 0
@@ -1230,3 +1253,5 @@ proc intern
         mov %ecx, 4(%ebx)
         movl $1, 8(%ebx) # empty rule bucket (nil)
         jmp 1b               # now that we’ve inserted it, it’s “found”
+
+        .include "seed-gc.s"
