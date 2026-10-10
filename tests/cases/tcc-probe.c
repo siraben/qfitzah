@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* Historical MesCC tests target i386; the Blynn route explicitly requests 8. */
+/* Callers select the target ABI; the amd64 bootstrap explicitly requests 8. */
 #ifndef QFITZAH_POINTER_BYTES
 #define QFITZAH_POINTER_BYTES 4
 #endif

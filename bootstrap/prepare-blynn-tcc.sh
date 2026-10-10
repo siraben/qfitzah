@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare pinned TinyCC and Mes libc source; no compiler is run here.
+# Prepare pinned TinyCC and bootstrap libc source; no compiler is run here.
 set -euo pipefail
 if (( $# != 2 )); then
   echo "usage: $0 SOURCE_CACHE NEW_DIRECTORY" >&2; exit 2
@@ -24,4 +24,4 @@ MES_CONFIG_SOURCE="$out/target/nix/sources/mes-libc/config.h" \
   sh "$out/target/scripts/prepare-mes-libc.sh"
 test -s "$out/libc/lib/libc.c"
 sha256sum "$out/libc/lib/libc.c" "$out/libc/lib/crt1.c" > "$out/libc-source.sha256"
-echo 'ok - pinned HCC/TinyCC and Mes libc source preparation'
+echo 'ok - pinned HCC/TinyCC and bootstrap libc source preparation'

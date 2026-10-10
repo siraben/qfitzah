@@ -18,19 +18,18 @@ sha256sum "$initial/bin/tcc" > "$out/input-compiler.sha256"
 cp -R "$prepared/tinycc" "$out/source"
 cp "$initial/artifact/config.h" "$out/source/config.h"
 (cd "$out/source" && patch --batch --fuzz=0 -p1 < "$root/bootstrap/blynn/patches/tcc-driver-errors.patch")
-# Reuse a source-only GNU-Mes-derived conversion repair, never a compiler or
-# generated artifact from the historical MesCC route. Preserve its license.
-cp "$root/bootstrap/mes-libc/COPYING" "$out/COPYING"
+# Compile the decimal-conversion repair from source and preserve its license.
+cp "$root/bootstrap/blynn/libc/COPYING" "$out/COPYING"
 mkdir "$out/licenses"
 cp "$prepared/tinycc/COPYING" "$out/licenses/TinyCC-COPYING"
 cp "$prepared/mes/COPYING" "$out/licenses/GNU-Mes-COPYING"
 cp "$prepared/target/LICENSE" "$out/licenses/Blynn-bootstrap-LICENSE"
-cat "$root/bootstrap/mes-libc/abtod.c" > "$out/conversion.c"
+cat "$root/bootstrap/blynn/libc/abtod.c" > "$out/conversion.c"
 for name in strtod strtof strtold; do
   cat "$prepared/mes/lib/stdlib/$name.c" >> "$out/conversion.c"
 done
 target=$prepared/target
-# Remove Mes's heap-based alloca only in the native runtime. TinyCC's own
+# Remove the heap-based alloca only in the native runtime. TinyCC's own
 # alloca.S is linked instead; never rely on duplicate-definition selection.
 mkdir -p "$out/native-prep/scripts/lib"
 cp "$target/scripts/prepare-mes-libc.sh" "$out/native-prep/scripts/"

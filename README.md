@@ -17,9 +17,7 @@ seeds. A fresh complete build passed in **24m11s**, including compiler/runtime
 self-rebuilds, execution tests and independent byte-for-byte reproduction.
 See [the acceptance report](bootstrap/blynn/ACCEPTANCE.md),
 [build instructions and limitations](bootstrap/blynn/README.md), and
-[the completed plan](BLYNN-BOOTSTRAP-PLAN.md).
-The MesCC experiments documented below are preserved historical work, not
-compiler inputs to this route.
+[the dependency audit](bootstrap/blynn/DEPENDENCIES.md).
 
 ## Build
 
@@ -320,7 +318,7 @@ sc1:
 rsc.scm is written in the sc1 subset. Its self-compilation tests the inherited
 code generator; a separate corpus tests the added features. The core compiler still lacks floats, rationals, first-class `eval`,
 `delay`/`force`, and `#(...)` source vector syntax. The separately compiled
-Mes-host libraries add exact integers, port-aware reading, and dynamic control
+runtime libraries add exact integers, port-aware reading, and dynamic control
 without expanding the sc1 bootstrap subset; see below.
 
 ```sh
@@ -341,14 +339,7 @@ derived forms, library, vectors, apply) is compiled through both sc1-built A and
 self-built C, assembled, executed, and diffed. The standard-library prelude is
 supplied by the caller, as shown above, not automatically loaded by the compiler.
 
-### Mes-host support (in progress)
-
-The source-built chain now reaches **executable TCC, self-rebuild and compiler/
-runtime byte fixpoints through checkpoint recovery**. C, ABI, wide arithmetic,
-floating-point, allocation and file probes pass. A complete fresh recipe run
-under four hours is still unverified. Source pins and acquisition are
-in [`bootstrap/upstream/`](bootstrap/upstream/README.md); implementation status
-and completion criteria are in [`BOOTSTRAP-PLAN.md`](BOOTSTRAP-PLAN.md).
+### Source-built runtime libraries
 
 Additional Scheme libraries, compiled by rsc in this order:
 
@@ -363,26 +354,6 @@ Additional Scheme libraries, compiled by rsc in this order:
 
 `bootstrap/assemble.sh` supplies the required assembly modules in order.
 These libraries are source, not precompiled host dependencies.
-
-`bootstrap/build-mes-host.sh SEED RSC_COMPILER NEW_DIRECTORY` builds an
-interpreter on top of them. It currently passes source integration tests for
-Mes's syntax-rules compiler, MesCC's record operations and option parsing, and
-freshly regenerated Nyacc CPP/C99/C99x/C99cx artifacts, with lexical modules, explicit
-renaming and Mes-compatible records. See
-[`bootstrap/mes-host/README.md`](bootstrap/mes-host/README.md) for invocation,
-implementation boundaries and remaining limitations.
-
-`bootstrap/build-m1.sh SEED RSC_COMPILER NEW_DIRECTORY` builds a native,
-source-only i386 M1/hex2 assembler/linker. It passes byte-layout tests and runs
-Mes's assembly-level ELF examples, an upstream MesCC backend test using
-hand-constructed IR, and actual C programs compiled with `bootstrap/mescc.sh`.
-`tests/mescc-c.sh` checks preprocessing, globals, includes, structures, arrays,
-pointers, calls and control flow. The restricted frontend requires `-S` and
-rejects external preprocessing/assembly/linking fallbacks. GNU Mes libc and
-TCC recovery builds pass execution and self-rebuild checks; a fresh combined
-end-to-end run remains required. The final runtime uses TCC's own i386 helpers
-and a documented small Mes decimal-conversion repair, not its bootstrap stubs.
-See [`bootstrap/m1/README.md`](bootstrap/m1/README.md).
 
 ## Tests
 

@@ -18,7 +18,6 @@
 (newline)
 
 ; An explicitly listed underscore is literal, not the default wildcard.
-; Mes's ppat matcher relies on this to avoid skipping pattern-variable bindings.
 (define-syntax underscore-literal
   (syntax-rules (_)
     ((_ _) 17)

@@ -24,7 +24,7 @@ esac
 if [[ $# == 4 ]]; then sources+=("$4"); fi
 if [[ -n "$runtime" ]]; then sources+=("$runtime"); fi
 # Large flat programs also consume the rewrite engine's recursive traversal
-# stack. The 117k-line Mes host exceeds Linux's usual 8 MiB soft limit.
+# stack, which can exceed Linux's usual 8 MiB soft limit.
 # Change only this assembly process; generated programs retain their own limits.
 ulimit -s "${QFITZAH_ASSEMBLY_STACK_KIB:-65536}"
 cat "${sources[@]}" "$input" | "$seed"
