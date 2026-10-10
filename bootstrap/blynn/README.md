@@ -117,12 +117,12 @@ finish, then reports failure rather than killing useful work. `timing.json`
 distinguishes completion from successful fresh-under-limit acceptance. Source
 Git objects may be fetched beforehand; no generated artifact is reused.
 
-These byte-oriented tools can be sensitive to filesystem latency. For consistent
-measurements, use fast scratch storage. On Linux with executable tmpfs and
-sufficient free RAM, for example:
+The primary acceptance measurement uses ordinary disk-backed ext4, not a RAM
+disk. Keep output and private temporary files on the intended filesystem:
 
 ```sh
-workspace=$(mktemp -d /dev/shm/qfitzah-build.XXXXXX)
+workspace=$(mktemp -d "$HOME/qfitzah-build.XXXXXX")
+findmnt -T "$workspace"
 bash bootstrap/build-blynn.sh result/bin/qfitzah SOURCE_CACHE "$workspace/build"
 ```
 
