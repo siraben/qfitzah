@@ -1,9 +1,6 @@
-; Port-aware Scheme reader for the Mes host. Requires the base, control,
-; ports and exact-integer libraries. Deliberately separate from sc1's tiny
-; bootstrap reader: the early self-hosting chain retains its small subset.
-; Enabled only by the Mes host's --mes entry point. Mes accepts (. datum)
-; as datum; Nyacc's make-arg-list uses this spelling for a dotted rest name.
-(define %mes-source-mode #f)
+; Port-aware Scheme reader. Requires the base, control, ports and exact-integer
+; libraries. Deliberately separate from sc1's tiny bootstrap reader: the early
+; self-hosting chain retains its small subset.
 (define (%reader-error message) (error 'read message))
 (define (%reader-space? c)
   (and (char? c) (memv (char->integer c) '(9 10 11 12 13 32))))
@@ -56,22 +53,7 @@
 (define (%reader-byte n)
   (if (and n (<= 0 n 255)) (integer->char n)
       (%reader-error "character outside byte range")))
-(define (%reader-hex-digit? c)
-  (and (char? c)
-       (or (and (char<=? #\0 c) (char<=? c #\9))
-           (and (char<=? #\a (char-downcase c)) (char<=? (char-downcase c) #\f)))))
-(define (%reader-mes-hex-escape p chars)
-  (let ((c (peek-char p)))
-    (if (%reader-hex-digit? c)
-        (begin (read-char p) (%reader-mes-hex-escape p (cons c chars)))
-        (begin
-          ; Accept both Mes's delimiter-terminated spelling and writer output.
-          (if (eqv? c #\;) (read-char p) #f)
-          (%reader-byte (string->number (list->string (reverse chars)) 16))))))
 (define (%reader-hex-escape p chars)
-  (if %mes-source-mode (%reader-mes-hex-escape p chars)
-      (%reader-terminated-hex-escape p chars)))
-(define (%reader-terminated-hex-escape p chars)
   (let ((c (read-char p)))
     (cond ((eof-object? c) (%reader-error "EOF in hex escape"))
           ((eqv? c #\;)
@@ -123,7 +105,7 @@
                   (%reader-dotted p closer acc)
                   (%reader-list p closer (cons x acc))))))))
 (define (%reader-dotted p closer acc)
-  (if (and (null? acc) (not %mes-source-mode)) (%reader-error "dot before list head")
+  (if (null? acc) (%reader-error "dot before list head")
       (let ((tail (%reader-required p)))
         (%reader-skip p)
         (if (eqv? (read-char p) closer) (reverse-onto acc tail)

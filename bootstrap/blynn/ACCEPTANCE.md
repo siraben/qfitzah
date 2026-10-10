@@ -41,7 +41,7 @@ SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
   source-directory scope. Failed PATH-search attempts are included in the audit.
 - **Libc boundary:** a subsequent strengthened audit checked every retained ELF
   executable (9 i386 and 55 amd64): none has `PT_INTERP` or `PT_DYNAMIC`.
-  M2libc, Mes libc, startup code and TinyCC runtime helpers are built from pinned
+  M2libc, bootstrap libc, startup code and TinyCC runtime helpers are built from pinned
   source inside the chain, not imported from a higher libc. Host utilities may
   use the host libc; this is a declared orchestration boundary, not a bootstrap
   of the entire host OS. Header/library search provenance is documented in
@@ -66,12 +66,11 @@ SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
   in 7m57.434s, including both bridge lineages. Separate source-boundary tests
   passed directly and under Nix, checking dirty worktrees, replacement objects,
   incorrect pins, output protection and object-only fetching.
-- **History preserved:** MesCC work remains historical, not a compiler input.
-  The abandoned MesCC acceptance run was stopped on the user's retarget request.
-  Source patches apply only to private exports; original checkouts are unchanged.
+- **Source integrity:** patches apply only to private exports; original
+  checkouts are unchanged.
   Licenses and runtime limitations are documented in README/DEPENDENCIES.
 
-This is a working bootstrap toolchain with a limited Mes-derived libc, **not**
+This is a working bootstrap toolchain with a limited bootstrap libc, **not**
 a claim of complete ISO/POSIX libc or universally correctly rounded conversion.
 
 ## Evidence locations

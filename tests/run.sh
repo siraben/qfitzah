@@ -374,10 +374,6 @@ for rsc_generation in rscA rscC; do
   bash "$repo_root/tests/runtime-ports.sh" "$qfitzah" "$RSC_ELF"
   bash "$repo_root/tests/runtime-integers.sh" "$qfitzah" "$RSC_ELF"
   bash "$repo_root/tests/runtime-reader.sh" "$qfitzah" "$RSC_ELF"
-  bash "$repo_root/tests/mes-host.sh" "$qfitzah" "$RSC_ELF"
-  bash "$repo_root/tests/mes-host-analyze-core.sh" "$qfitzah" "$RSC_ELF"
-  bash "$repo_root/tests/mes-host-large-heap.sh" "$qfitzah" "$RSC_ELF"
-  bash "$repo_root/tests/m1-link.sh" "$qfitzah" "$RSC_ELF"
   bash "$repo_root/tests/blynn-bridge.sh" "$qfitzah" "$RSC_ELF"
 done
 

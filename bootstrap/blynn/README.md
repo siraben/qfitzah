@@ -67,8 +67,8 @@ intended substitutions. The full series now applies without fuzz; its result
 was compared with a separately applied reference series. Repairs affect fresh
 exports only. This compiler/HCC build passed in 10m03s.
 
-`prepare-blynn-tcc.sh` exports TinyCC and GNU Mes sources, applies the target's
-patches and assembles libc source. The GNU `configure-lib.sh` only enumerates
+`prepare-blynn-tcc.sh` exports TinyCC and bootstrap libc sources, applies the
+target's patches and assembles libc source. `configure-lib.sh` only enumerates
 files: its `compiler=gcc` selects GNU assembly syntax for TinyCC, not a GCC
 execution. HCC seeded TinyCC successfully, including its native stage-2/stage-3
 fixpoint and upstream smoke test (2m37s). Independent tests exposed the limited
@@ -77,16 +77,16 @@ bootstrap decimal converter after correcting their expected ABI to amd64.
 `build-blynn-tcc.sh` requests the upstream self-rebuild, then
 `finalize-blynn-tcc.sh` rebuilds the native compiler and complete bootstrap
 runtime through three rounds and runs independent C/numeric tests. Finalization
-uses the GNU-Mes-derived source repair in `bootstrap/mes-libc/abtod.c`, not any
-compiler artifact from the historical MesCC route. Its locale-independent
+uses the source repair in `bootstrap/blynn/libc/abtod.c`. Its locale-independent
 conversion subset is not universally correctly rounded, does not support all
 Infinity/NaN spellings or extreme mantissa/exponent cancellation, and `strtold`
-still narrows through double precision. Mes libc also retains upstream stubs;
+still narrows through double precision. The libc also retains upstream stubs;
 this is not a complete ISO/POSIX libc. Licenses and source notices are retained.
 
 `tcc-relative-include.patch` makes the compiled include path `{B}/../include`,
 not an absolute build-directory path. Relative native source filenames also
-avoid embedding the build prefix through `__FILE__`. Native finalization excludes Mes's heap-based `alloca`, using TinyCC's
+avoid embedding the build prefix through `__FILE__`. Native finalization excludes
+the heap-based `alloca`, using TinyCC's
 own assembly implementation instead. A minimal `tcc-driver-errors.patch` stops
 object-loading errors from being erased by the output API: duplicate strong
 symbols must fail without publishing an executable, not merely print an error.
@@ -126,7 +126,4 @@ Use the final compiler with its own runtime:
 BUILD/tcc/final/bin/tcc -B BUILD/tcc/final/lib -static program.c -o program
 ```
 
-No recovered MesCC-built compiler is an input to this route. Mes libc source
-may still be used by HCC's runtime recipe; this is distinct from running MesCC.
-See `BLYNN-BOOTSTRAP-PLAN.md` for the completed work ledger and
-[DEPENDENCIES.md](DEPENDENCIES.md) for the source-boundary/license audit.
+See [DEPENDENCIES.md](DEPENDENCIES.md) for the source-boundary/license audit.

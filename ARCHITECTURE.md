@@ -202,8 +202,7 @@ collector shared by pair cells, object headers and string/vector buffers.
   profiles are powers of two from 64 KiB through 256 MiB per arena. sc1 output
   uses `RuntimeMemoryBytes`, selected by its assembly runtime: sc1 keeps its
   fixed reservation, while the first rsc built by sc1 gets `GcMemoryBytes`.
-  The Mes host uses 256 + 256 MiB, preserving the previous 512 MiB total object
-  budget. Bounded host fixtures use 2 MiB per arena. `gc` and `gc-count` expose collection
+  `gc` and `gc-count` expose collection
   and a collection counter for tests. `%gc-live-units` collects, then counts
   retained block space in eight-byte units, including headers and padding;
   it does not allocate and is not a precise measure of semantic liveness.
@@ -226,24 +225,18 @@ then compared against its original `GP` cell. Rebinding, lexical shadowing and
 other arities retain ordinary dynamic dispatch. Both mutable `GV` and original
 `GP` primitive cells are GC roots; register-entry cons still uses the collector.
 
-### Mes-host libraries
+### Source-built runtime libraries
 
-The larger compatibility environment is compiled by rsc, rather than widening
-sc1's language or trusting an external Scheme implementation. Native `%env-find`
-searches the existing host frames without allocating per lexical level.
-`mes-host/analyze.scm` analyzes core code emitted by the unchanged Mes
-syntax-rules compiler into native execution closures with private lexical
-frames. Unsupported code uses the reference evaluator. Expansions themselves
-are not cached: rename/compare callbacks are fresh, and free value references
-still observe current definition-module bindings, including import shadowing. Library order is
-base prelude, control, ports, exact integers, reader.
+These libraries are compiled by rsc, rather than widening sc1's language or
+trusting an external Scheme implementation. Library order is base prelude,
+control, ports, exact integers, reader.
 
 - `io.qf1` implements Linux/i386 open/close/read/write/seek, argv/environment
   access and an EOF constructor. Read/write ranges are checked before system
   calls; negative errno values go to Scheme. The Scheme port layer handles
   EINTR and short writes, current ports, input buffering and string ports.
 - `lookup.qf1` provides non-allocating identity-based association/member searches
-  for the host's proper environment lists. Public Scheme wrappers reject
+  for proper environment lists. Public Scheme wrappers reject
   malformed traversed lists with catchable errors. Its private identity hash is
   stable only while an object remains reachable under the nonmoving collector;
   collisions are allowed and hashes are not references or persistent IDs.
@@ -257,8 +250,8 @@ base prelude, control, ports, exact integers, reader.
   sign/magnitude vectors of base-2^14 limbs for large values. Limb arithmetic
   cannot overflow a 30-bit fixnum. Division uses unsigned binary long division;
   bit operations implement infinite two's complement. No host bignum library
-  is involved. This library overrides arithmetic bindings for the Mes host;
-  the earlier compiler still uses native fixnums.
+  is involved. Programs opt into these arithmetic bindings by including the
+  library; the earlier compiler still uses native fixnums.
 - `rsc-reader.scm` reads from ports using the exact-integer library. It handles
   lists/vectors, radix integers, keyword symbols, comments and byte escapes.
   It is distinct from the minimal `sc1-reader.scm` used to bootstrap rsc.
@@ -282,7 +275,7 @@ The Scheme implementations have these known bugs:
 rsc copies `apply`'s final list before using it as mutable parameter bindings.
 
 The core compiler does not parse vector literals or arbitrary-size integer
-literals; those are data-reader/number-library facilities in the Mes host.
+literals; those are facilities of the optional data-reader/number libraries.
 Floats, rationals, first-class `eval` and `delay`/`force` remain unsupported.
 
 ## Tests

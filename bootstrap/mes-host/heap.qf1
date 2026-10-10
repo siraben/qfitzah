@@ -1,5 +1,0 @@
-; MesCC uses 256 MiB PER ARENA: 512 MiB total object space, unchanged from the
-; previous single-arena profile, plus 256 MiB owners and a 128 MiB mark queue.
-; Separate large-block space protects buffers from small-object fragmentation.
-; GcMemoryBytes sizes ELF BSS. Semantic fixtures use 2 MiB per arena.
-(Rule (GcHeapBytes) (X8 1 0 0 0 0 0 0 0))

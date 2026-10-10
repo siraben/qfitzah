@@ -1,4 +1,4 @@
-; Exact integers for the Mes host, in Scheme rather than opaque host code.
+; Exact integers implemented in Scheme rather than opaque host code.
 ; Compile with rsc after the base prelude. Small results stay native fixnums;
 ; larger ones are sign/magnitude records with little-endian base-2^14 limbs.
 ; A limb product plus carry fits safely in a signed 30-bit fixnum.
