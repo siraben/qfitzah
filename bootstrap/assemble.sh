@@ -16,7 +16,7 @@ case $stage in
   scheme0) ;;
   sc1) runtime=$b/sc1-runtime.qf1 ;;
   rsc)
-    sources+=("$b/gc.qf1" "$b/io.qf1" "$b/control.qf1" "$b/lookup.qf1")
+    sources+=("$b/gc.qf1" "$b/io.qf1" "$b/control.qf1")
     runtime=$b/rsc-runtime.qf1
     ;;
   *) echo "unsupported assembly stage: $stage" >&2; exit 2 ;;

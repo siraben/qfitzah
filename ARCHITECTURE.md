@@ -168,7 +168,7 @@ does not exercise the added language features.
 ### rsc memory management (`bootstrap/gc.qf1`)
 
 `bootstrap/assemble.sh SEED rsc PROGRAM.qfasm` loads `runtime-support.qf1`,
-`gc.qf1`, `io.qf1`, `control.qf1`, `lookup.qf1` and `rsc-runtime.qf1` in order.
+`gc.qf1`, `io.qf1`, `control.qf1` and `rsc-runtime.qf1` in order.
 It implements a nonmoving conservative mark/sweep
 collector shared by pair cells, object headers and string/vector buffers.
 
@@ -215,15 +215,13 @@ Interned symbols remain rooted by the oblist. The collector does not promise
 weak symbol interning or precise liveness. scheme0 and sc1 retain their bounded
 bump arenas; they only run the smaller, earlier bootstrap stages.
 
-### Compiled execution fast paths
+### Compiled calls
 
-rsc builds `let` lexical frames directly instead of allocating and invoking a
-throwaway closure. Captured mutable cells, outer initializer scope and tail
-position are unchanged. Common fixed-arity primitive calls have guarded
-register-entry paths: the operator is captured before evaluating operands,
-then compared against its original `GP` cell. Rebinding, lexical shadowing and
-other arities retain ordinary dynamic dispatch. Both mutable `GV` and original
-`GP` primitive cells are GC roots; register-entry cons still uses the collector.
+rsc lowers `let` to lambda application. All calls follow one path: capture the
+operator, evaluate operands left-to-right, build a fresh argument list, then
+invoke the captured procedure. This preserves rebinding, lexical shadowing,
+mutable captures and tail calls without a separate optimized calling convention.
+Primitive global cells remain GC roots.
 
 ### Source-built runtime libraries
 
@@ -235,11 +233,10 @@ control, ports, exact integers, reader.
   access and an EOF constructor. Read/write ranges are checked before system
   calls; negative errno values go to Scheme. The Scheme port layer handles
   EINTR and short writes, current ports, input buffering and string ports.
-- `lookup.qf1` provides non-allocating identity-based association/member searches
-  for proper environment lists. Public Scheme wrappers reject
-  malformed traversed lists with catchable errors. Its private identity hash is
-  stable only while an object remains reachable under the nonmoving collector;
-  collisions are allowed and hashes are not references or persistent IDs.
+- The prelude implements list and association searches in Scheme, sharing
+  traversal between equality variants and rejecting malformed traversed lists.
+  `gc.qf1` provides an identity hash for collector diagnostics; it is stable
+  only while reachable. Collisions are allowed and hashes are not roots.
 - `control.qf1` captures the native stack in a GC-managed snapshot. A native
   closure carries its address. Invocation restores stack/EBP and returns the
   supplied value to the captured call site; no allocation or native stack

@@ -14,24 +14,23 @@ ulimit -c 0
 b=$root/bootstrap
 
 assemble() {
-  local runtime=$1 source=$2 elf=$3
-  cat "$b/qfasm.qf1" "$b/runtime-support.qf1" "$b/gc.qf1" "$b/io.qf1" \
-      "$b/control.qf1" "$b/lookup.qf1" "$runtime" "$source" | timeout 900s "$qfitzah" > "$elf"
+  local stage=$1 source=$2 elf=$3
+  timeout 900s bash "$b/assemble.sh" "$qfitzah" "$stage" "$source" > "$elf"
   chmod +x "$elf"
 }
-cat "$b/qfasm.qf1" "$b/runtime-support.qf1" "$b/scheme0.qfasm" | timeout 120s "$qfitzah" > "$tmp/scheme0"
+timeout 120s bash "$b/assemble.sh" "$qfitzah" scheme0 "$b/scheme0.qfasm" > "$tmp/scheme0"
 chmod +x "$tmp/scheme0"
 cat "$b/sc1-reader.scm" "$b/sc1.scm" "$b/sc1-reader.scm" "$b/sc1.scm" \
   | timeout 300s "$tmp/scheme0" > "$tmp/sc1.qfasm"
-assemble "$b/sc1-runtime.qf1" "$tmp/sc1.qfasm" "$tmp/sc1"
+assemble sc1 "$tmp/sc1.qfasm" "$tmp/sc1"
 cat "$b/sc1-reader.scm" "$b/rsc.scm" | timeout 120s "$tmp/sc1" > "$tmp/rsc.qfasm"
-assemble "$b/rsc-runtime.qf1" "$tmp/rsc.qfasm" "$tmp/rsc"
+assemble rsc "$tmp/rsc.qfasm" "$tmp/rsc"
 
 failures=0
 probe() {
   local compiler=$1 name=$2 status=0
   timeout 120s "$tmp/$compiler" < "$root/tests/probes/$name.scm" > "$tmp/probe.qfasm"
-  assemble "$b/$compiler-runtime.qf1" "$tmp/probe.qfasm" "$tmp/probe"
+  assemble "$compiler" "$tmp/probe.qfasm" "$tmp/probe"
   # Constrain only the program, not the compiler or assembler. A direct-if
   # control distinguishes stack-limit incompatibility from lost tail position.
   (ulimit -s 256; timeout 10s "$tmp/probe") > "$tmp/actual" 2> "$tmp/error" || status=$?

@@ -164,12 +164,8 @@ bash "$repo_root/tests/assembler-layout.sh" "$qfitzah"
 scheme0_dir=$(mktemp -d)
 trap 'rm -rf "$scheme0_dir"' EXIT
 scheme0_elf=$scheme0_dir/scheme0.elf
-runtime_support=$scheme0_dir/runtime-support.qf1
-cat "$repo_root/bootstrap/runtime-support.qf1" "$repo_root/bootstrap/gc.qf1" \
-    "$repo_root/bootstrap/io.qf1" "$repo_root/bootstrap/control.qf1" \
-    "$repo_root/bootstrap/lookup.qf1" > "$runtime_support"
-cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$repo_root/bootstrap/scheme0.qfasm" \
-  | timeout 120s "$qfitzah" > "$scheme0_elf"
+assembler=$repo_root/bootstrap/assemble.sh
+timeout 120s bash "$assembler" "$qfitzah" scheme0 "$repo_root/bootstrap/scheme0.qfasm" > "$scheme0_elf"
 chmod +x "$scheme0_elf"
 
 run_scheme0_corpus() {
@@ -221,7 +217,6 @@ run_sc1_reader
 ## sc1 runtime, run, and its output diffed against the expected transcript.
 sc1_reader="$repo_root/bootstrap/sc1-reader.scm"
 sc1_scm="$repo_root/bootstrap/sc1.scm"
-sc1_runtime="$repo_root/bootstrap/sc1-runtime.qf1"
 SC1_ELF=""
 
 run_sc1_case() {
@@ -236,8 +231,7 @@ run_sc1_case() {
     cat "$sc1_reader" "$sc1_scm" "$case_dir/$name.scm" \
       | timeout 120s "$scheme0_elf" > "$qfasm"
   fi
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$qfasm" \
-    | timeout 300s "$qfitzah" > "$elf"
+  timeout 300s bash "$assembler" "$qfitzah" sc1 "$qfasm" > "$elf"
   chmod +x "$elf"
   set +e
   timeout 60s "$elf" > "$actual"
@@ -269,8 +263,7 @@ run_sc1_fixpoint() {
   elf=$scheme0_dir/sc1.elf
   cat "$sc1_reader" "$sc1_scm" "$sc1_reader" "$sc1_scm" \
     | timeout 300s "$scheme0_elf" > "$q1"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$q1" \
-    | timeout 900s "$qfitzah" > "$elf"
+  timeout 900s bash "$assembler" "$qfitzah" sc1 "$q1" > "$elf"
   chmod +x "$elf"
   cat "$sc1_reader" "$sc1_scm" | timeout 120s "$elf" > "$q2"
   if ! cmp "$q1" "$q2"; then
@@ -278,8 +271,7 @@ run_sc1_fixpoint() {
     exit 1
   fi
   elf2=$scheme0_dir/sc1b.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$sc1_runtime" "$q2" \
-    | timeout 900s "$qfitzah" > "$elf2"
+  timeout 900s bash "$assembler" "$qfitzah" sc1 "$q2" > "$elf2"
   cmp "$elf" "$elf2"
   chmod +x "$elf2"
   SC1_ELF=$elf2
@@ -298,7 +290,6 @@ run_sc1_case "sc1-tail"
 ## (macros, quasiquote, vectors, apply, library) is compiled by rscA and rscC,
 ## assembled, run, and diffed. Both text and ELF fixpoints are checked.
 rsc_scm="$repo_root/bootstrap/rsc.scm"
-rsc_runtime="$repo_root/bootstrap/rsc-runtime.qf1"
 RSC_ELF=""
 # R5RS corpus cases.
 RSC_CASES="rsc-macros rsc-derived rsc-library rsc-vectors rsc-apply rsc-core-regressions"
@@ -310,16 +301,14 @@ run_rsc_fixpoint() {
   rscAqf=$scheme0_dir/rscA.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$sc1elf" > "$rscAqf"
   RSC_ELF=$scheme0_dir/rscA.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscAqf" \
-    | timeout 900s "$qfitzah" > "$RSC_ELF"
+  timeout 900s bash "$assembler" "$qfitzah" rsc "$rscAqf" > "$RSC_ELF"
   chmod +x "$RSC_ELF"
   # Fixpoint: rscA -> rscB.qfasm, rscB -> rscC.qfasm, require rscB == rscC.
   rscBqf=$scheme0_dir/rscB.qfasm
   rscBelf=$scheme0_dir/rscB.elf
   rscCqf=$scheme0_dir/rscC.qfasm
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$RSC_ELF" > "$rscBqf"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscBqf" \
-    | timeout 900s "$qfitzah" > "$rscBelf"
+  timeout 900s bash "$assembler" "$qfitzah" rsc "$rscBqf" > "$rscBelf"
   chmod +x "$rscBelf"
   cat "$sc1_reader" "$rsc_scm" | timeout 120s "$rscBelf" > "$rscCqf"
   if ! cmp "$rscBqf" "$rscCqf"; then
@@ -327,8 +316,7 @@ run_rsc_fixpoint() {
     exit 1
   fi
   rscCelf=$scheme0_dir/rscC.elf
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$rscCqf" \
-    | timeout 900s "$qfitzah" > "$rscCelf"
+  timeout 900s bash "$assembler" "$qfitzah" rsc "$rscCqf" > "$rscCelf"
   cmp "$rscBelf" "$rscCelf"
   chmod +x "$rscCelf"
   printf 'ok - rsc-fixpoint (assembly text AND executable byte-identical)\n'
@@ -341,8 +329,7 @@ run_rsc_case() {
   elf=$scheme0_dir/$name.elf
   actual=$scheme0_dir/$name.out
   cat "$repo_root/bootstrap/rsc-prelude.scm" "$case_dir/$name.scm" | timeout 60s "$RSC_ELF" > "$qfasm"
-  cat "$repo_root/bootstrap/qfasm.qf1" "$runtime_support" "$rsc_runtime" "$qfasm" \
-    | timeout 300s "$qfitzah" > "$elf"
+  timeout 300s bash "$assembler" "$qfitzah" rsc "$qfasm" > "$elf"
   chmod +x "$elf"
   set +e
   timeout 60s "$elf" > "$actual"

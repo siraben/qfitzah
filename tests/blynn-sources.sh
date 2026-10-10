@@ -2,11 +2,11 @@
 # Object-export boundary tests: file utilities only, no compiler invocation.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d /tmp/qfitzah-blynn-sources-test.XXXXXX)
+work=$(mktemp -d "${TMPDIR:-/tmp}/qfitzah-blynn-sources-test.XXXXXX")
 trap 'status=$?; if (( status == 0 )); then rm -rf "$work"; else echo "source boundary artifacts: $work" >&2; fi' EXIT
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
 mkdir -p "$work/scripts" "$work/cache/toy"
-cp "$root/bootstrap/blynn/"{export-source,fetch}.sh "$work/scripts/"
+cp "$root/bootstrap/blynn/"{export-source,source-lib,fetch}.sh "$work/scripts/"
 git -C "$work/cache/toy" init -q
 printf 'trusted source\n' > "$work/cache/toy/payload"
 git -C "$work/cache/toy" add payload
@@ -17,6 +17,16 @@ printf 'toy\tfile://%s/cache/toy\t%s\t%s\n' "$work" "$revision" "$tree" > "$work
 printf 'trusted source\n' > "$work/expected"
 printf 'mutable worktree\n' > "$work/cache/toy/payload"
 printf 'untracked injected file\n' > "$work/cache/toy/injected"
+# Mutable archive attributes must not filter or rewrite pinned source content.
+printf 'payload export-ignore\n' > "$work/cache/toy/.git/info/attributes"
+printf 'payload export-ignore\n' > "$work/global-attributes"
+git -C "$work/cache/toy" config core.attributesFile "$work/global-attributes"
+export GIT_CONFIG_GLOBAL="$work/global-config"
+git config --file "$GIT_CONFIG_GLOBAL" core.attributesFile "$work/global-attributes"
+if git -C "$work/cache/toy" archive "$revision" | tar -tf - | grep -qx payload; then
+  echo 'attribute-injection fixture did not affect ordinary git archive' >&2
+  exit 1
+fi
 bash "$work/scripts/export-source.sh" "$work/cache" toy "$work/export"
 cmp "$work/expected" "$work/export/payload"
 test ! -e "$work/export/injected"
@@ -41,4 +51,4 @@ test ! -e "$work/fetched/toy/payload"
 test ! -e "$work/fetched/stage0-posix/bootstrap-seeds"
 bash "$work/scripts/export-source.sh" "$work/fetched" toy "$work/fetched-export"
 cmp "$work/expected" "$work/fetched-export/payload"
-echo 'ok - pinned objects, dirty-worktree isolation, replacement-object rejection and source-only fetch'
+echo 'ok - pinned objects, worktree/config/attribute isolation, replacement rejection and source-only fetch'

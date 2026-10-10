@@ -7,13 +7,11 @@ fi
 cache=$(realpath "$1")
 name=$2
 b=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-export GIT_NO_REPLACE_OBJECTS=1
+source "$b/source-lib.sh"
 while IFS=$'\t' read -r entry url revision tree; do
   if [[ $entry == "$name" ]]; then
-    actual=$(git -C "$cache/$name" rev-parse "$revision^{tree}")
-    [[ $actual == "$tree" ]] || { echo "source tree mismatch: $name" >&2; exit 1; }
-    mkdir -- "$3"
-    git -C "$cache/$name" archive --format=tar "$revision" | tar -xf - -C "$3"
+    [[ ! -e $3 && ! -L $3 ]] || { echo "output already exists: $3" >&2; exit 1; }
+    export_pinned_source "$cache/$name" "$revision" "$tree" "$3"
     exit 0
   fi
 done < "$b/sources.tsv"

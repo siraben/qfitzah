@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Post-build evidence checker, never a compiler input.
+"""Check completed build evidence; this program is never a compiler input.
 
-Exec paths supplement recipe/source review, not a sandbox: relative paths must
-also be reviewed against the scripts' working-directory changes.
+Execution paths supplement source review, not a sandbox. Host tools are trusted
+by basename. Relative executions still need working-directory review against
+the recipes; neither path allowlists nor static linkage alone prove provenance.
 """
 import ast
 import collections
@@ -13,17 +14,47 @@ import re
 import struct
 import sys
 
+TIME_LIMIT_SECONDS = 1800
+PHASES = ["sources", "tools", "singularity-A", "singularity-tests-A",
+          "singularity-B", "singularity-tests-B", "blynn-root", "blynn-hcc", "tcc"]
 HOST_TOOLS = set("bash sh env git git-upload-pack git-remote-https cat chmod cmp cp "
                  "diff dirname mkdir mktemp patch realpath rm rmdir sha256sum tar timeout "
                  "grep sed awk head tail wc sort xargs printf tr od uname ln find tee".split())
 STAGE0_RELATIVE = {
-    "./AMD64/artifact/" + n for n in
+    "./AMD64/artifact/" + name for name in
     "M0 M1-0 M2 blood-elf-0 catm cc_amd64 hex0 hex1 hex2-0 hex2-1 kaem-0".split()
-} | {"./AMD64/bin/" + n for n in "M1 hex2 kaem".split()} | {
+} | {"./AMD64/bin/" + name for name in "M1 hex2 kaem".split()} | {
     "./artifact/M2", "./artifact/blood-elf-0", "./bin/M1", "./bin/blood-elf", "./bin/hex2"
 }
-NATIVE_RELATIVE = {"./" + n for n in
+NATIVE_RELATIVE = {"./" + name for name in
                    "tcc tcc-stage2 tcc-stage3 smoke tcc-a tcc-b tcc-c".split()}
+# Do not accept an executable merely because its path is inside the build.
+BUILD_PROGRAM_GROUPS = {
+    "": "qfitzah",
+    "tools": "qfitzah",
+    "tools/stages": "scheme0.elf sc1.elf rscA.elf rscB.elf",
+    "tools/hex0": "hex0",
+    "tools/bin": "M2-Mesoplanet M2-Planet blood-elf M1 hex2 kaem",
+    "singularity-A": "singularity",
+    "singularity-B": "singularity",
+    "blynn-root/bin": "vm marginally methodically crossly precisely",
+    "blynn-hcc/precisely/bin": "crossly_up party party1 party2 crossly1 multiparty precisely_up",
+    "blynn-hcc/objects": "materialize-object-script",
+    "blynn-hcc/hcc/bin": "hcpp hcc1 hcc-m1",
+    "tcc/tcc/bin": "tcc tcc-stage2 tcc-stage3",
+    "tcc/final/bin": "tcc",
+    "tcc/final/source": "tcc-a tcc-b tcc-c",
+}
+BUILD_PROGRAMS = {str(Path(directory) / name)
+                  for directory, names in BUILD_PROGRAM_GROUPS.items()
+                  for name in names.split()}
+TEST_PROGRAM = re.compile(r"tcc/final/tmp/qfitzah-tcc-test\.[^/]+/(probe|numeric)-(a|b)")
+
+
+def require(condition, message):
+    """Evidence checks must remain enabled even under python -O."""
+    if not condition:
+        raise ValueError(message)
 
 
 def digest(path):
@@ -35,112 +66,160 @@ def check_manifest(path, base, root):
     for line in path.read_text().splitlines():
         expected, name = line.split("  ", 1)
         item = (base / name).resolve()
-        assert item.is_relative_to(root), ("outside build", item)
-        assert digest(item) == expected, ("hash mismatch", item)
+        require(item.is_relative_to(root), f"manifest path outside build: {item}")
+        require(digest(item) == expected, f"hash mismatch: {item}")
         count += 1
-    assert count, ("empty manifest", path)
+    require(count > 0, f"empty manifest: {path}")
     return count
 
 
-def check_compiler(path):
-    data = path.read_bytes()
-    assert data[:6] == b"\x7fELF\x02\x01", "not little-endian ELF64"
-    assert struct.unpack_from("<H", data, 18)[0] == 62, "not amd64"
-    offset = struct.unpack_from("<Q", data, 32)[0]
-    size, count = struct.unpack_from("<HH", data, 54)
-    assert size >= 4 and offset + size * count <= len(data)
-    types = [struct.unpack_from("<I", data, offset + i * size)[0] for i in range(count)]
-    assert 3 not in types, "host dynamic loader dependency"
-    for prefix in (b"/tmp/qfitzah", b"/home/siraben", b"/nix/store/"):
-        assert prefix not in data, ("embedded host prefix", prefix)
+def static_elf_bits(path):
+    """Return 32/64 for a static x86 executable, None for non-executable data."""
+    with path.open("rb") as stream:
+        header = stream.read(64)
+        if header[:4] != b"\x7fELF":
+            return None
+        require(len(header) >= 52 and header[5] == 1, f"bad ELF header: {path}")
+        elf_class = header[4]
+        require(elf_class in (1, 2), f"unknown ELF class: {path}")
+        kind, machine = struct.unpack_from("<HH", header, 16)
+        if kind == 1:  # Relocatable object, not an executable.
+            return None
+        require(kind == 2, f"not a static ELF executable: {path}")
+        if elf_class == 1:
+            bits, expected_machine, entry_size = 32, 3, 32
+            offset = struct.unpack_from("<I", header, 28)[0]
+            size, count = struct.unpack_from("<HH", header, 42)
+        else:
+            require(len(header) == 64, f"truncated ELF64 header: {path}")
+            bits, expected_machine, entry_size = 64, 62, 56
+            offset = struct.unpack_from("<Q", header, 32)[0]
+            size, count = struct.unpack_from("<HH", header, 54)
+        require(machine == expected_machine, f"unexpected machine: {path}")
+        require(size == entry_size and count > 0, f"bad ELF program table: {path}")
+        require(offset + size * count <= path.stat().st_size, f"truncated program table: {path}")
+        segments = []
+        for index in range(count):
+            stream.seek(offset + index * size)
+            segments.append(struct.unpack("<I", stream.read(4))[0])
+        require(1 in segments, f"ELF has no load segment: {path}")
+        require(not {2, 3}.intersection(segments), f"dynamic loader/library segment: {path}")
+        return bits
 
 
 def check_static_tree(root):
-    """Inspect every retained ELF executable, including intermediate compilers."""
     executables = {}
     for path in root.rglob("*"):
         if path.is_symlink() or not path.is_file():
             continue
-        with path.open("rb") as stream:
-            header = stream.read(64)
-            if header[:4] != b"\x7fELF":
-                continue
-            assert len(header) == 64 and header[5] == 1, ("bad ELF header", path)
-            kind = struct.unpack_from("<H", header, 16)[0]
-            assert kind != 3, ("dynamic ELF artifact", path)
-            if kind != 2:
-                continue
-            elf_class = header[4]
-            assert elf_class in (1, 2), ("unknown ELF class", path)
-            offset_pos, table_pos, fmt = (28, 42, "<I") if elf_class == 1 else (32, 54, "<Q")
-            offset = struct.unpack_from(fmt, header, offset_pos)[0]
-            size, count = struct.unpack_from("<HH", header, table_pos)
-            assert size >= 4 and offset + size * count <= path.stat().st_size
-            for index in range(count):
-                stream.seek(offset + index * size)
-                segment = struct.unpack("<I", stream.read(4))[0]
-                assert segment not in (2, 3), ("dynamic loader/library segment", path)
-            executables[str(path.relative_to(root))] = 32 if elf_class == 1 else 64
-    assert executables, "no ELF executables found"
+        bits = static_elf_bits(path)
+        if bits is not None:
+            executables[str(path.relative_to(root))] = bits
+    require(executables, "no ELF executables found")
     return dict(sorted(executables.items()))
 
 
 def check_archive(path):
     data = path.read_bytes()
-    assert data[:8] == b"!<arch>\n"
+    require(data[:8] == b"!<arch>\n", f"bad archive magic: {path}")
     offset = 8
     while offset < len(data):
         header = data[offset:offset + 60]
-        assert header[58:] == b"`\n", ("bad archive header", path)
-        assert header[16:28].strip() == b"0", ("nonzero archive date", path)
+        require(len(header) == 60 and header[58:] == b"`\n", f"bad archive header: {path}")
+        require(header[16:28].strip() == b"0", f"nonzero archive date: {path}")
         length = int(header[48:58])
+        require(length >= 0, f"negative archive member length: {path}")
         offset += 60 + length + length % 2
-    assert offset == len(data)
+    require(offset == len(data), f"truncated archive member: {path}")
 
 
 def check_trace(path, root):
     counts = collections.Counter()
-    quoted = r'("(?:[^"\\]|\\.)*")'
-    pattern = re.compile(r'\bexecve\(' + quoted)
+    missing_host_probes = collections.Counter()
+    pattern = re.compile(r'\bexecve\(("(?:[^"\\]|\\.)*")')
     for line in path.read_text().splitlines():
-        assert "execveat(" not in line, "execveat needs descriptor-aware manual review"
+        require("execveat(" not in line, "execveat needs descriptor-aware manual review")
         match = pattern.search(line)
         if match:
-            counts[ast.literal_eval(match[1])] += 1
-    assert counts, "empty execution trace"
+            name = ast.literal_eval(match[1])
+            counts[name] += 1
+            item = Path(name)
+            # env may try guard/bash before finding the real host shell.
+            # Permit only failed searches for approved host tools, never an
+            # executed guard or a compiler fallback (even an unsuccessful one).
+            if (item.parent == root / "guard" and item.name in HOST_TOOLS
+                    and line.endswith("= -1 ENOENT (No such file or directory)")):
+                missing_host_probes[name] += 1
+    require(counts, "empty execution trace")
     relative = {}
     for name, count in counts.items():
         item = Path(name)
         if not item.is_absolute():
-            assert name in STAGE0_RELATIVE | NATIVE_RELATIVE, ("unknown relative exec", name)
+            require(name in STAGE0_RELATIVE | NATIVE_RELATIVE, f"unknown relative exec: {name}")
             relative[name] = count
         elif item.is_relative_to(root):
-            assert not item.is_relative_to(root / "guard"), ("compiler fallback", name)
+            local = str(item.relative_to(root))
+            require(local in BUILD_PROGRAMS or TEST_PROGRAM.fullmatch(local)
+                    or missing_host_probes[name] == count,
+                    f"unexpected build executable: {name}")
         else:
-            assert item.name in HOST_TOOLS, ("unexpected external executable", name)
+            require(item.name in HOST_TOOLS, f"unexpected external executable: {name}")
     return {"attempted_paths": dict(sorted(counts.items())),
+            "missing_host_path_probes": dict(sorted(missing_host_probes.items())),
             "relative_paths_for_recipe_review": dict(sorted(relative.items()))}
+
+
+def check_timing(root):
+    timing = json.loads((root / "timing.json").read_text())
+    require(timing["complete"] is True and timing["fresh_recipe_pass"] is True and timing["exit"] == 0,
+            "build did not finish successfully")
+    require(0 < timing["elapsed_centiseconds"] < TIME_LIMIT_SECONDS * 100,
+            "fresh build missed the 30-minute limit")
+    phases = [line.split("\t") for line in (root / "phases.tsv").read_text().splitlines()[1:]]
+    require([p[0] for p in phases] == PHASES, "unexpected build phases")
+    require(all(p[2:] == ["passed", "0"] and int(p[1]) >= 0 for p in phases), "failed phase")
+    require(sum(int(p[1]) for p in phases) <= timing["elapsed_centiseconds"], "inconsistent timing")
+    return timing, phases
+
+
+def check_runtime(root, reference):
+    require(not reference.is_relative_to(root), "comparison prefix must be outside the fresh build")
+    final = root / "tcc/final"
+    compiler = final / "bin/tcc"
+    require(static_elf_bits(compiler) == 64, "final compiler is not static amd64")
+    data = compiler.read_bytes()
+    for prefix in (str(root).encode(), str(reference).encode(), b"/nix/store/"):
+        require(prefix not in data, f"embedded build prefix: {prefix!r}")
+    libraries = {"crt1.o", "crti.o", "crtn.o", "libc.a", "libgetopt.a", "libtcc1.a"}
+    require({p.name for p in (final / "lib").iterdir()} == libraries, "unexpected runtime files")
+    source = final / "source"
+    require(data == (source / "tcc-b").read_bytes() == (source / "tcc-c").read_bytes(),
+            "compiler fixpoint mismatch")
+    runtime_b, runtime_c = source / "runtime-b", source / "runtime-c"
+    names = {p.name for p in runtime_b.iterdir()}
+    require(names and names == {p.name for p in runtime_c.iterdir()}, "runtime fixpoint files differ")
+    for name in sorted(names):
+        require((runtime_b / name).read_bytes() == (runtime_c / name).read_bytes(),
+                f"runtime fixpoint mismatch: {name}")
+    artifacts = ["bin/tcc"] + ["lib/" + name for name in sorted(libraries)]
+    for name in artifacts:
+        require((final / name).read_bytes() == (reference / name).read_bytes(),
+                f"cross-build mismatch: {name}")
+    for archive in (final / "lib").glob("*.a"):
+        check_archive(archive)
+    return artifacts
 
 
 def main():
     if len(sys.argv) != 4:
         raise SystemExit("usage: audit-build.py FRESH_BUILD EXEC_TRACE INDEPENDENT_FINAL_PREFIX")
-    if sys.flags.optimize:
-        raise SystemExit("Run without Python optimization: evidence assertions must be enabled")
-    root, trace, reference = map(lambda s: Path(s).resolve(), sys.argv[1:])
-    assert digest(root / "qfitzah") == "abd1975d1145c4ed808b2cac6e2265df958f1052a6b459b28664bcbcde8906aa"
-    assert (root / "qfitzah").stat().st_size == 2544
-    timing = json.loads((root / "timing.json").read_text())
-    assert timing["complete"] and timing["fresh_recipe_pass"] and timing["exit"] == 0
-    assert 0 < timing["elapsed_centiseconds"] < 1440000
-    phases = [line.split("\t") for line in (root / "phases.tsv").read_text().splitlines()[1:]]
-    expected = ["sources", "tools", "singularity-A", "singularity-tests-A",
-                "singularity-B", "singularity-tests-B", "blynn-root", "blynn-hcc", "tcc"]
-    assert [p[0] for p in phases] == expected
-    assert all(p[2:] == ["passed", "0"] and int(p[1]) >= 0 for p in phases)
-    assert sum(int(p[1]) for p in phases) <= timing["elapsed_centiseconds"]
-    assert not (root / "tools/stage0/bootstrap-seeds").exists()
-    assert not (root / "blynn-root/source/blob").exists()
+    root, trace, reference = (Path(arg).resolve() for arg in sys.argv[1:])
+    seed_hash = Path(__file__).with_name("seed.sha256").read_text().split()[0]
+    require(digest(root / "qfitzah") == seed_hash, "wrong seed hash")
+    require((root / "qfitzah").stat().st_size == 2544, "wrong seed size")
+    timing, phases = check_timing(root)
+    require(not (root / "tools/stage0/bootstrap-seeds").exists(), "imported seed directory")
+    require(not (root / "blynn-root/source/blob").exists(), "imported compiler images")
     manifest_counts = {}
     for name in ("toolchain.sha256", "tools/seed.sha256", "tools/tools.sha256",
                  "blynn-root/root.sha256", "blynn-hcc/hcc.sha256", "tcc/bootstrap-tcc.sha256",
@@ -149,19 +228,16 @@ def main():
     manifest_counts["recipe.sha256"] = check_manifest(root / "recipe.sha256", root / "recipe", root)
     manifest_counts["fixpoints.sha256"] = check_manifest(
         root / "tcc/final/fixpoints.sha256", root / "tcc/final/source", root)
-    final = root / "tcc/final"
-    check_compiler(final / "bin/tcc")
-    artifacts = ["bin/tcc"] + ["lib/" + p.name for p in sorted((final / "lib").iterdir())]
-    for name in artifacts:
-        assert (final / name).read_bytes() == (reference / name).read_bytes(), ("cross-build mismatch", name)
-    for archive in (final / "lib").glob("*.a"):
-        check_archive(archive)
     report = {"timing": timing, "phases": phases, "manifests_verified": manifest_counts,
-              "compiler_sha256": digest(final / "bin/tcc"), "cross_build_files": artifacts,
+              "compiler_sha256": digest(root / "tcc/final/bin/tcc"),
+              "cross_build_files": check_runtime(root, reference),
               "static_executables": check_static_tree(root),
               "trace": check_trace(trace, root)}
     print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        raise SystemExit(f"audit: {error}")

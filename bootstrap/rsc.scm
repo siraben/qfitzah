@@ -124,7 +124,7 @@
     list->string make-string string-set! apply
     make-vector vector vector-ref vector-set! vector-length vector?
     vector->list list->vector gc gc-count %gc-live-units %gc-largest-free-units
-    make-symbol %identity-hash %assq %memq %env-find
+    make-symbol %identity-hash
     %file-open %file-close %file-read %file-write %file-seek %eof-object
     command-line getenv call/cc call-with-current-continuation error exit))
 (define (is-prim? name) (if (memq name prim-names) #t #f))
@@ -300,7 +300,7 @@
           ((eq? op 'set!) (compile-set expr ctenv))
           ((eq? op 'lambda) (compile-lambda expr ctenv))
           ((eq? op 'begin) (compile-begin (cdr expr) ctenv #f))
-          ((eq? op 'let) (compile-let expr ctenv #f))
+          ((eq? op 'let) (compile-expr (let->lambda expr) ctenv))
           ((eq? op 'cond) (compile-expr (cond->if (cdr expr)) ctenv))
           ((eq? op 'and) (compile-short-circuit (cdr expr) ctenv #f #t))
           ((eq? op 'or) (compile-short-circuit (cdr expr) ctenv #f #f))
@@ -311,7 +311,7 @@
       (let ((op (car expr)))
         (cond ((eq? op 'if) (compile-if expr ctenv #t))
               ((eq? op 'begin) (compile-begin (cdr expr) ctenv #t))
-              ((eq? op 'let) (compile-let expr ctenv #t))
+              ((eq? op 'let) (compile-tail (let->lambda expr) ctenv))
               ((eq? op 'cond) (compile-tail (cond->if (cdr expr)) ctenv))
               ((eq? op 'quote) (emit-load (quote-datum (cadr expr))) (ins "(Ret)"))
               ((eq? op 'define) (compile-define expr ctenv) (ins "(Ret)"))
@@ -405,27 +405,6 @@
           (gv-store target)
           (load-unspec)))))
 
-; A let needs a lexical frame, not a freshly allocated callable closure.
-; Evaluate initializers in the outer environment and keep the same mutable
-; argument-cell representation used by procedure entry (including captures).
-(define (compile-let expr ctenv tail?)
-  (let ((bindings (cadr expr)))
-    (let ((names (map1 car bindings))
-          (values (map1 cadr bindings))
-          (body (body->core (cddr expr))))
-    (if tail? #f (ins "(PushR EBP)"))
-    (push-args values ctenv)
-    (ins "(MovRI EDX (Small 3))")
-    (build-arglist (length values))
-    (ins "(MovRR EAX EDX)")
-    (ins "(MovRR ECX EBP)")
-    (ins "(Call Cons)")
-    (ins "(MovRR EBP EAX)")
-    (if tail?
-        (compile-tail body (cons names ctenv))
-        (begin (compile-expr body (cons names ctenv))
-               (ins "(PopR EBP)"))))))
-
 (define (compile-lambda expr ctenv)
   (let ((params (cadr expr)) (body (cddr expr)) (p (fresh)))
     (set! pending-procs (cons (list p params body ctenv) pending-procs))
@@ -437,47 +416,14 @@
     (ins "(Call Cons)")
     (ins "(OrI8 EAX 02)")))
 
-; Guarded register-entry calls avoid allocating temporary primitive argument
-; lists. Compare the captured operator with its immutable original cell AFTER
-; evaluating operands: rebinding/shadowing and evaluation order stay observable.
-(define fast-primitives
-  '((cons 2) (car 1) (cdr 1) (set-car! 2) (set-cdr! 2)
-    (pair? 1) (null? 1) (eq? 2) (eqv? 2)
-    (symbol? 1) (number? 1) (string? 1) (char? 1) (procedure? 1)
-    (boolean? 1) (not 1) (char->integer 1) (integer->char 1)
-    (string-length 1) (string-ref 2) (vector-length 1) (vector? 1) (vector-ref 2)
-    (%identity-hash 1) (%assq 2) (%memq 2) (%env-find 3)))
+; Every call follows the same path: capture the operator first, evaluate
+; operands left-to-right, then invoke it with a fresh argument list.
 (define (compile-app expr ctenv tail?)
   (compile-expr (car expr) ctenv)
   (ins "(PushR EAX)")
   (push-args (cdr expr) ctenv)
-  (let ((fast (if (symbol? (car expr)) (assq (car expr) fast-primitives) #f))
-        (arity (length (cdr expr))))
-    (if (and fast (= arity (cadr fast)))
-        (compile-fast-call (car expr) arity tail?)
-        (compile-stacked-call arity tail?))))
-(define (compile-fast-call name arity tail?)
-  (let ((slow (fresh)) (done (fresh)))
-    (ins "(MovRR ESI ESP)")
-    (ins (cond ((= arity 1) "(MovRMD EAX ESI 04)")
-               ((= arity 2) "(MovRMD EAX ESI 08)")
-               (else "(MovRMD EAX ESI 0C)")))
-    (ins-dyn (lambda () (o-str "(MovRMemL ECX (GP ") (o-sym name) (o-str "))")))
-    (ins "(CmpRR EAX ECX)")
-    (emit-jnz32 slow)
-    (if (= arity 3) (ins "(PopR EDX)") #f)
-    (if (> arity 1) (ins "(PopR ECX)") #f)
-    (ins "(PopR EAX)")
-    (ins "(PopR ESI)")
-    (ins-dyn (lambda () (o-str (if tail? "(Jmp32 (RawPrimitive " "(Call (RawPrimitive "))
-                       (o-sym name) (o-str "))")))
-    (if tail? #f (emit-jmp32 done))
-    (emit-label slow)
-    (compile-stacked-call arity tail?)
-    (if tail? #f (emit-label done))))
-(define (compile-stacked-call arity tail?)
   (ins "(MovRI EDX (Small 3))")
-  (build-arglist arity)
+  (build-arglist (length (cdr expr)))
   (ins "(PopR EAX)")
   (ins "(MovRR ESI EAX)")
   (ins "(SubI8 ESI 02)")

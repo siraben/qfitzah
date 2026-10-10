@@ -15,7 +15,7 @@
 (set! address #f)
 ; Replace incidental raw scratch-register roots, but keep the four bytes live.
 (string-ref (make-string 1 #\y) 0)
-(%memq #f '())
+(memq #f '())
 (gc)
 (write (< (%gc-live-units) (+ baseline 128))) (newline)
 (write (= (string-length bytes) 4)) (newline)

@@ -81,6 +81,15 @@
             ${pkgs.bash}/bin/bash ${./tests/seed-memory.sh} ./tiny
             touch "$out"
           '';
+          blynn-audit = pkgs.runCommand "qfitzah-blynn-audit-tests"
+            { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            mkdir -p source/bootstrap/blynn source/tests
+            cp ${./bootstrap/blynn/audit-build.py} source/bootstrap/blynn/audit-build.py
+            cp ${./tests/blynn-audit.py} source/tests/blynn-audit.py
+            python3 -B source/tests/blynn-audit.py
+            python3 -B -O source/tests/blynn-audit.py
+            touch "$out"
+          '';
           blynn-sources = pkgs.runCommand "qfitzah-blynn-source-tests"
             { nativeBuildInputs = [ pkgs.git ]; } ''
             mkdir -p source/bootstrap source/tests

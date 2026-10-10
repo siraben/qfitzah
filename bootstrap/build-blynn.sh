@@ -16,6 +16,7 @@ clock_ticks() {
   printf '%s\n' "${uptime/./}"
 }
 start=$(clock_ticks)
+limit_seconds=1800
 seed=$(realpath "$1")
 cache=$(realpath "$2")
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
@@ -30,11 +31,18 @@ finish() {
   if [[ -n $active ]]; then
     printf '%s\t%d\tfailed\t%d\n' "$active" "$((end-phase_start))" "$status" >> "$out/phases.tsv"
   fi
-  if [[ $build_complete == true && $status == 0 ]] && (( elapsed < 1440000 )); then
-    accepted=true
+  if [[ $build_complete == true && $status == 0 ]]; then
+    if (( elapsed < limit_seconds * 100 )); then
+      accepted=true
+      echo 'ok - fresh complete qfitzah -> Blynn/HCC -> TCC recipe under 30 minutes'
+    else
+      status=1
+      echo 'Build and tests finished, but the 30-minute target was missed.' >&2
+    fi
   fi
-  printf '{"complete":%s,"fresh_recipe_pass":%s,"exit":%d,"elapsed_centiseconds":%d,"clock":"/proc/uptime","limit_seconds":14400}\n' \
-    "$build_complete" "$accepted" "$status" "$elapsed" > "$out/timing.json"
+  printf '{"complete":%s,"fresh_recipe_pass":%s,"exit":%d,"elapsed_centiseconds":%d,"clock":"/proc/uptime","limit_seconds":%d}\n' \
+    "$build_complete" "$accepted" "$status" "$elapsed" "$limit_seconds" > "$out/timing.json"
+  exit "$status"
 }
 trap finish EXIT
 trap 'exit 130' INT
@@ -50,8 +58,11 @@ phase() {
   active=
 }
 printf 'phase\telapsed_centiseconds\tstatus\texit\n' > "$out/phases.tsv"
-mkdir "$out/recipe" "$out/guard"
+mkdir "$out/recipe" "$out/guard" "$out/tmp"
+export TMPDIR="$out/tmp"
 cp -RL "$root/bootstrap" "$root/tests" "$out/recipe/"
+# Every component reads this one snapshot; no private recipe copies can drift.
+chmod -R a-w "$out/recipe"
 b=$out/recipe/bootstrap
 cp "$seed" "$out/qfitzah"
 chmod 555 "$out/qfitzah"
@@ -83,9 +94,3 @@ sha256sum "$out/qfitzah" "$out/tools/bin/"* "$out/blynn-root/bin/"* \
   "$out/blynn-hcc/hcc/bin/"* "$out/tcc/tcc/bin/"* \
   "$out/tcc/final/bin/tcc" "$out/tcc/final/lib/"* > "$out/toolchain.sha256"
 build_complete=true
-elapsed=$(($(clock_ticks)-start))
-if (( elapsed >= 1440000 )); then
-  echo 'Build and tests finished, but the four-hour acceptance target was missed.' >&2
-  exit 1
-fi
-echo 'ok - fresh complete qfitzah -> Blynn/HCC -> TCC recipe under four hours'

@@ -3,7 +3,7 @@
 set -euo pipefail
 if (( $# != 1 )); then echo "usage: $0 SOURCE_BUILT_HEX0" >&2; exit 2; fi
 hex0=$(realpath "$1")
-work=$(mktemp -d /tmp/qfitzah-hex0-test.XXXXXX)
+work=$(mktemp -d "${TMPDIR:-/tmp}/qfitzah-hex0-test.XXXXXX")
 trap 'status=$?; if (( status == 0 )); then rm -rf "$work"; else echo "hex0 artifacts: $work" >&2; fi' EXIT
 printf '00 7F 80 ff\nA; ignored 123\n B # ignored ff' > "$work/input"
 printf '\x00\x7f\x80\xff\xab' > "$work/expected"

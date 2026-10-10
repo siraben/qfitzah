@@ -1,7 +1,8 @@
 # qfitzah entry into blynn-bootstrap
 
-Target source pins are in `sources.tsv`. Git exports use the pinned commit/tree,
-not mutable working-tree files. The initial stage0 export deliberately excludes
+Target source pins are in `sources.tsv`. Git exports use the pinned commit/tree
+through a private object-only view, excluding mutable worktree, configuration
+and archive-attribute overrides. The initial stage0 export deliberately excludes
 `bootstrap-seeds`.
 
 ## Stage0/M2 entry
@@ -16,9 +17,6 @@ The resulting AMD64 hex0 assembles itself and kaem from source. Source-built
 kaem runs upstream's unchanged mini/full recipes through phase 15. Six final
 tool hashes must match the pinned post-generation answer file. Host shell, Git,
 tar, hashing and file utilities orchestrate or validate only.
-
-This entry passed in 53.497 seconds, including fresh Scheme stages. It is not
-an end-to-end TCC timing result.
 
 ## Blynn source entry
 
@@ -38,11 +36,10 @@ Duplicate definitions, unbound variables, forward/self global references and
 parse errors are rejected before emission. The VM's global table is populated
 sequentially; source recursion uses explicit `@Y`. Tests cover the 224-definition
 limit and byte-valued indices. Raw `@` primitives are intentional VM escapes,
-not a claim that arbitrary opcode bytes form valid executable programs. Tests check independent small programs as well as source compiler
-self-reproduction. The 4,573-byte compiled `singularity` reproduced itself
-byte-for-byte under the qfitzah/M2-built VM. The complete root ladder through
-native `methodically`, `crossly` and `precisely` subsequently passed in 7m41s,
-as did compiler equality through both rsc lineages. This is not TCC acceptance.
+not a claim that arbitrary opcode bytes form valid executable programs.
+Tests cover independent small programs and source compiler self-reproduction.
+The 4,573-byte compiled `singularity` must reproduce itself under the
+qfitzah/M2-built VM; both rsc lineages must also produce identical compilers.
 
 `build-blynn-root.sh` applies the target's pinned patch series to fresh source
 exports. An additional `vm-buffer-end.patch` moves buffer-end initialization
@@ -65,14 +62,13 @@ The target's compiler patches contain stale or asymmetric context. Local
 `crossly-perf-context.patch` repair context/metadata without changing the
 intended substitutions. The full series now applies without fuzz; its result
 was compared with a separately applied reference series. Repairs affect fresh
-exports only. This compiler/HCC build passed in 10m03s.
+exports only.
 
 `prepare-blynn-tcc.sh` exports TinyCC and bootstrap libc sources, applies the
 target's patches and assembles libc source. `configure-lib.sh` only enumerates
 files: its `compiler=gcc` selects GNU assembly syntax for TinyCC, not a GCC
-execution. HCC seeded TinyCC successfully, including its native stage-2/stage-3
-fixpoint and upstream smoke test (2m37s). Independent tests exposed the limited
-bootstrap decimal converter after correcting their expected ABI to amd64.
+execution. The HCC-built TinyCC must pass a native stage-2/stage-3 fixpoint
+and an executable smoke test.
 
 `build-blynn-tcc.sh` requests the upstream self-rebuild, then
 `finalize-blynn-tcc.sh` rebuilds the native compiler and complete bootstrap
@@ -91,12 +87,9 @@ own assembly implementation instead. A minimal `tcc-driver-errors.patch` stops
 object-loading errors from being erased by the output API: duplicate strong
 symbols must fail without publishing an executable, not merely print an error.
 
-The corrected native finalizer passed compiler/library fixpoints and independent
-C/numeric/diagnostic tests. The subsequent **complete fresh build passed in
-24m11.371s**, including execution tracing and independent output comparisons.
-The seed, recipe/artifact hashes, compiler/runtime fixpoints and dependency
-trace were audited. See [ACCEPTANCE.md](ACCEPTANCE.md) for phase timings,
-requirement-by-requirement evidence and reproduction commands.
+See [ACCEPTANCE.md](ACCEPTANCE.md) for measured end-to-end timing, compiler/runtime
+fixpoints, independent output comparisons and the requirement audit. Stage
+measurements or recovered component builds do not count as fresh acceptance.
 
 ## Interfaces
 
@@ -114,11 +107,38 @@ bootstrap/finalize-blynn-tcc.sh HCC_TCC_TREE PREPARED_SOURCES NEW_DIRECTORY
 
 The complete recipe rejects an existing output directory and any seed that does
 not match `seed.sha256`. It clears inherited build overrides, guards host compiler
-fallback names, copies its recipe, records source hashes and uses `/proc/uptime`
-for phase/total timing. It does not kill a valid build when four hours elapse;
-only after finishing does it judge the timing target. `timing.json` distinguishes
-finished builds from successful fresh-under-four-hours acceptance. Source Git
-objects may be fetched beforehand; no cached generated artifact is an input.
+fallback names, makes one read-only recipe snapshot, records source hashes and
+uses `/proc/uptime` for phase/total timing. Every component uses that snapshot;
+the hashes are verified again after building. Direct component invocations use
+the caller's source tree, so use an immutable checkout when measuring them.
+
+The acceptance limit is **30 minutes**. The driver lets an over-budget build
+finish, then reports failure rather than killing useful work. `timing.json`
+distinguishes completion from successful fresh-under-limit acceptance. Source
+Git objects may be fetched beforehand; no generated artifact is reused.
+
+These byte-oriented tools can be sensitive to filesystem latency. For consistent
+measurements, use fast scratch storage. On Linux with executable tmpfs and
+sufficient free RAM, for example:
+
+```sh
+workspace=$(mktemp -d /dev/shm/qfitzah-build.XXXXXX)
+bash bootstrap/build-blynn.sh result/bin/qfitzah SOURCE_CACHE "$workspace/build"
+```
+
+The acceptance report records the actual machine and storage used; the time
+limit is not a performance guarantee for every host or filesystem.
+
+For optional execution tracing, use kernel-side syscall filtering:
+
+```sh
+strace --seccomp-bpf -f -s 4096 -e trace=execve,execveat -o build.execve \
+  bash bootstrap/build-blynn.sh SEED SOURCE_CACHE NEW_DIRECTORY
+```
+
+Using only `-e trace=...` still intercepts every syscall and can dominate runtime
+for these byte-oriented tools. Do not compare such timings with the filtered
+trace or an untraced build. Tracing is observation, not a compiler dependency.
 
 Use the final compiler with its own runtime:
 

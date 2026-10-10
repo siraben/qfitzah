@@ -8,7 +8,7 @@ if (( $# == 3 )); then
   vm=$(realpath "$2")
   source=$(realpath "$3")
 fi
-work=$(mktemp -d /tmp/qfitzah-singularity-test.XXXXXX)
+work=$(mktemp -d "${TMPDIR:-/tmp}/qfitzah-singularity-test.XXXXXX")
 trap 'status=$?; if (( status == 0 )); then rm -rf "$work"; else echo "singularity artifacts: $work" >&2; fi' EXIT
 printf 'ident x = x; constant x y = x; main = ident;' > "$work/input"
 printf 'I;``S`KKI;@ ;' > "$work/expected"
