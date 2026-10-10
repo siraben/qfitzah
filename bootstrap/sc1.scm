@@ -5,11 +5,11 @@
 ; top-level form, (main), reads the remaining stdin as the program to compile
 ; and emits a complete qfasm program on stdout:
 ;
-;   (Assemble (Program Start (X8 ...) <instruction chain> ))
+;   (Assemble (Program Start (RuntimeMemoryBytes) <instruction chain> ))
 ;
 ; whose fixed runtime is supplied by bootstrap/sc1-runtime.qf1 via the
 ; (RuntimeCode ...) / (RuntimeData ...) macros. Assemble the emitted text with:
-;   cat qfasm.qf1 sc1-runtime.qf1 out.qfasm | qfitzah > out.elf
+;   bash bootstrap/assemble.sh SEED sc1 out.qfasm > out.elf
 ;
 ; Compilation model (see sc1-runtime.qf1 for the value representation):
 ;   * EBP holds the current environment: a heap list of frames, each frame a
@@ -17,9 +17,29 @@
 ;     to lexical (depth,index) walks; free variables are global static cells.
 ;   * A callable is an object (subtype 2) whose payload pair is (code . env).
 ;     Apply builds the argument list in EDX, extracts code (ESI) and captured
-;     env (EDI), and CALLs (non-tail) or JMPs (tail) the code. Tail calls do
-;     not grow the machine stack, so tail recursion runs in constant space.
+;     env (EDI), moves the argument list to EAX, and CALLs (non-tail) or JMPs
+;     (tail) the code. A tail JMP reuses the caller's return address.
 ;   * Primitives are ordinary global closures built by the runtime's InitPrims.
+;
+; HOW THE FIRST NATIVE SCHEME COMPILER APPEARS
+; ------------------------------------------
+; scheme0 interprets this file's definitions, then executes the final (main).
+; main reads another program from the remaining stdin; it does not evaluate
+; that program. Feeding it another copy of this reader/compiler therefore
+; produces assembly for a native sc1. qfitzah then assembles that text.
+; Self-compilation needs only features the interpreter already implements,
+; not the ability to execute a newer Scheme compiler before building it.
+;
+; For a short reading route, start at main, follow compile-toplevel-loop into
+; compile-expr, then follow compile-lambda / compile-app / emit-proc. The
+; output helpers merely spell instructions; qfasm resolves addresses later.
+; Most bookkeeping here is about scope and control flow, not x86 encoding.
+;
+; Example: ((lambda (x) x) 41) emits code to construct a closure, evaluate 41,
+; and call that closure with a one-element argument list. The separately
+; emitted body loads x from frame 0, slot 0 and returns it in EAX. At no point
+; does the compiler need to run the user's lambda to discover its result.
+; Once sc1 is native, its next input is rsc.scm, not a precompiled rsc image.
 
 ; ---------------------------------------------------------------------------
 ; Small list helpers not provided by the reader.
@@ -94,6 +114,11 @@
 
 ; ---------------------------------------------------------------------------
 ; Compile-time state.
+; Emission is a stream, not an instruction tree accumulated in memory. When
+; a lambda or literal needs code/data elsewhere in the file, enqueue it with
+; a fresh symbolic label. This postpones placement without needing its address.
+; Compiling a deferred body can discover more bodies; drain-procs must keep
+; taking work until the queue is empty, rather than visit a fixed initial list.
 ; ---------------------------------------------------------------------------
 (define counter 0)
 (define (fresh) (set! counter (+ counter 1)) counter)
@@ -126,6 +151,11 @@
 
 ; ---------------------------------------------------------------------------
 ; Compile-time environment: a list of frames, each a list of parameter names.
+; This contains NAMES, while EBP will point to corresponding run-time VALUES.
+; For ctenv = ((y) (x)), x is at depth 1, index 0. compile-var emits one cdr
+; to reach the outer frame, one car to select it, then car to load its slot.
+; A set! walks to the same slot but stores into its car, so closures share
+; mutations instead of capturing independent copies of a variable's value.
 ; ---------------------------------------------------------------------------
 (define (ct-lookup name env) (ct-lookup2 name env 0))
 (define (ct-lookup2 name env d)
@@ -142,6 +172,10 @@
 ; Quoted data -> static values. A token is (kind . info):
 ;   imm     info = 32-bit tagged word    pairlbl info = (Lit n) label number
 ;   objlbl  info = (Lit n) label number (symbol/string object pointer)
+; Quotation preserves structure instead of compiling it as an application.
+; Tokens distinguish an immediate word from an address qfasm must resolve.
+; InternStatics registers emitted symbols with the runtime's symbol table:
+; a quoted symbol and one read later must have the same interned identity.
 ; ---------------------------------------------------------------------------
 (define (quote-datum d)
   (cond ((number? d) (cons 'imm (+ (* d 4) 1)))
@@ -385,6 +419,10 @@
           (gv-store target)
           (load-unspec)))))
 
+; Evaluating a lambda constructs a closure now; its body executes only on a
+; later call. Queue the body with the lexical name environment, but emit code
+; to capture the current VALUE environment (EBP). The two Cons calls create
+; the (code . env) payload and its tagged callable wrapper, respectively.
 (define (compile-lambda expr ctenv)
   (let ((params (cadr expr)) (body (cddr expr)) (p (fresh)))
     (set! pending-procs (cons (list p params body ctenv) pending-procs))
@@ -396,6 +434,12 @@
     (ins "(Call Cons)")
     (ins "(OrI8 EAX 02)")))
 
+; The saved operator is important: an operand can mutate its global binding.
+; Invoke the value fetched before that mutation, not a fresh lookup afterward.
+; push-args evaluates left-to-right. Popping the values right-to-left and
+; consing each onto the front restores source order without re-evaluation.
+; After consuming those temporary stack entries, a tail call can jump directly;
+; a non-tail call saves EBP so the caller resumes with its own lexical frame.
 (define (compile-app expr ctenv tail?)
   (compile-expr (car expr) ctenv)
   (ins "(PushR EAX)")
@@ -441,6 +485,11 @@
   (ins "(Call Cons)")
   (ins "(MovRR EBP EAX)"))
 
+; Incoming EAX is a fresh argument-list spine, so this prologue may reshape
+; it for rest parameters. For (x . rest), the frame must contain TWO slots:
+; x's value and the remaining argument list. Wrapping that tail in one cell
+; supplies the rest slot; a lone symbol parameter gets the whole list as its
+; single slot. bind-newenv then links this frame to the captured EDI chain.
 (define (emit-prologue params)
   (cond ((symbol? params)
          (ins "(MovRI ECX (Small 3))")
@@ -503,6 +552,11 @@
 
 ; ---------------------------------------------------------------------------
 ; Top-level driver.
+; Startup and top-level effects come first, followed by an explicit process
+; exit so execution cannot fall through into deferred procedure/data blocks.
+; Only after all procedures are compiled do we know every referenced global
+; and quoted symbol. Emit their storage/registration then append the runtime.
+; The assembler, not this streaming compiler, resolves those forward labels.
 ; ---------------------------------------------------------------------------
 (define (compile-toplevel-loop)
   (let ((form (rd)))

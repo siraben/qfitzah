@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Source-only assembly driver. Writes ELF to stdout; discard it on failure.
 # The optional file supplies source macro overrides (e.g. a small GC heap).
+#
+# This is orchestration, not a call to a system assembler. qfitzah reads, in
+# order, its assembler rules, shared/runtime macros, optional overrides, and
+# finally the program requesting assembly. The same seed emits the ELF bytes.
+# Rule order matters: overrides follow the defaults they replace. Generated
+# Scheme assembly refers to RuntimeCode/RuntimeData; this source selection
+# supplies their definitions without linking a prebuilt runtime object.
 set -euo pipefail
 if [[ $# -lt 3 || $# -gt 4 ]]; then
   echo "usage: $0 SEED {scheme0|sc1|rsc} SOURCE [OVERRIDES]" >&2

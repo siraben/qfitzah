@@ -16,10 +16,17 @@ assemble() {
   timeout 900s bash "$b/assemble.sh" "$seed" "$stage" "$input" > "$output"
   chmod +x "$output"
 }
+# First assemble the handwritten interpreter; there is no Scheme dependency
+# in that step. Then send TWO copies of reader+sc1 down one stream: scheme0
+# interprets the first copy, whose (main) consumes the second copy as source
+# data. Its output is assembly for sc1, not another interpreted session.
 assemble scheme0 "$b/scheme0.qfasm" "$out/scheme0.elf"
 cat "$b/sc1-reader.scm" "$b/sc1.scm" "$b/sc1-reader.scm" "$b/sc1.scm" \
   | timeout 300s "$out/scheme0.elf" > "$out/sc1.qfasm"
 assemble sc1 "$out/sc1.qfasm" "$out/sc1.elf"
+# Native sc1 now compiles the richer compiler using only the older language.
+# A and B name compiler ancestry, not optimization levels: A is built by sc1;
+# B is built by A. The wider regression suite also builds C and checks B/C.
 cat "$b/sc1-reader.scm" "$b/rsc.scm" | timeout 120s "$out/sc1.elf" > "$out/rscA.qfasm"
 assemble rsc "$out/rscA.qfasm" "$out/rscA.elf"
 cat "$b/sc1-reader.scm" "$b/rsc.scm" | timeout 120s "$out/rscA.elf" > "$out/rscB.qfasm"

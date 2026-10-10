@@ -12,6 +12,35 @@ GNU binutils builds the seed. The seed runs the assembler at every stage.
 The assembled scheme0 interpreter runs sc1; compiled sc1 builds rsc.
 Assembler and runtime sources are edited directly. Source macros run in Qfitzah.
 
+## Reading the bootstrap as a program
+
+The executable sources carry their own walkthroughs; no document tangler or
+additional build language is required. Follow this route for the dependency
+story, then use the entry points named in each file to follow the implementation:
+
+1. [`qfasm.qf1`](bootstrap/qfasm.qf1): how rewriting implements arithmetic,
+   instruction layout, label resolution and ELF emission.
+2. [`scheme0.qfasm`](bootstrap/scheme0.qfasm): the handwritten interpreter,
+   tagged values, environment lookup and evaluator/application loop.
+3. [`sc1-reader.scm`](bootstrap/sc1-reader.scm) and
+   [`sc1.scm`](bootstrap/sc1.scm): the shared-input handoff and how an interpreted
+   compiler emits its own native implementation.
+4. [`rsc.scm`](bootstrap/rsc.scm): the older implementation language versus the
+   richer accepted language, the calling convention and macro-expansion limits.
+5. [`hex0.scm`](bootstrap/blynn/hex0.scm) and
+   [`build-blynn-tools.sh`](bootstrap/build-blynn-tools.sh): the source-built
+   assembler/C-toolchain branch.
+6. [`singularity-reader.scm`](bootstrap/blynn/singularity-reader.scm),
+   [`singularity-compile.scm`](bootstrap/blynn/singularity-compile.scm) and
+   [`singularity-main.scm`](bootstrap/blynn/singularity-main.scm): the four-node
+   syntax tree, SKI equations and serialized compiler image.
+7. [`build-blynn-root.sh`](bootstrap/build-blynn-root.sh): where the source-built
+   VM and regenerated compiler image meet and enter the native Blynn ladder.
+
+The comments distinguish invariants and deliberate limitations from mere
+implementation mechanics. Self-reproduction checks agreement; independent
+semantic tests are still necessary.
+
 ## Stage 0: Seed (`qfitzah.s`)
 
 The seed is a 2,544-byte static i386 Linux executable. It reads S-expressions,

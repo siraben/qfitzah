@@ -82,14 +82,32 @@ SHA256: `a0f2cf6210f0092c17a5b7bbc831e91705300cee3ddb407aafd2b38c3bd83cf5`.
   limits, archives and forbidden executable paths. A failed `ENOENT` search for an
   approved host tool is recorded separately, never treated as an execution.
 
-The compiler/build implementation is 187 lines smaller than the pre-audit PR,
-excluding documentation and the observer. Specialized Scheme calls, frame
+At the measured revision, compiler/build sources were 187 lines smaller than
+in the pre-audit PR, excluding documentation and the observer. Specialized Scheme calls, frame
 construction and native list/environment searches were removed; semantic tests
 remain. Safety checks, useful runtime features and optimizations in the dominant
 upstream stages were retained. See [DEPENDENCIES.md](DEPENDENCIES.md).
 
 This is a limited bootstrap libc, not complete ISO/POSIX coverage or a universally
 correctly rounded floating converter. Source notices and licenses are retained.
+
+### Source-commentary follow-up
+
+The later in-source walkthroughs change no non-comment executable lines. They
+explain the reader/interpreter handoff, native calling convention, assembler
+passes and SKI lowering without adding a documentation-generation dependency.
+The reading route is in [ARCHITECTURE.md](../../ARCHITECTURE.md).
+
+Validation on disk-backed `compute` passed in **228.807 seconds**: regenerate
+Scheme compiler stages, hex0, all six stage0 tools and both singularity compiler
+lineages; compare their assembly/executables and the starting combinator images
+with the timed build; run VM/self-compilation checks, full source regressions,
+source-boundary tests and observer tests (including Python optimization).
+This is a commentary regression check, not a new full-chain timing measurement.
+
+Evidence: `compute:/home/siraben/qfitzah-commentary.YcNt77/{source,check.sh,result.json}`
+and local log
+`/tmp/pi-better-background-tasks/tasks/bg_8g9v_mv31son2_194/output.log`.
 
 ## Evidence and reproduction
 

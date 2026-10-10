@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # Enter the pinned Blynn ladder from singularity SOURCE, not bundled blobs.
+#
+# The two source-built branches meet here: M2 compiles vm.c,
+# while our rsc-built compiler translates singularity into the VM's program
+# format. Neither a VM executable nor a starting combinator image is imported.
+# After that first handoff, we follow the pinned upstream compiler ladder:
+# each compiler translates the source of its successor into another VM image,
+# and the later stages eventually emit C that M2 turns into native executables.
 set -euo pipefail
 if (( $# != 4 )); then
   echo "usage: $0 QFITZAH_TOOLS SINGULARITY_COMPILER SOURCE_CACHE NEW_DIRECTORY" >&2; exit 2
@@ -38,6 +45,9 @@ cd "$src"
 compile_c vm.c "$bin/vm"
 "$compiler" < singularity > "$gen/singularity.ion"
 bash "$t/singularity.sh" "$compiler" "$bin/vm" "$src/singularity"
+# Load the regenerated compiler image and feed it its own high-level source.
+# Agreement is a useful fixed point, not a proof of all semantics: the preceding
+# test script also checks small independent programs, errors and binding rules.
 "$bin/vm" --raw "$gen/singularity.ion" -pb singularity -lf singularity -o "$gen/raw_p"
 cmp "$gen/singularity.ion" "$gen/raw_p"
 previous=$gen/raw_p
@@ -61,6 +71,9 @@ for name in patty guardedly assembly mutually uniquely virtually; do
 done
 "$bin/vm" -f marginally.hs --foreign 2 --raw "$previous" --rts_c run -o "$gen/marginally.c"
 compile_c "$gen/marginally.c" "$bin/marginally"
+# From here the previous compiler is a native executable producing C, rather
+# than a combinator image interpreted by vm. M2 remains the C compiler at each
+# step; replacing compile_c with a host compiler would break the ancestry.
 previous=marginally
 for name in methodically crossly precisely; do
   echo "Blynn native level: $name"
