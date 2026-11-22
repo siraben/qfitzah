@@ -46,14 +46,13 @@ chmod 700 "$work/AMD64/artifact/hex0"
     BINDIR=../AMD64/bin BUILDDIR=../AMD64/artifact TMPDIR=../AMD64/artifact \
     OPERATING_SYSTEM=Linux \
     ./AMD64/bin/kaem --verbose --strict --file AMD64/mescc-tools-full-kaem.kaem
-  # These answer hashes are post-build checks, never executable inputs. A
-  # matching hash checks regeneration without importing the corresponding tool.
+  # stage0-posix's amd64.answers covers its own Gitlinks, not our newer
+  # submodule pins. Check against the separate upstream-seed reference build.
+  sha256sum --strict -c "$b/blynn/stage0-amd64.sha256"
   for tool in M2-Mesoplanet M2-Planet blood-elf M1 hex2 kaem; do
-    grep -F "  AMD64/bin/$tool" amd64.answers | grep -E "/$tool$" > "$out/tool.answer"
-    sha256sum -c "$out/tool.answer"
     cp "AMD64/bin/$tool" "$out/bin/$tool"
     chmod 555 "$out/bin/$tool"
   done
 )
 sha256sum "$out/bin/"* > "$out/tools.sha256"
-printf 'ok - qfitzah-rooted stage0 tools; all six upstream answer hashes match\n'
+printf 'ok - qfitzah-rooted stage0 tools; all six reference hashes match\n'

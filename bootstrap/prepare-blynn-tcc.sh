@@ -12,7 +12,8 @@ bash "$b/blynn/export-source.sh" "$cache" blynn-bootstrap "$out/target"
 bash "$b/blynn/export-source.sh" "$cache" gnu-mes "$out/mes"
 bash "$b/blynn/export-source.sh" "$cache" tinycc "$out/tinycc"
 (cd "$out/mes" && patch --batch --fuzz=0 -p1 < "$out/target/patches/upstreams/gnu-mes-libc-hcc-bootstrap.patch")
-(cd "$out/tinycc" && patch --batch --fuzz=0 -p1 < "$out/target/patches/upstreams/tinycc-mescc-source.patch")
+# The upstream recipe's patch targets its older TinyCC pin.
+(cd "$out/tinycc" && patch --batch --forward --fuzz=0 -p1 < "$b/blynn/patches/tinycc-mescc-source.patch")
 # compiler=gcc in upstream config.sh selects GNU-assembly libc sources for
 # TinyCC; configure-lib.sh enumerates sources, and does not invoke GCC.
 GNU_MES_DIR="$out/mes" MES_LIBC_ARCH=x86_64 OUT_DIR="$out/libc" \

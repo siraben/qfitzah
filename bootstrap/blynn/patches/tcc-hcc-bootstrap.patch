@@ -1,0 +1,107 @@
+--- a/scripts/tinycc-boot-hcc.sh
++++ b/scripts/tinycc-boot-hcc.sh
+@@ -125,21 +125,26 @@
+   "$tool" -c -std=c11 -I include -I "$mes_libc/include" -o "$dest/libc.o" "$mes_libc/lib/libc.c"
+   "$tool" -c -std=c11 -I include -I "$mes_libc/include" -o "$dest/libgetopt.o" "$mes_libc/lib/libgetopt.c"
+   "$tool" -c -I include -I "$mes_libc/include" -D TCC_TARGET_X86_64=1 -o "$dest/libtcc1.o" lib/libtcc1.c
++  "$tool" -c -I include -I "$mes_libc/include" -o "$dest/va_list.o" lib/va_list.c
+   make_ar "$tool" "$dest/libc.a" "$dest/libc.o"
+   make_ar "$tool" "$dest/libgetopt.a" "$dest/libgetopt.o"
+-  make_ar "$tool" "$dest/libtcc1.a" "$dest/libtcc1.o"
++  make_ar "$tool" "$dest/libtcc1.a" "$dest/libtcc1.o" "$dest/va_list.o"
+ }
+ 
+ build_tcc() {
+   "$1" -nostdlib bootstrap-libs/crt1.o bootstrap-libs/crti.o \
+     -I . -I include -I "$mes_libc/include" tcc.c \
+-    bootstrap-libs/libc.o bootstrap-libs/libtcc1.o bootstrap-libs/crtn.o -o "$2"
++    bootstrap-libs/libc.o bootstrap-libs/libtcc1.o bootstrap-libs/va_list.o bootstrap-libs/crtn.o -o "$2"
+ }
+ 
+ (
+   cd "$artifact_dir"
+   tcc_include_src=$PWD/include
+-  tcc_sysinclude_path=$include_dir
++  tcc_sysinclude_path='{B}/../include'
++  tcc_version=$(cat "$src_dir/VERSION")
++  case $tcc_version in
++    ''|*[!0-9A-Za-z.-]*) die "invalid TinyCC VERSION: $tcc_version" ;;
++  esac
+ 
+   cat > config.h <<EOF
+ #define BOOTSTRAP 1
+@@ -162,13 +167,13 @@
+ #define CONFIG_TCC_STATIC 1
+ #define CONFIG_USE_LIBGCC 1
+ #define TCC_MES_LIBC 1
+-#define TCC_VERSION "0.9.28-unstable-2025-12-03"
++#define TCC_VERSION "$tcc_version"
+ #define ONE_SOURCE 1
+ #define CONFIG_TCC_SEMLOCK 0
+ EOF
+ 
+   msg "hcpp tcc.c"
+-  hcpp -I . -I "$tcc_include_src" -I "$mes_libc/include" -D__linux__=1 tcc.c > tcc-expanded.c
++  hcpp -I . -I "$tcc_include_src" -I "$mes_libc/include" -D__linux__=1 -DQFITZAH_HCC_STAGE1=1 tcc.c > tcc-expanded.c
+   hcpp "$support_dir/tcc-bootstrap-support.c" > tcc-bootstrap-support.i
+   compile_m1 tcc-bootstrap-support.i tcc-bootstrap-support.M1
+   hcpp "$support_dir/tcc-final-overrides.c" > tcc-final-overrides.i
+@@ -194,7 +199,7 @@
+     --output tcc
+   chmod 555 tcc
+ 
+-  test "$(./tcc -dumpversion)" = '0.9.28-unstable-2025-12-03'
++  test "$(./tcc -dumpversion)" = "$tcc_version"
+   cp tcc "$bin_dir/tcc-hcc-stage1"
+   if [ "$selfhost" != 1 ]; then
+     cp tcc "$bin_dir/tcc"
+@@ -204,15 +209,19 @@
+     # Stage1 needs explicit objects; its archive-loading path is incomplete.
+     build_tcc ./tcc tcc-stage2
+     build_tcc ./tcc-stage2 tcc-stage3
+-    msg "fixpoint check tcc-stage2 == tcc-stage3"
+-    cmp tcc-stage2 tcc-stage3
+-    test "$(./tcc-stage3 -dumpversion)" = '0.9.28-unstable-2025-12-03'
+-    build_libs ./tcc-stage3 final-libs
+-    ./tcc-stage3 -c -I include -I "$mes_libc/include" -o final-libs/alloca.o lib/alloca.S
+-    make_ar ./tcc-stage3 final-libs/libtcc1.a final-libs/libtcc1.o final-libs/alloca.o
++    # Both compared generations are built by native TinyCC, not by the
++    # restricted HCC-built stage1. Keep stage2 as evidence of the handoff.
++    # Check actual bytes before taking stage4 forward.
++    build_tcc ./tcc-stage3 tcc-stage4
++    msg "fixpoint check tcc-stage3 == tcc-stage4"
++    cmp tcc-stage3 tcc-stage4
++    test "$(./tcc-stage4 -dumpversion)" = "$tcc_version"
++    build_libs ./tcc-stage4 final-libs
++    ./tcc-stage4 -c -I include -I "$mes_libc/include" -o final-libs/alloca.o lib/alloca.S
++    make_ar ./tcc-stage4 final-libs/libtcc1.a final-libs/libtcc1.o final-libs/va_list.o final-libs/alloca.o
+ 
+     printf '%s\n' 'int f(void){return 31;} int main(void){return f();}' > smoke.c
+-    ./tcc-stage3 -B final-libs -I include -I "$mes_libc/include" smoke.c -o smoke
++    ./tcc-stage4 -B final-libs -I include -I "$mes_libc/include" smoke.c -o smoke
+     status=0
+     ./smoke || status=$?
+     [ "$status" -eq 31 ] || die "rebuilt TinyCC produced a failing executable: $status"
+@@ -234,12 +243,12 @@
+   return value.u != 0x43e0000000000000UL;
+ }
+ EOF
+-    ./tcc-stage3 -B final-libs -I include -I "$mes_libc/include" \
++    ./tcc-stage4 -B final-libs -I include -I "$mes_libc/include" \
+       runtime-magnitude.c -o runtime-magnitude
+     ./runtime-magnitude || die "final-library magnitude regression"
+ 
+-    cp tcc-stage2 "$bin_dir/tcc-stage2"
+-    cp tcc-stage3 "$bin_dir/tcc"
++    cp tcc-stage2 tcc-stage3 "$bin_dir/"
++    cp tcc-stage4 "$bin_dir/tcc"
+     cp final-libs/crt1.o final-libs/crti.o final-libs/crtn.o "$lib_dir/"
+     cp final-libs/libc.a final-libs/libgetopt.a final-libs/libtcc1.a "$lib_dir/"
+     cp -R "$mes_libc/include/." "$include_dir/"
+@@ -249,5 +258,5 @@
+ )
+ 
+ chmod 555 "$bin_dir/tcc-hcc-stage1" "$bin_dir/tcc"
+-[ "$selfhost" != 1 ] || chmod 555 "$bin_dir/tcc-stage2"
++[ "$selfhost" != 1 ] || chmod 555 "$bin_dir/tcc-stage2" "$bin_dir/tcc-stage3"
+ msg "TinyCC bootstrap complete: $bin_dir/tcc"
