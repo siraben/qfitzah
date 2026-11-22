@@ -1,0 +1,110 @@
+diff --git a/libtcc.c b/libtcc.c
+index 64c772d..cb5d284 100644
+--- a/libtcc.c
++++ b/libtcc.c
+@@ -876,6 +876,9 @@ LIBTCCAPI TCCState *tcc_new(void)
+     s->warn_implicit_function_declaration = 1;
+     s->warn_discarded_qualifiers = 1;
+     s->ms_extensions = 1;
++#if BOOTSTRAP
++    s->static_link = 1;
++#endif
+     s->unwind_tables = 1;
+
+ #ifdef CHAR_IS_UNSIGNED
+@@ -2232,9 +2235,9 @@ PUB_FUNC void tcc_print_stats(TCCState *s1, unsigned total_time)
+     fprintf(stderr, "# %d idents, %d lines, %u bytes\n"
+                     "# %0.3f s, %u lines/s, %0.1f MB/s\n",
+            total_idents, total_lines, total_bytes,
+-           (double)total_time/1000,
++           (double)total_time/1000.0,
+            (unsigned)total_lines*1000/total_time,
+-           (double)total_bytes/1000/total_time);
++           (double)total_bytes/1000.0/(double)total_time);
+     fprintf(stderr, "# text %u, data.rw %u, data.ro %u, bss %u bytes\n",
+            s1->total_output[0],
+            s1->total_output[1],
+diff --git a/tccelf.c b/tccelf.c
+index 9b71a39..a598d53 100644
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -3028,7 +3028,7 @@ static int elf_output_file(TCCState *s1, const char *filename)
+ 	}
+         /* Perform relocation to GOT or PLT entries */
+         if (file_type == TCC_OUTPUT_EXE && s1->static_link)
+-            fill_got(s1);
++            { fill_got(s1); relocate_plt(s1); }
+         else if (s1->got)
+             fill_local_got_entries(s1);
+ 
+--- a/tcc.h
++++ b/tcc.h
+@@ -49,6 +49,9 @@
+ extern float strtof (const char *__nptr, char **__endptr);
+ extern long double strtold (const char *__nptr, char **__endptr);
++#ifdef TCC_MES_LIBC
++extern long double ldexpl (long double value, int exponent);
++#endif
+ #endif
+ 
+ #ifdef _WIN32
+ # define WIN32_LEAN_AND_MEAN 1
+@@ -237,7 +240,8 @@
+ /* No ten-byte long doubles on window and macos except in
+    cross-compilers made by a mingw-GCC */
+ #if defined TCC_TARGET_PE \
+-    || (defined TCC_TARGET_MACHO && defined TCC_TARGET_ARM64)
++    || (defined TCC_TARGET_MACHO && defined TCC_TARGET_ARM64) \
++    || defined TCC_MES_LIBC
+ # define TCC_USING_DOUBLE_FOR_LDOUBLE 1
+ #endif
+ 
+--- a/tccgen.c
++++ b/tccgen.c
+@@ -3141,6 +3141,8 @@
+                 /* XXX: truncate here because gen_opl can't handle ptr + long long */
+                 gen_cast_s(VT_INT);
+ #endif
++            if (!(vtop->type.t & VT_UNSIGNED))
++                gen_cast_s(VT_PTRDIFF_T);
+             type1 = vtop[-1].type;
+             vpush_type_size(pointed_type(&vtop[-1].type), &align);
+             vtop->type.t &= ~VT_UNSIGNED;
+--- a/tccpp.c
++++ b/tccpp.c
+@@ -2291,6 +2291,10 @@
+         ((ch == 'e' || ch == 'E') && b == 10) ||
+         ((ch == 'p' || ch == 'P') && (b == 16 || b == 2))) {
+         if (b != 10) {
++#ifdef QFITZAH_HCC_STAGE1
++            /* HCC cannot represent the floating constants in this parser. */
++            tcc_error("non-decimal floating literals require rebuilt TinyCC");
++#else
+             /* NOTE: strtox should support that for hexa numbers, but
+                non ISOC99 libcs do not support it, so we prefer to do
+                it by hand */
+@@ -2360,10 +2364,12 @@
+ 
+             /* now we can generate the number */
+             /* XXX: should patch directly float number */
+-            d = (long double)bn[3] * 79228162514264337593543950336.0L +
+-	        (long double)bn[2] * 18446744073709551616.0L +
+-	        (long double)bn[1] * 4294967296.0L +
+-	        (long double)bn[0];
++            /* Use the exactly representable radix instead of decimal
++               constants for its powers: Mes strtold can round them down. */
++            d = (long double)bn[3];
++            d = d * 4294967296.0L + bn[2];
++            d = d * 4294967296.0L + bn[1];
++            d = d * 4294967296.0L + bn[0];
+             d = ldexpl(d, exp_val - frac_bits);
+             t = toup(ch);
+             if (t == 'F') {
+@@ -2379,6 +2385,7 @@
+                 tok = TOK_CDOUBLE;
+                 tokc.d = (double)d;
+             }
++#endif
+         } else {
+             /* decimal floats */
+             if (ch == '.') {

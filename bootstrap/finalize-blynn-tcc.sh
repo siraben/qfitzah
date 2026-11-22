@@ -13,7 +13,7 @@ out=$(realpath "$3")
 mkdir "$out/tmp"
 export TMPDIR="$out/tmp"
 test -x "$initial/bin/tcc"
-cmp "$initial/bin/tcc-stage2" "$initial/bin/tcc"
+cmp "$initial/bin/tcc-stage3" "$initial/bin/tcc"
 sha256sum "$initial/bin/tcc" > "$out/input-compiler.sha256"
 cp -R "$prepared/tinycc" "$out/source"
 cp "$initial/artifact/config.h" "$out/source/config.h"
@@ -47,6 +47,7 @@ MES_CONFIG_SOURCE="$target/nix/sources/mes-libc/config.h" \
 ln -s ../mes-libc "$out/source/mes-libc"
 cd "$out/source"
 flags=(-nostdinc -I . -I include -I mes-libc/include)
+tcc_version=$(<VERSION)
 build_libraries() {
   local cc=$1 dest=$2 obj
   mkdir "$dest"
@@ -54,16 +55,17 @@ build_libraries() {
     "$cc" "${flags[@]}" -c -std=c11 -o "$dest/$obj.o" "mes-libc/lib/$obj.c"
   done
   "$cc" "${flags[@]}" -c -D TCC_TARGET_X86_64=1 -o "$dest/libtcc1.o" lib/libtcc1.c
+  "$cc" "${flags[@]}" -c -o "$dest/va_list.o" lib/va_list.c
   "$cc" "${flags[@]}" -c -o "$dest/alloca.o" lib/alloca.S
   "$cc" -ar cr "$dest/libc.a" "$dest/libc.o"
   "$cc" -ar cr "$dest/libgetopt.a" "$dest/libgetopt.o"
-  "$cc" -ar cr "$dest/libtcc1.a" "$dest/libtcc1.o" "$dest/alloca.o"
+  "$cc" -ar cr "$dest/libtcc1.a" "$dest/libtcc1.o" "$dest/va_list.o" "$dest/alloca.o"
 }
 build_compiler() {
   local cc=$1 libs=$2 output=$3
   "$cc" "${flags[@]}" -nostdlib "$libs/crt1.o" "$libs/crti.o" tcc.c \
-    "$libs/libc.o" "$libs/libtcc1.o" "$libs/alloca.o" "$libs/crtn.o" -o "$output"
-  test "$("./$output" -dumpversion)" = '0.9.28-unstable-2025-12-03'
+    "$libs/libc.o" "$libs/libtcc1.o" "$libs/va_list.o" "$libs/alloca.o" "$libs/crtn.o" -o "$output"
+  test "$("./$output" -dumpversion)" = "$tcc_version"
 }
 previous=$initial/bin/tcc
 for round in a b c; do

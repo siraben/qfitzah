@@ -18,7 +18,7 @@ TIME_LIMIT_SECONDS = 1800
 PHASES = ["sources", "tools", "singularity-A", "singularity-tests-A",
           "singularity-B", "singularity-tests-B", "blynn-root", "blynn-hcc", "tcc"]
 HOST_TOOLS = set("bash sh env git git-upload-pack git-remote-https cat chmod cmp cp "
-                 "diff dirname mkdir mktemp patch realpath rm rmdir sha256sum tar timeout "
+                 "diff dirname mkdir mktemp mv patch realpath rm rmdir sha256sum tar timeout "
                  "grep sed awk head tail wc sort xargs printf tr od uname ln find tee".split())
 STAGE0_RELATIVE = {
     "./AMD64/artifact/" + name for name in
@@ -27,7 +27,7 @@ STAGE0_RELATIVE = {
     "./artifact/M2", "./artifact/blood-elf-0", "./bin/M1", "./bin/blood-elf", "./bin/hex2"
 }
 NATIVE_RELATIVE = {"./" + name for name in
-                   "tcc tcc-stage2 tcc-stage3 smoke tcc-a tcc-b tcc-c".split()}
+                   "tcc tcc-stage2 tcc-stage3 tcc-stage4 smoke runtime-magnitude tcc-a tcc-b tcc-c".split()}
 # Do not accept an executable merely because its path is inside the build.
 BUILD_PROGRAM_GROUPS = {
     "": "qfitzah",
@@ -220,6 +220,9 @@ def main():
     timing, phases = check_timing(root)
     require(not (root / "tools/stage0/bootstrap-seeds").exists(), "imported seed directory")
     require(not (root / "blynn-root/source/blob").exists(), "imported compiler images")
+    initial = root / "tcc/tcc"
+    require((initial / "bin/tcc").read_bytes() == (initial / "bin/tcc-stage3").read_bytes()
+            == (initial / "artifact/tcc-stage4").read_bytes(), "initial compiler fixpoint mismatch")
     manifest_counts = {}
     for name in ("toolchain.sha256", "tools/seed.sha256", "tools/tools.sha256",
                  "blynn-root/root.sha256", "blynn-hcc/hcc.sha256", "tcc/bootstrap-tcc.sha256",

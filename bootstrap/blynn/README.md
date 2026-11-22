@@ -67,7 +67,7 @@ exports only.
 `prepare-blynn-tcc.sh` exports TinyCC and bootstrap libc sources, applies the
 target's patches and assembles libc source. `configure-lib.sh` only enumerates
 files: its `compiler=gcc` selects GNU assembly syntax for TinyCC, not a GCC
-execution. The HCC-built TinyCC must pass a native stage-2/stage-3 fixpoint
+execution. The HCC-built TinyCC must pass a native stage-3/stage-4 fixpoint
 and an executable smoke test.
 
 `build-blynn-tcc.sh` requests the upstream self-rebuild, then

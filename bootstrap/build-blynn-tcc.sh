@@ -16,7 +16,7 @@ sha256sum -c "$tools/tools.sha256"
 sha256sum -c "$hcc/hcc.sha256"
 bash "$b/prepare-blynn-tcc.sh" "$cache" "$out/prepared"
 target=$out/prepared/target
-(cd "$target" && patch --batch --fuzz=0 -p1 < "$b/blynn/patches/tcc-relative-include.patch")
+(cd "$target" && patch --batch --forward --fuzz=0 -p1 < "$b/blynn/patches/tcc-hcc-bootstrap.patch")
 export PATH="$tools/bin:$PATH" TMPDIR="$out/tmp"
 export BOOTSTRAP_LIB="$target/scripts/lib/bootstrap.sh"
 export TINYCC_DIR="$out/prepared/tinycc" HCC_BIN_DIR="$hcc/hcc"

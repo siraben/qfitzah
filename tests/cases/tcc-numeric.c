@@ -45,6 +45,10 @@ int main(int argc, char **argv)
       !decimal("+.x", 0, 0, '+') ||
       !decimal("0e999999", 0, 0, 0)) return 5;
   if (stack_array(argc + 5) != 42) return 6;
+  /* Exercise the native hex-literal parser and both high limbs. */
+  if (0x1000000000000000000000000p-96 != 1.0 ||
+      0x10000000000000000p-64 != 1.0 ||
+      0x1.4p0 != 1.25) return 7;
   puts("tcc numeric probe passed");
   return 0;
 }
