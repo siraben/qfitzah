@@ -1,7 +1,12 @@
-        ## Fixed-cell, nonmoving collector for the stage-0 rewrite engine.
-        ## Included after qfitzah.s so the data root range includes every my.
-        ## Preserve flags as well as registers: match depends on cons's flags.
-        ## Cache entries are weak, invalidated before reclaimed cells are reused.
+        ## Stage 0 collector: mark and sweep eight-byte cons cells in place.
+        ## cell_state[i] describes arena + 8*i: 0 free, 1 live allocation,
+        ## 2 marked during this collection. Free cells reuse their car word
+        ## as a next pointer; they are never traversed as Scheme data.
+        ##
+        ## Called only by cons when its free list and bump space are empty.
+        ## Keep all caller registers and flags. Scan the saved registers,
+        ## stack, globals and atom buckets, but not the weak memo cache.
+        ## Included last so gc_globals_end bounds the full range of `my` data.
         my gc_stack_top, 0
         my gc_free_head, 0
         my gc_work_top, gc_work
@@ -32,6 +37,7 @@ proc gc_collect
         call gc_scan
         call gc_drain
         call gc_sweep
+        ## None of the old cache entries is valid once a cell can be reused.
         incl ev_gen-globals(%ebp)
         jnz 1f
         ## Counter wrap must not resurrect an ancient memo entry.
@@ -82,6 +88,8 @@ proc gc_mark
         mov %edx, gc_work_top-globals(%ebp)
 1:      ret
 
+        ## Pop one marked cell and scan its two words. Marking before
+        ## enqueueing bounds the explicit work stack to one entry per cell.
 proc gc_drain
         mov gc_work_top-globals(%ebp), %edx
         cmp $gc_work, %edx
@@ -94,6 +102,8 @@ proc gc_drain
         jmp gc_drain
 1:      ret
 
+        ## Sweep only up to the bump pointer (the rest is unused space).
+        ## Clear survivors' mark bits and rebuild the free list from scratch.
 proc gc_sweep
         movl $0, gc_free_head-globals(%ebp)
         xor %ebx, %ebx

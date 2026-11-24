@@ -12,6 +12,11 @@
 ; each + 128 MiB owner map + 64 MiB mark queue + 8 MiB I/O. Neither arena
 ; borrows from the other; checked exhaustion remains possible in either one.
 ; Reserve twice the total arena space for blocks/owners/queue, plus I/O/slack.
+;
+; Follow HeapInit -> AllocBytes -> Collect -> GcSweep. Unlike stage 0's
+; eight-byte cons allocator, this runtime also owns variable-size objects and
+; byte buffers. EDI returned by AllocBytes points past the two header words.
+; The collector never changes that address.
 (GcHeapBytes) (X8 0 8 0 0 0 0 0 0)
 (GcArenaBytes) (Add32 (GcHeapBytes) (GcHeapBytes))
 (GcMemoryBytes) (Add32 (Add32 (GcArenaBytes) (GcArenaBytes)) (X8 0 0 8 0 0 0 0 8))
@@ -57,6 +62,7 @@
    (Jnz (GcAlloc Nonzero))
    (MovRI ECX (Small 8))
    (Label (GcAlloc Nonzero))
+   ; EBX = align8(payload + 8-byte header). EBP counts GC retries.
    (MovRR EBX ECX)
    (AddI8 EBX 0F)
    (AndI8 EBX F8)

@@ -953,6 +953,9 @@
 (define (emit-top-list l)
   (if (null? l) #f (begin (emit-top (car l)) (emit-top-list (cdr l)))))
 
+; Expand before recording definitions: a macro may produce a define or
+; a begin containing several. Register those globals before emitting any
+; code for this form. No evaluation of the target program happens here.
 (define (compile-top form)
   (let ((e (expand form)))
     (note-globals e)
@@ -967,6 +970,10 @@
 (define (emit-n-parens n)
   (if (= n 0) #f (begin (o-str ")") (emit-n-parens (- n 1)))))
 
+; The text below is an instruction chain, not a sequence of REPL commands.
+; Generated execution starts with runtime setup, then the top-level code.
+; The emitted exit separates that code from the procedure bodies and data
+; emitted afterward. qfasm resolves calls and references to those labels.
 (define (main)
   (o-str "(Assemble (Program Start (GcMemoryBytes) ")
   (ins "(Label Start)")

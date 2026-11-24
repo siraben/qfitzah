@@ -4,20 +4,18 @@
         ## flexible parametrically-polymorphic data containers, and
         ## dynamically dispatched method calls with multiple dispatch.
 
-        ## To build:
-        ## $ gcc -Wl,-z,noseparate-code -static -m32 -nostdlib qfitzah.s -o qfitzah.bloated
-        ## $ objcopy -S -R .note.gnu.build-id qfitzah.bloated qfitzah
-
-        ## This version does *not* use bytecode.  But it should
-        ## be a good estimate for how much
-        ## code is needed for a Qfitzah (with some primitive operations
-        ## such as addition).  358 instructions, 731 bytes of code, 40
-        ## bytes of data, 1184 bytes of executable.
-
-        ## (Brian Raiter’s sstrip utility reduced the 1056-byte
-        ## version of the executable to 828 bytes, a 228-byte
-        ## reduction, but I don’t yet have that built into the build
-        ## process.)
+        ## Stage 0: build with `nix build` (GNU as, ld and objcopy only).
+        ## The Linux i386 entry point is _start: no CRT, libc or bytecode.
+        ## Follow _start -> read_more -> handle_line -> ev -> print/emit_bytes.
+        ## For example, feed `(Id x) x` and then `(Id 42)` on separate lines.
+        ## The first record installs a rule; the second prints 42. The
+        ## same engine runs bootstrap/qfasm.qf1, where the normal form
+        ## (Bytes ...) is written as machine code instead of printed.
+        ##
+        ## Terms are one word: aligned (car,cdr) address = pair, 1 = (),
+        ## atom-table address + 1 = constant, address + 2 = variable.
+        ## Lists share immutable pairs. Atom names are spans into the input
+        ## buffer, so committed input cannot be overwritten or moved.
 
         ## The m4 manual says, “An important precursor of m4 was GPM;
         ## see C. Strachey, ‘A general purpose macrogenerator’,
@@ -186,8 +184,10 @@ _start: mov $globals, %ebp
         my allocation_pointer, arena
         .macro cons_here
 proc cons
-        ## Both operands may be live roots; gc_collect saves all registers.
-        ## Keep the original cons ABI, including ECX and the incoming flags.
+        ## cons(EAX=car, ECX=cdr) -> EAX=pair. Preserve ECX, EDX, EDI
+        ## and incoming flags (on the evlis fall-through path too).
+        ## Claim a free cell first, then try the unused tail of the arena.
+        ## If both are empty, gc_collect saves the operands as roots.
         pushfl
         push %edi
         push %edx
@@ -264,14 +264,10 @@ proc cons
         inc \reg
         .endm
 
-        ## For such a simple allocator to work, we need a large arena;
-        ## and the allocation pointer needs to be aligned in it.  We
-        ## do this by aligning the arena to a 4-byte boundary and
-        ## then incrementing the allocator pointer by multiples of 4.
+        ## Each pair occupies eight bytes. Alignment lets the allocator
+        ## index cell_state by (ptr - arena) >> 3, while the memo cache
+        ## can hash ptr >> 3 without wasting its low bits on alignment.
         .bss 1
-        ## 8-byte alignment (cons always advances by 8) means every pair
-        ## pointer has its low three bits clear, so (ptr >> 3) is a dense
-        ## index into the ev memo cache below.
         .balign 8
 arena:  .fill SEED_CELL_BYTES
 arena_end:
@@ -285,7 +281,7 @@ arena_end:
         ## jnpair to test these tag fields:
 
         .macro jvar reg, dest
-        test $2, \reg           # will clear ZF if it’s a var
+        test $2, \reg           # ZF clear for the variable tag
         jnz \dest
         .endm
         .macro jnvar reg, dest
@@ -306,14 +302,11 @@ arena_end:
 
         ## So, let’s define what it means to substitute some variables
         ## into a template:
-        ## (define (subst t env)
-        ##   (if (var? t) (cdr (assq t env))
-        ##       (if (pair? t) (cons (subst (car t) env) (subst (cdr t) env))
-        ##           t)))
-
-        ## This is wrapped in a macro in order to enable us to
-        ## physically put it further down, where `ap` can fall through
-        ## into it.
+        ## subst(EAX=template, ECX=env) -> EAX=instantiated term.
+        ## The environment is a list of (variable . value) pairs. Walk
+        ## both halves of a pair, substitute bound variables, and leave
+        ## constants and unbound variables unchanged. The macro places
+        ## subst and its helper together in the library subsection.
 
         .macro subst_here
 proc subst
@@ -345,12 +338,9 @@ proc subst
         ## `assq` is our function for doing a variable lookup in an
         ## environment.  To avoid an extra unconditional jump, I’ve
         ## relocated the tail end of the loop to before the loop entry
-        ## point, which has the bizarre effect of putting it before
-        ## the *procedure* entry point.  It happens to set ZF when it
-        ## succeeds and clear ZF when it fails, but `subst` ignores
-        ## that at the moment.  It might make things simpler if it
-        ## returned its key argument when it fails, like `walk` from
-        ## μKanren?
+        ## point, before the procedure label. Both subst and match use
+        ## ZF to tell a binding returned in EAX from the non-pair that
+        ## terminates the search. On failure EAX is NOT the original key.
 
 2:      cdr %ecx                # go to the next item before falling into assq
 proc assq                       # look up an item %eax in a dictionary %ecx
@@ -361,9 +351,6 @@ proc assq                       # look up an item %eax in a dictionary %ecx
         mov %edx, %ecx          # on success we return the item, or on failure
 1:      xchg %ecx, %eax         # return the non-pair we were examining
         ret
-        ## Possibly it would be better to inline `assq` as a macro
-        ## inside `subst`, since that’s the only thing that uses it so
-        ## far.
         .endm                   # subst_here
 
 
@@ -376,7 +363,10 @@ proc assq                       # look up an item %eax in a dictionary %ecx
 
         ## In Scheme:
         ## (define (match t pat env)
-        ##   (if (var? pat) (cons (cons pat t) env)  ; vars match anything
+        ##   (if (var? pat)
+        ##       (let ((old (assq pat env)))
+        ##         (if old (and (equal? (cdr old) t) env)
+        ##             (cons (cons pat t) env)))
         ##       (if (pair? pat)  ; pairs match if cars match and cdrs match
         ##           (and (pair? t)  ; a pair pattern can't match an atom
         ##               (let ((a (match (car t) (car pat) env)))  ; match car?
@@ -390,10 +380,9 @@ proc assq                       # look up an item %eax in a dictionary %ecx
         ## the weight of this subroutine from 85 bytes to 76 bytes,
         ## and with further work it’s down to 55.
 
-        ## This has a bug; it treats () the empty list as a var. So
-        ## (Gallygoogle ()) matches the same patterns (Gallygoogle x)
-        ## would.
-
+        ## equal(EAX=left, ECX=right) -> ZF set on structural equality.
+        ## Identical words short-circuit (including nil and interned atoms).
+        ## For distinct pairs, recurse on car, then tail-call on cdr.
 proc equal
         cmp %ecx, %eax
         je 1f
@@ -416,6 +405,9 @@ proc equal
 1:      ret
 
 proc match
+        ## EAX=term, ECX=pattern, EDX=env. On success EAX is the
+        ## resulting env and ZF is set. A repeated variable compares
+        ## against its first binding; only a new variable extends env.
         ## Case for pattern being an unadorned var:
         jnvar %cl, 2f           # If the pattern is a var,
         push %edx               # check for an existing binding first
@@ -608,8 +600,8 @@ proc ap
 
         ## Now we have found a match, with the env in %eax; now we
         ## must invoke subst with the template, then return the
-        ## instantiated template.
-1:      mov %eax, %ecx          # template is subst’s second argument
+        ## instantiated template's normal form.
+1:      mov %eax, %ecx          # environment is subst’s second argument
         pop %eax                # load saved rules
         car %eax
         cdr %eax
@@ -701,6 +693,10 @@ init
         mov $outbuf, %edi
 
 init
+        ## Record framing precedes parsing. A newline ends a record only
+        ## at depth zero; comments hide parentheses until their newline.
+        ## inptr is the write cursor, lineptr the start of this record.
+        ## Leave old records in place because interned atoms borrow them.
 repl:
 read_more:
         sys3 $__NR_read, $0, inptr, $1
@@ -753,7 +749,9 @@ eof:    mov inptr-globals(%ebp), %esi
         do flush
 quit:   sys1 $__NR_exit, $0
 
-        ## XXX this needs a lot of attention for reducing code space
+        ## print(EAX=term) appends to the buffer at EDI. Recurse on each
+        ## car, iterate down the cdr spine, and print a dot for a non-nil
+        ## tail. For an atom use its interned span, not a NUL string.
 proc print
         cmp $1, %eax    # treat nil like pairs (cmp is only 3 bytes!)
         je 5f
@@ -955,8 +953,10 @@ byte_error_message:
         ## to the front of the rules list (thus taking precedence over
         ## older rules).
 
-        ## Here’s a crude parser.  Input pointer in %esi points
-        ## into NUL-terminated input string.
+        ## ESI starts at one NUL-terminated logical record. Two factors
+        ## install a rule, as does one explicit (Rule pattern template)
+        ## directive. Other single factors are normalized and printed or
+        ## emitted as bytes. A third factor is an error.
 proc handle_line
         cld        # XXX not really necessary since DF is always clear
         do skip_whitespace
@@ -1072,7 +1072,7 @@ parse_error_message:
         .popsection
 
         ## ZF set iff the next token is a standalone dot. Only read_term's
-        ## cdr path may consume it. Preserve %esi and the other argument regs.
+        ## cdr path may consume it. Preserves ESI, clobbers EAX.
 proc is_dot
         cmpb $'., (%esi)
         jne 2f
@@ -1183,7 +1183,8 @@ proc read_term
         pop %eax
         jmp 3b
 
-        ## Always succeeds, sets ZF to indicate success.
+        ## The first character has been classified. Intern the full
+        ## spelling, tag the returned address and report success in ZF.
 proc read_constant
         do read_atom
         ## xor $3, %al is also 2 bytes, same as or $1, %al
@@ -1220,11 +1221,10 @@ proc read_atom
         xchg %eax, %edx
         ## FALL THROUGH into intern
 
-        ## (intern base-addr len) checks to see if a string is already
-        ## in the atom table, returning it if so, or inserting it if
-        ## not; either way it returns the (4-byte-aligned) address.
-        ## Can’t fail.  Can’t use assq because it’s doing a string
-        ## compare.
+        ## intern(EAX=base, ECX=len) -> EAX=untagged atom-table entry.
+        ## Probe entries in insertion order. Compare length before bytes;
+        ## a zero base marks the first unused entry. This fixed table has
+        ## no capacity check, and insertion borrows the input span.
 proc intern
         push %esi
         push %edi
